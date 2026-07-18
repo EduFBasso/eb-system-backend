@@ -1,0 +1,11 @@
+# Ambientes virtuais e temporários do Backend
+.venv/
+__pycache__/
+*.pyc
+.tmp/
+db.sqlite3
+
+# Arquivos de ambiente local
+.env
+
+.tmp/eduardo_totp_qr.png

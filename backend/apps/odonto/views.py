@@ -8,6 +8,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
+from apps.tenancy.permissions import HasTenantCapability
+
 from .models import (
     DentalArcade,
     Tooth,
@@ -51,18 +53,24 @@ def _refresh_arcade_status(arcade: DentalArcade) -> None:
 
 
 class ProfessionalScopedMixin:
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasTenantCapability('odonto')]
 
     def current_user(self) -> Any:
         request = cast(Any, getattr(self, 'request', None))
         return getattr(request, 'user', None)
+
+    def current_user_id(self) -> int | None:
+        return getattr(self.current_user(), 'id', None)
 
 
 class DentalArcadeViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
     queryset = DentalArcade.objects.select_related('client', 'professional')
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(professional=self.current_user())
+        user_id = self.current_user_id()
+        if not user_id:
+            return super().get_queryset().none()
+        qs = super().get_queryset().filter(professional_id=user_id)
 
         client_id = self.request.query_params.get('client')
         status_param = self.request.query_params.get('status')
@@ -148,7 +156,10 @@ class ToothViewSet(ProfessionalScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Tooth.objects.select_related('arcade').all()
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(arcade__professional=self.current_user())
+        user_id = self.current_user_id()
+        if not user_id:
+            return super().get_queryset().none()
+        qs = super().get_queryset().filter(arcade__professional_id=user_id)
         arcade_id = self.request.query_params.get('arcade')
         if arcade_id:
             qs = qs.filter(arcade_id=arcade_id)
@@ -160,7 +171,10 @@ class SurfaceViewSet(ProfessionalScopedMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Surface.objects.select_related('tooth', 'tooth__arcade').all()
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(tooth__arcade__professional=self.current_user())
+        user_id = self.current_user_id()
+        if not user_id:
+            return super().get_queryset().none()
+        qs = super().get_queryset().filter(tooth__arcade__professional_id=user_id)
         tooth_id = self.request.query_params.get('tooth')
         if tooth_id:
             qs = qs.filter(tooth_id=tooth_id)
@@ -172,7 +186,10 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
     queryset = Procedure.objects.select_related('arcade', 'tooth', 'surface').all()
 
     def get_queryset(self):
-        qs = super().get_queryset().filter(arcade__professional=self.current_user())
+        user_id = self.current_user_id()
+        if not user_id:
+            return super().get_queryset().none()
+        qs = super().get_queryset().filter(arcade__professional_id=user_id)
 
         arcade_id = self.request.query_params.get('arcade')
         status_param = self.request.query_params.get('status')
@@ -188,7 +205,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         arcade = payload.get('arcade')
         if arcade is None:
             raise PermissionDenied('Arcada invalida para criacao do procedimento.')
-        if arcade.professional_id != self.current_user().id:
+        if arcade.professional_id != self.current_user_id():
             raise PermissionDenied('Arcada nao pertence ao profissional autenticado.')
         instance = serializer.save()
         _refresh_arcade_status(instance.arcade)
@@ -210,7 +227,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         ).values_list('name', flat=True).distinct().order_by('name')
 
         suggestion_qs = ProcedureNameSuggestion.objects.filter(
-            professional=self.current_user(),
+            professional_id=self.current_user_id(),
             name__isnull=False,
             name__gt='',
         ).values_list('name', flat=True)
@@ -242,7 +259,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             try:
                 arcade = DentalArcade.objects.get(
                     id=arcade_id,
-                    professional=self.current_user(),
+                    professional_id=self.current_user_id(),
                 )
             except DentalArcade.DoesNotExist:
                 raise PermissionDenied('Arcada nao pertence ao profissional autenticado.')
@@ -258,7 +275,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             name__iexact=name,
         ).first()
         existing_suggestion = ProcedureNameSuggestion.objects.filter(
-            professional=self.current_user(),
+            professional_id=self.current_user_id(),
             name__iexact=name,
         ).first()
 
@@ -311,7 +328,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             proc_qs.values_list('name', flat=True).distinct().order_by('name')
         )
         catalog_qs = ProductCatalogItem.objects.filter(
-            professional=self.current_user(),
+            professional_id=self.current_user_id(),
             name__isnull=False,
             name__gt='',
         )
@@ -361,7 +378,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             try:
                 arcade = DentalArcade.objects.get(
                     id=arcade_id,
-                    professional=self.current_user(),
+                    professional_id=self.current_user_id(),
                 )
             except DentalArcade.DoesNotExist:
                 raise PermissionDenied('Arcada nao pertence ao profissional autenticado.')
@@ -379,7 +396,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
                 pass
 
         existing = ProductCatalogItem.objects.filter(
-            professional=self.current_user(),
+            professional_id=self.current_user_id(),
             name__iexact=name,
         ).order_by('-id').first()
 
@@ -443,7 +460,10 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         updated_count = qs.update(**update_data)
 
         # Recalculate status for each affected arcade
-        for arcade_obj in DentalArcade.objects.filter(id__in=arcade_ids):
+        for arcade_obj in DentalArcade.objects.filter(
+            id__in=arcade_ids,
+            professional_id=self.current_user_id(),
+        ):
             _refresh_arcade_status(arcade_obj)
 
         return Response(

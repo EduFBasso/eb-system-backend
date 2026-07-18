@@ -153,14 +153,20 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 professional = user
         client = attrs.get("client", getattr(self.instance, "client", None))
 
+        if client is not None and professional is not None:
+            if getattr(client, "professional_id", None) != getattr(professional, "id", None):
+                raise serializers.ValidationError(
+                    {"client": "Cliente não pertence ao profissional autenticado."}
+                )
+
         # Regra de transição: bloquear novo agendamento se o cliente possui compromisso pendente.
         # A regra oficial depende apenas de status persistido `pending`.
         if self.instance is None and client is not None:
             # Promoção oportunista para manter o estado persistido consistente no momento da criação.
             promote_overdue_scheduled_to_pending(
-                Appointment.objects.filter(client=client)
+                Appointment.objects.filter(client=client, professional=professional)
             )
-            pending_qs = Appointment.objects.filter(client=client).filter(
+            pending_qs = Appointment.objects.filter(client=client, professional=professional).filter(
                 status=Appointment.Status.PENDING
             )
             if pending_qs.exists():

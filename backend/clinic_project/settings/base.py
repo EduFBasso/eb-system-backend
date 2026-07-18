@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'apps.odonto',
     'apps.reminders',
     'apps.register',
+    'apps.tenancy',
     'apps.inventory',
     'django.contrib.admin',
     'django.contrib.auth',

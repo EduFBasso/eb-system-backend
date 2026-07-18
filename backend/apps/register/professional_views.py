@@ -1,5 +1,5 @@
 # backend\apps\register\views_professionals.py
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from .models import Professional, ProfessionalSettings
 from .serializers import (
@@ -22,6 +22,27 @@ from apps.reminders.services.telegram import TelegramBotClient, TelegramDelivery
 
 
 TELEGRAM_LINK_TOKEN_TTL_SECONDS = 15 * 60
+
+
+SELF_SERVICE_ACTIONS = {
+    "me",
+    "professional_settings",
+    "telegram_link_start",
+    "telegram_link_verify",
+    "telegram_test_send",
+}
+
+
+class CanManageProfessionalDirectory(BasePermission):
+    def has_permission(self, request, view) -> bool:  # type: ignore[override]
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(view, "action", None) in SELF_SERVICE_ACTIONS:
+            return True
+        return bool(
+            getattr(request.user, "is_superuser", False)
+            or getattr(request.user, "can_manage_professionals", False)
+        )
 
 
 def _to_base36(value: int) -> str:
@@ -84,7 +105,13 @@ def _parse_telegram_link_token(token: str) -> dict | None:
 class ProfessionalViewSet(ModelViewSet):
     queryset = Professional.objects.all()
     serializer_class = ProfessionalSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanManageProfessionalDirectory]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, "is_superuser", False) or getattr(user, "can_manage_professionals", False):
+            return Professional.objects.all()
+        return Professional.objects.none()
 
     def perform_destroy(self, instance: Professional):
         # Soft delete: mark as inactive/deactivated instead of removing rows

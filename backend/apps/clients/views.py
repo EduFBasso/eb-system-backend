@@ -22,8 +22,10 @@ class ClientViewSet(ModelViewSet):
     ordering = ['first_name']
 
     def get_queryset(self): # type: ignore
-        user = self.request.user
-        queryset = Client.objects.filter(professional=user)
+        user_id = getattr(self.request.user, 'id', None)
+        if not user_id:
+            return Client.objects.none()
+        queryset = Client.objects.filter(professional_id=user_id)
         nome = self.request.query_params.get('nome') # type: ignore
         if nome:
             queryset = queryset.filter(first_name__icontains=nome)
@@ -61,10 +63,13 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self): # type: ignore
         nome = self.request.query_params.get('nome', '').strip() # type: ignore
-        base_qs = Client.objects.filter(professional=self.request.user)
+        user_id = getattr(self.request.user, 'id', None)
+        if not user_id:
+            return Client.objects.none()
+        base_qs = Client.objects.filter(professional_id=user_id)
 
         # Promoção oportunística: garante que o banco reflita o status real antes de anotar.
-        user_appts = Appointment.objects.filter(professional=self.request.user)
+        user_appts = Appointment.objects.filter(professional_id=user_id)
         promote_scheduled_to_ongoing(base_qs=user_appts)
         promote_overdue_scheduled_to_pending(base_qs=user_appts)
 
@@ -73,7 +78,7 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
         now = timezone.now()
         appt_qs = (
             Appointment.objects.filter(
-                professional=self.request.user,
+                professional_id=user_id,
                 client_id=OuterRef('pk'),
             )
             .exclude(status=Appointment.Status.CANCELED)
@@ -85,7 +90,7 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
         )
         last_appt_qs = (
             Appointment.objects.filter(
-                professional=self.request.user,
+                professional_id=user_id,
                 client_id=OuterRef('pk'),
             )
             .exclude(status=Appointment.Status.CANCELED)

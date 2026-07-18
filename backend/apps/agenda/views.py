@@ -49,8 +49,6 @@ class IsProfessionalOrReadOnly(permissions.BasePermission):
         return request.user and request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj: Appointment):
-        if request.method in permissions.SAFE_METHODS:
-            return True
         return getattr(request.user, "id", None) == getattr(obj.professional, "id", None)
 
 
@@ -61,8 +59,8 @@ class ProfessionalOwnedViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         qs = self.base_queryset()
         user = getattr(self.request, "user", None)
         if user and getattr(user, "id", None):
-            qs = qs.filter(professional_id=user.id)
-        return qs
+            return qs.filter(professional_id=user.id)
+        return qs.none()
 
     def perform_create(self, serializer):
         serializer.save(professional=self.request.user)
@@ -86,6 +84,8 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         # restringe a agenda ao profissional logado
         if user and getattr(user, "id", None):
             qs = qs.filter(professional_id=user.id)
+        else:
+            qs = qs.none()
         # Promoção temporal oportunista: limitar a leituras de agenda.
         # Evita escritas implícitas desnecessárias em fluxos de update/destroy.
         if getattr(self, "action", None) in {"list", "next_for_client"}:

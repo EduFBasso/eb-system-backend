@@ -89,4 +89,5 @@ frontend-lab/
 *.local
 Bruna_Carvalho/
 
-docs/
+docs/*
+!docs/MIGRATION_GUIDE.md

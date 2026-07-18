@@ -34,6 +34,7 @@ class Appointment(models.Model):
         DONE = "done", "Realizado"
         CANCELED = "canceled", "Cancelado"
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         "register.Professional",
         on_delete=models.CASCADE,
@@ -147,6 +148,7 @@ class Appointment(models.Model):
 class FinalizeAudit(models.Model):
     """Auditoria de finalização de compromissos."""
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     appointment = models.ForeignKey(
         Appointment, on_delete=models.CASCADE, related_name="finalize_audits"
     )
@@ -183,6 +185,7 @@ class Encounter(models.Model):
         CLOSED = "closed", "Encerrado"
         CANCELED = "canceled", "Cancelado"
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         "register.Professional",
         on_delete=models.CASCADE,
@@ -277,6 +280,7 @@ class ClinicalRecord(models.Model):
         PRESCRIPTION = "prescription", "Prescrição"
         NOTE = "note", "Nota"
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         "register.Professional",
         on_delete=models.CASCADE,
@@ -356,6 +360,7 @@ class Charge(models.Model):
         PAID = "paid", "Pago"
         CANCELED = "canceled", "Cancelado"
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         "register.Professional",
         on_delete=models.CASCADE,
@@ -484,6 +489,7 @@ class ChargeItem(models.Model):
         PRODUCT = "product", "Produto"
         CUSTOM = "custom", "Personalizado"
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     charge = models.ForeignKey(
         Charge,
         on_delete=models.CASCADE,

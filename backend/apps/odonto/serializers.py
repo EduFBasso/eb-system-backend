@@ -45,11 +45,25 @@ class ProcedureSerializer(serializers.ModelSerializer):
             'parent_procedure',
             getattr(instance, 'parent_procedure', None),
         )
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        if arcade is not None and getattr(user, 'id', None):
+            if arcade.professional_id != user.id:
+                raise serializers.ValidationError(
+                    {'arcade': 'Arcada nao pertence ao profissional autenticado.'}
+                )
 
         if tooth is not None and arcade is not None:
             if tooth.arcade_id != arcade.id:  # pyright: ignore[reportAttributeAccessIssue]
                 raise serializers.ValidationError(
                     {'tooth': 'O dente nao pertence a arcada informada.'}
+                )
+
+        if surface is not None and arcade is not None:
+            if surface.tooth.arcade_id != arcade.id:  # pyright: ignore[reportAttributeAccessIssue]
+                raise serializers.ValidationError(
+                    {'surface': 'A face nao pertence a arcada informada.'}
                 )
 
         if surface is not None and tooth is not None:

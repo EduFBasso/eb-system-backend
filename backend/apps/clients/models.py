@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Client(models.Model):
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         "register.Professional",
         on_delete=models.CASCADE,

@@ -7,6 +7,7 @@ class DentalArcade(models.Model):
         PENDING = 'pending', 'Pendente'
         COMPLETED = 'completed', 'Concluido'
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         'register.Professional',
         on_delete=models.CASCADE,
@@ -51,6 +52,7 @@ class DentalArcade(models.Model):
 
 
 class Tooth(models.Model):
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     arcade = models.ForeignKey(
         DentalArcade,
         on_delete=models.CASCADE,
@@ -95,6 +97,7 @@ class Surface(models.Model):
         VO = 'VO', 'Vestibular/Oclusal'
         LDI = 'LDI', 'Lingual/Distal/Incisal'
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     tooth = models.ForeignKey(
         Tooth,
         on_delete=models.CASCADE,
@@ -124,6 +127,7 @@ class Procedure(models.Model):
         COMPLETED = 'completed', 'Concluido'
         CANCELED = 'canceled', 'Cancelado'
 
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     arcade = models.ForeignKey(
         DentalArcade,
         on_delete=models.CASCADE,
@@ -207,6 +211,7 @@ class Procedure(models.Model):
 
 
 class ProcedureNameSuggestion(models.Model):
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -231,6 +236,7 @@ class ProcedureNameSuggestion(models.Model):
 
 
 class ProductCatalogItem(models.Model):
+    tenant = models.ForeignKey('tenancy.Tenant', on_delete=models.CASCADE, null=True, blank=True)
     professional = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
