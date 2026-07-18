@@ -91,3 +91,4 @@ Bruna_Carvalho/
 
 docs/*
 !docs/MIGRATION_GUIDE.md
+!docs/RENDER_ENV_CHECKLIST.md
