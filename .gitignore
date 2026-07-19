@@ -92,3 +92,8 @@ Bruna_Carvalho/
 docs/*
 !docs/MIGRATION_GUIDE.md
 !docs/RENDER_ENV_CHECKLIST.md
+
+# Isolamento estrito de Frontends (Fase de Separação de Repositórios)
+frontend/
+frontend-clinic/
+frontend-bakery/

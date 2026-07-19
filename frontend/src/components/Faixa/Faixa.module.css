@@ -1,9 +1,0 @@
-/* frontend\src\styles\components\Faixa.module.css */
-.faixa {
-    position: sticky;
-    z-index: 99; /* abaixo do header (100) e acima da navbar (95) */
-    top: var(--header-h);
-    height: var(--faixa-h);
-    background: linear-gradient(90deg, #000, #333, #000);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
