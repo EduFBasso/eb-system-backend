@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 from apps.anamnesis.models import AnamnesisField, AnamnesisResponse
 from apps.clients.models import Client
 from apps.register.models import Professional
+from apps.tenancy.models import TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -28,6 +29,16 @@ def other_professional():
         email='other-ana@example.com',
         password='secret123',
         first_name='Bea',
+        last_name='Tester',
+    )
+
+
+@pytest.fixture
+def foreign_professional():
+    return Professional.objects.create_user(
+        email='foreign-ana@example.com',
+        password='secret123',
+        first_name='Cleo',
         last_name='Tester',
     )
 
@@ -82,6 +93,82 @@ def test_bulk_save_rejects_field_from_other_professional(
 
     assert response.status_code == 400, response.content
     assert 'não pertence ao profissional' in str(response.json()).lower()
+
+
+def test_field_queryset_is_scoped_by_tenant(auth_client, professional, other_professional, foreign_professional):
+    tenant = professional.tenant_memberships.first().tenant
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=other_professional,
+        role=TenantMembership.Role.ADMIN,
+        is_active=True,
+    )
+
+    shared_field = AnamnesisField.objects.create(
+        professional=other_professional,
+        code='shared_question',
+        sector='Histórico',
+        sector_order=0,
+        label='Pergunta compartilhada',
+        field_type='radio',
+        options=['Sim', 'Não'],
+        order=0,
+    )
+
+    foreign_field = AnamnesisField.objects.create(
+        professional=foreign_professional,
+        code='foreign_question',
+        sector='Histórico',
+        sector_order=0,
+        label='Pergunta externa',
+        field_type='radio',
+        options=['Sim', 'Não'],
+        order=1,
+    )
+
+    response = auth_client.get('/anamnesis/fields/')
+
+    assert response.status_code == 200, response.content
+    ids = {item['id'] for item in response.json()}
+    assert shared_field.id in ids
+    assert foreign_field.id not in ids
+
+
+def test_bulk_save_rejects_client_from_other_tenant(
+    auth_client,
+    professional,
+    foreign_professional,
+):
+    foreign_client = Client.objects.create(
+        professional=foreign_professional,
+        first_name='Cliente',
+        last_name='Externo',
+        phone='18888888888',
+    )
+
+    parent_field = AnamnesisField.objects.create(
+        professional=professional,
+        code='takes_medication',
+        sector='Histórico',
+        sector_order=0,
+        label='Toma medicação',
+        field_type='radio',
+        options=['Sim', 'Não'],
+        order=0,
+    )
+
+    response = auth_client.post(
+        '/anamnesis/responses/bulk_save/',
+        {
+            'client': foreign_client.id,
+            'responses': [
+                {'field': parent_field.id, 'value': 'Sim'},
+            ],
+        },
+        format='json',
+    )
+
+    assert response.status_code == 404, response.content
 
 
 def test_bulk_save_deletes_missing_snapshot_responses(auth_client, professional, client_obj):

@@ -4,6 +4,7 @@ from typing import cast
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request as DRFRequest
 from rest_framework.response import Response
 from django.db.models import QuerySet
@@ -18,6 +19,22 @@ from .serializers import (
 )
 
 
+def _get_active_tenant(user):
+    """Resolve the active tenant from the authenticated user's memberships."""
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+
+    membership = (
+        user.tenant_memberships.select_related('tenant')
+        .filter(is_active=True, tenant__is_active=True)
+        .order_by('created_at', 'id')
+        .first()
+    )
+    if membership:
+        return membership.tenant
+    return None
+
+
 class AnamnesisFieldViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Returns the active anamnesis fields for the authenticated professional.
@@ -28,10 +45,16 @@ class AnamnesisFieldViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self) -> QuerySet[AnamnesisField]:  # type: ignore[override]
+        tenant = _get_active_tenant(self.request.user)
+        if tenant is None:
+            return AnamnesisField.objects.none()
+
         return AnamnesisField.objects.filter(
-            professional=self.request.user,
+            professional__tenant_memberships__tenant=tenant,
+            professional__tenant_memberships__is_active=True,
+            professional__tenant_memberships__tenant__is_active=True,
             is_active=True,
-        ).order_by('sector_order', 'order')
+        ).distinct().order_by('sector_order', 'order')
 
 
 class AnamnesisResponseViewSet(viewsets.ModelViewSet):
@@ -45,8 +68,15 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet[AnamnesisResponse]:  # type: ignore[override]
         req = cast(DRFRequest, self.request)
+        tenant = _get_active_tenant(req.user)
+        if tenant is None:
+            return AnamnesisResponse.objects.none()
+
         qs = AnamnesisResponse.objects.filter(
-            field__professional=req.user,
+            field__professional__tenant_memberships__tenant=tenant,
+            field__professional__tenant_memberships__is_active=True,
+            field__professional__tenant_memberships__tenant__is_active=True,
+            client__professional__tenant_memberships__tenant=tenant,
         ).select_related('field')
 
         client_id = req.query_params.get('client')
@@ -61,6 +91,10 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
         Upserts all anamnesis responses for a client in one request.
         Body: { "client": <id>, "responses": [{"field": <id>, "value": "..."}, ...] }
         """
+        tenant = _get_active_tenant(request.user)
+        if tenant is None:
+            raise PermissionDenied('Nenhum tenant ativo encontrado para o usuário autenticado.')
+
         serializer = AnamnesisResponseBulkSerializer(
             data=request.data,
             context={'request': request},
@@ -72,7 +106,9 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
         client = get_object_or_404(
             Client,
             pk=client_id,
-            professional=request.user,
+            professional__tenant_memberships__tenant=tenant,
+            professional__tenant_memberships__is_active=True,
+            professional__tenant_memberships__tenant__is_active=True,
         )
 
         saved = []
@@ -102,7 +138,9 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
 
         AnamnesisResponse.objects.filter(
             client=client,
-            field__professional=request.user,
+            field__professional__tenant_memberships__tenant=tenant,
+            field__professional__tenant_memberships__is_active=True,
+            field__professional__tenant_memberships__tenant__is_active=True,
         ).exclude(field_id__in=submitted_field_ids).delete()
 
         return Response(

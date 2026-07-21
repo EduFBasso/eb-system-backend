@@ -1,6 +1,7 @@
 from typing import cast
 
 from django.db.models import QuerySet
+from django.db.models import Q
 from rest_framework import viewsets, permissions, generics
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -16,6 +17,22 @@ from .serializers import (
     FinalizeAuditSerializer,
 )
 from .state_utils import promote_overdue_scheduled_to_pending, promote_scheduled_to_ongoing
+
+
+def _get_active_tenant(user):
+    """Resolve the active tenant from the authenticated user's memberships."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+
+    membership = (
+        user.tenant_memberships.select_related("tenant")
+        .filter(is_active=True, tenant__is_active=True)
+        .order_by("created_at", "id")
+        .first()
+    )
+    if membership:
+        return membership.tenant
+    return None
 
 
 class TypedRequestMixin:
@@ -58,12 +75,28 @@ class ProfessionalOwnedViewSet(TypedRequestMixin, viewsets.ModelViewSet):
     def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         qs = self.base_queryset()
         user = getattr(self.request, "user", None)
+
+        tenant = _get_active_tenant(user)
+        if tenant is not None:
+            # Compat: include legacy rows with tenant=NULL that still belong to this tenant's professionals.
+            return qs.filter(
+                Q(tenant_id=tenant.id)
+                | Q(
+                    tenant__isnull=True,
+                    professional__tenant_memberships__tenant=tenant,
+                    professional__tenant_memberships__is_active=True,
+                    professional__tenant_memberships__tenant__is_active=True,
+                )
+            ).distinct()
+
         if user and getattr(user, "id", None):
             return qs.filter(professional_id=user.id)
         return qs.none()
 
     def perform_create(self, serializer):
-        serializer.save(professional=self.request.user)
+        user = getattr(self.request, "user", None)
+        tenant = _get_active_tenant(user)
+        serializer.save(professional=user, tenant=tenant)
 
 
 class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
@@ -81,8 +114,21 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
     def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         qs = self.base_queryset()
         user = getattr(self.request, "user", None)
-        # restringe a agenda ao profissional logado
-        if user and getattr(user, "id", None):
+
+        tenant = _get_active_tenant(user)
+        # Restringe a agenda ao tenant ativo da profissional.
+        if tenant is not None:
+            qs = qs.filter(
+                Q(tenant_id=tenant.id)
+                | Q(
+                    tenant__isnull=True,
+                    professional__tenant_memberships__tenant=tenant,
+                    professional__tenant_memberships__is_active=True,
+                    professional__tenant_memberships__tenant__is_active=True,
+                )
+            ).distinct()
+        elif user and getattr(user, "id", None):
+            # Compat fallback para fluxos sem tenant ativo.
             qs = qs.filter(professional_id=user.id)
         else:
             qs = qs.none()
@@ -128,7 +174,8 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # profissional sempre é o usuário autenticado
         user = getattr(self.request, "user", None)
-        obj = serializer.save(professional=user)
+        tenant = _get_active_tenant(user)
+        obj = serializer.save(professional=user, tenant=tenant)
         # Marcar device de criação (não obrigatório)
         try:
             dev_id = self.request.headers.get("x-device-id") or self.request.headers.get("X-Device-Id") or None

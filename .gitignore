@@ -97,3 +97,6 @@ docs/*
 frontend/
 frontend-clinic/
 frontend-bakery/
+
+# Scripts e utilitário de inicialização
+backend/temp/

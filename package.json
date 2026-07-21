@@ -1,14 +1,5 @@
 {
-  "name": "clinic-system-monorepo",
+  "name": "eb-system-backend-workspace",
   "private": true,
-  "workspaces": [
-    "frontend"
-  ],
-  "scripts": {
-    "build": "npm run -w frontend build",
-    "test": "npm run -w frontend test",
-    "lint": "npm run -w frontend lint",
-    "dev:frontend": "npm run -w frontend dev",
-    "preview": "npm run -w frontend preview"
-  }
+  "description": "Backend-focused workspace. Frontend is maintained in a separate repository."
 }

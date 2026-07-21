@@ -1,16 +1,8 @@
 {
   "folders": [
     {
+      "name": "⚙️ ENGINE - Backend (Django)",
       "path": "backend",
-    },
-    {
-      "path": "frontend",
-    },
-    {
-      "path": "docs",
-    },
-    {
-      "path": "scripts",
     },
   ],
 
@@ -19,11 +11,11 @@
     "git.openRepositoryInParentFolders": "always",
 
     // Python: sempre usar o .venv do backend
-    "python.defaultInterpreterPath": "${workspaceFolder:backend}/.venv/bin/python",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.terminal.activateEnvironment": true,
 
     // Terminal sempre abre no backend
-    "terminal.integrated.cwd": "${workspaceFolder:backend}",
+    "terminal.integrated.cwd": "${workspaceFolder}",
 
     // Ocultar arquivos que só poluem
     "files.exclude": {
@@ -31,11 +23,6 @@
       "**/.pytest_cache": true,
       "**/.venv": false,
     },
-
-    // ESLint só no frontend
-    "eslint.workingDirectories": [
-      { "directory": "frontend", "changeProcessCWD": true },
-    ],
 
     // Formatação
     "editor.formatOnSave": true,
