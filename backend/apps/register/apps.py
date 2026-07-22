@@ -13,7 +13,7 @@ class RegisterConfig(AppConfig):
 
     def ready(self):
         # One-time admin creation hook. Set ONE_OFF_ADMIN as JSON in env vars, e.g.
-        # {"username":"admin","email":"you@example.com","password":"StrongPass123!"}
+        # {"email":"you@example.com","password":"StrongPass123!","first_name":"Admin","last_name":"Clinic"}
         payload = os.environ.get('ONE_OFF_ADMIN')
         if not payload:
             return
@@ -39,7 +39,10 @@ class RegisterConfig(AppConfig):
             if not has_super:
                 User.objects.create_superuser(
                     email=data.get('email', 'admin@example.com'),
-                    password=data.get('password', 'ChangeMe123!')
+                    password=data.get('password', 'ChangeMe123!'),
+                    first_name=data.get('first_name', 'Admin'),
+                    last_name=data.get('last_name', 'Clinic'),
+                    display_name=data.get('display_name', ''),
                 )
                 logger.warning('ONE_OFF_ADMIN: created superuser')
             else:

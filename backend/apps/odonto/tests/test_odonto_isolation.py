@@ -45,13 +45,37 @@ def podology_professional():
 
 @pytest.fixture
 def odonto_without_capability():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email="odonto-without-capability@example.com",
         password="secret123",
         first_name="No",
         last_name="Capability",
         specialty="Odontologia",
     )
+
+    # O onboarding cria tenant/membership automaticamente para novo profissional.
+    # Este cenário precisa manter a especialidade odontológica, porém sem capability.
+    membership = (
+        TenantMembership.objects.select_related("tenant")
+        .filter(professional=professional, is_active=True)
+        .first()
+    )
+    if membership:
+        membership.tenant.capabilities = {}
+        membership.tenant.save(update_fields=["capabilities"])
+    else:
+        tenant = Tenant.objects.create(
+            name="No Capability Tenant",
+            slug="no-capability-tenant",
+            capabilities={},
+        )
+        TenantMembership.objects.create(
+            tenant=tenant,
+            professional=professional,
+            role=TenantMembership.Role.MEMBER,
+        )
+
+    return professional
 
 
 @pytest.fixture

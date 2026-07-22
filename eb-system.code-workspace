@@ -4,27 +4,23 @@
       "name": "⚙️ ENGINE - Backend (Django)",
       "path": "backend",
     },
+    {
+      "name": "🩺 CLINIC - Frontend (React)",
+      "path": "frontend-clinic",
+    },
+    {
+      "name": "🍞 BAKERY - Frontend (Futuro)",
+      "path": "frontend-bakery",
+    },
   ],
 
   "settings": {
-    // Git: detectar o repositório real na pasta pai do workspace multi-root
     "git.openRepositoryInParentFolders": "always",
 
-    // Python: sempre usar o .venv do backend
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    // Configurações específicas para o Python não se perder
+    "python.defaultInterpreterPath": "${workspaceFolder:⚙️ ENGINE - Backend (Django)}/.venv/bin/python",
     "python.terminal.activateEnvironment": true,
 
-    // Terminal sempre abre no backend
-    "terminal.integrated.cwd": "${workspaceFolder}",
-
-    // Ocultar arquivos que só poluem
-    "files.exclude": {
-      "**/__pycache__": true,
-      "**/.pytest_cache": true,
-      "**/.venv": false,
-    },
-
-    // Formatação
     "editor.formatOnSave": true,
   },
 }

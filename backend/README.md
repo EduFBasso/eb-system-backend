@@ -169,17 +169,26 @@ Importante: para as fotos sobreviverem a restart/deploy no Render, use disco per
 ## Testes
 
 ```bash
-# Todos
-cd backend && python -m pytest -q
+# Runner oficial da equipe (sempre no backend com .venv ativo)
+python -m pytest -q
+
+# Coleta (diagnóstico rápido de descoberta)
+python -m pytest --collect-only -q
 
 # Teste específico
-python -m pytest tests/test_health_endpoints.py -v
+python -m pytest tests/test_health_endpoints.py -q
 
 # Com cobertura
 python -m pytest --cov=apps -q
 ```
 
-Configuração: [pytest.ini](pytest.ini)
+Configuração central: [pytest.ini](pytest.ini)
+
+Padrão operacional da equipe:
+
+- usar `pytest` como fonte de verdade para descoberta e execução de testes.
+- evitar `python manage.py test` nesta estrutura, pois o DiscoverRunner padrão do Django não reflete toda a suíte em `apps/**/tests` e `tests/`.
+- se aparecer `ModuleNotFoundError: No module named 'tests.test_*'`, confirme que você está no diretório `backend`, com `.venv` ativo, e rode novamente `python -m pytest --collect-only -q`.
 
 ## Migrações
 

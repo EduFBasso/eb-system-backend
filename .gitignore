@@ -100,3 +100,5 @@ frontend-bakery/
 
 # Scripts e utilitário de inicialização
 backend/temp/
+backend/.temp/
+backend/scripts/*.txt

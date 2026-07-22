@@ -26,16 +26,26 @@ def professional():
 
 @pytest.fixture
 def tenant(professional):
-    tenant = Tenant.objects.create(
-        name='Backfill Tenant',
-        slug='backfill-tenant',
-        capabilities={'odonto': True},
+    membership = (
+        TenantMembership.objects.select_related('tenant')
+        .filter(professional=professional, is_active=True)
+        .first()
     )
-    TenantMembership.objects.create(
-        tenant=tenant,
-        professional=professional,
-        role=TenantMembership.Role.OWNER,
-    )
+    if membership:
+        tenant = membership.tenant
+        tenant.capabilities = {'odonto': True}
+        tenant.save(update_fields=['capabilities'])
+    else:
+        tenant = Tenant.objects.create(
+            name='Backfill Tenant',
+            slug='backfill-tenant',
+            capabilities={'odonto': True},
+        )
+        TenantMembership.objects.create(
+            tenant=tenant,
+            professional=professional,
+            role=TenantMembership.Role.OWNER,
+        )
     return tenant
 
 
