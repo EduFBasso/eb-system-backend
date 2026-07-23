@@ -224,7 +224,7 @@ Arquivo: [requirements.txt](requirements.txt)
 Estável em produção. Start command:
 
 ```bash
-gunicorn clinic_project.wsgi --chdir backend --bind 0.0.0.0:10000 --workers 2
+gunicorn core.wsgi --chdir backend --bind 0.0.0.0:10000 --workers 2
 ```
 
 Variáveis obrigatórias em produção:

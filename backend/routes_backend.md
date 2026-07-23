@@ -22,7 +22,7 @@ backend/
 │ ├── views_auth_code.py
 │ ├── models.py
 │ └── ...
-├── clinic_project/
+├── core/
 │ ├── asgi.py
 │ ├── settings.py
 │ ├── urls.py
@@ -710,9 +710,9 @@ path('auth/webauthn/login-complete/', webauthn_login_complete),
 path('', include(router.urls)),
 ]
 
-# backend\clinic_project
+# backend\core
 
-# backend\clinic_project\settings.py
+# backend\core\settings.py
 
 from decouple import config
 from pathlib import Path
@@ -756,7 +756,7 @@ CORS_ALLOWED_ORIGINS = [
 "http://127.0.0.1:5173",
 ]
 
-ROOT_URLCONF = 'clinic_project.urls'
+ROOT_URLCONF = 'core.urls'
 
 TEMPLATES = [
 {
@@ -773,7 +773,7 @@ TEMPLATES = [
 },
 ]
 
-WSGI_APPLICATION = 'clinic_project.wsgi.application'
+WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
 'default': {
@@ -836,7 +836,7 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 
 # urls do projeto
 
-# backend\clinic_project\urls.py
+# backend\core\urls.py
 
 from django.contrib import admin
 from django.urls import path, include

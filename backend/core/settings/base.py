@@ -53,9 +53,9 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'clinic_project.middleware.QueryTimingMiddleware',
-    'clinic_project.middleware.OnlineMutationLockMiddleware',
-    'clinic_project.middleware.VersionHeaderMiddleware',
+    'core.middleware.QueryTimingMiddleware',
+    'core.middleware.OnlineMutationLockMiddleware',
+    'core.middleware.VersionHeaderMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -66,7 +66,7 @@ MIDDLEWARE = [
 
 # === URLs, Templates e WSGI ===
 
-ROOT_URLCONF = 'clinic_project.urls'
+ROOT_URLCONF = 'core.urls'
 
 TEMPLATES = [
     {
@@ -83,7 +83,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'clinic_project.wsgi.application'
+WSGI_APPLICATION = 'core.wsgi.application'
 
 # === Validação de Senha ===
 

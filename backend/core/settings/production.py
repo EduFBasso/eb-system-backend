@@ -1,7 +1,7 @@
 """
 Production settings for Render.
 
-Use with DJANGO_SETTINGS_MODULE=clinic_project.settings.production.
+Use with DJANGO_SETTINGS_MODULE=core.settings.production.
 This module keeps the shared settings package intact and only tightens the
 pieces that must be explicit in production.
 """

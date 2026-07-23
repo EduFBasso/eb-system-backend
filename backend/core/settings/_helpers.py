@@ -9,7 +9,7 @@ from pathlib import Path
 
 from decouple import config
 
-# Raiz do projeto: _helpers.py → settings/ → clinic_project/ → raiz
+# Raiz do projeto: _helpers.py → settings/ → core/ → raiz
 BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
 # Detecta ambiente de CI (GitHub Actions)

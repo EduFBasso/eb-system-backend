@@ -1,5 +1,5 @@
 """
-Entry point do package settings — DJANGO_SETTINGS_MODULE = clinic_project.settings
+Entry point do package settings — DJANGO_SETTINGS_MODULE = core.settings
 
 Agrega todos os módulos de configuração. A ordem importa apenas para sobrescritas
 intencionais (ex.: security sobrescreve valores de base em produção).
