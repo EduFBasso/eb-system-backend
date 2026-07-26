@@ -72,41 +72,37 @@ class Client(models.Model):
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
     updated_at = models.DateTimeField("Atualizado em", auto_now=True)
 
-    # Anamnese básica
-    footwear_used = models.CharField("Calçado usado", max_length=50, null=True, blank=True)
-    sock_used = models.CharField("Meia usada", max_length=50, null=True, blank=True)
-
-    # Atividades acadêmicas e esportivas
-    sport_activity = models.CharField("Atividade esportiva", max_length=50, null=True, blank=True)
-    academic_activity = models.CharField("Atividade acadêmica", max_length=50, null=True, blank=True)
-
-    # Anamnese médica
-    takes_medication = models.CharField("Toma medicação", max_length=255, null=True, blank=True)
-    had_surgery = models.CharField("Já fez cirurgia", max_length=255, null=True, blank=True)
-    is_pregnant = models.BooleanField("Está grávida", null=True, blank=True)
-
-    pain_sensitivity = models.CharField("Sensibilidade à dor", max_length=50, null=True, blank=True)
-    clinical_history = models.TextField("Histórico clínico", null=True, blank=True)
-
-    # Avaliação dos pés
-    plantar_view_left = models.TextField("Vista plantar esquerda", null=True, blank=True)
-    plantar_view_right = models.TextField("Vista plantar direita", null=True, blank=True)
-
-    dermatological_pathologies_left = models.TextField("Patologias pé esquerdo", null=True, blank=True)
-    dermatological_pathologies_right = models.TextField("Patologias pé direito", null=True, blank=True)
-
-    nail_changes_left = models.TextField("Alterações nas unhas pé esquerdo", null=True, blank=True)
-    nail_changes_right = models.TextField("Alterações nas unhas pé direito", null=True, blank=True)
-
-    deformities_left = models.TextField("Deformidades pé esquerdo", null=True, blank=True)
-    deformities_right = models.TextField("Deformidades pé direito", null=True, blank=True)
-
-    sensitivity_test = models.TextField("Teste de sensibilidade", null=True, blank=True)
-    other_procedures = models.TextField("Outros procedimentos", null=True, blank=True)
-
     class Meta:
         app_label = 'clients'
         db_table = 'register_client'  # mantém a tabela existente
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def anamnese_base(self):
+        cache = getattr(self, '_prefetched_objects_cache', {})
+        prefetched = cache.get('anamneses_base')
+        if prefetched is not None:
+            for item in prefetched:
+                if item.tenant_id == self.tenant_id and item.professional_id == self.professional_id:
+                    return item
+
+        return self.anamneses_base.filter(
+            tenant_id=self.tenant_id,
+            professional_id=self.professional_id,
+        ).order_by('-updated_at', '-created_at').first()
+
+    @property
+    def anamnese_podologia(self):
+        cache = getattr(self, '_prefetched_objects_cache', {})
+        prefetched = cache.get('anamneses_podologia')
+        if prefetched is not None:
+            for item in prefetched:
+                if item.tenant_id == self.tenant_id and item.professional_id == self.professional_id:
+                    return item
+
+        return self.anamneses_podologia.filter(
+            tenant_id=self.tenant_id,
+            professional_id=self.professional_id,
+        ).order_by('-updated_at', '-created_at').first()

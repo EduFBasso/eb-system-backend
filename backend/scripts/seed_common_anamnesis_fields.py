@@ -35,6 +35,8 @@ class FieldSpec:
     label: str
     field_type: str
     order: int
+    selection_mode: str = 'single'
+    is_active: bool = True
     sector: str = "Histórico"
     sector_order: int = 0
     options: list[str] | None = None
@@ -78,13 +80,15 @@ COMMON_FIELDS: list[FieldSpec] = [
         code="historico_doencas",
         label="Possui histórico de doenças principais?",
         field_type="radio",
-        options=["Não", "Diabetes", "Hipertensão", "Cardiopatia", "Alergias", "Outros"],
+        selection_mode="multiple",
+        options=["Diabetes", "Hipertensão", "Cardiopatia", "Alergias", "Outros"],
         order=50,
     ),
     FieldSpec(
         code="outras_doencas",
         label="Descreva outras comorbidades ou condições:",
         field_type="text",
+        is_active=False,
         placeholder="Ex.: hipotireoidismo, asma, etc.",
         order=60,
         depends_on_code="historico_doencas",
@@ -140,11 +144,12 @@ def seed_for_professional(professional: Professional) -> tuple[int, int]:
                 "sector_order": spec.sector_order,
                 "label": spec.label,
                 "field_type": spec.field_type,
+                "selection_mode": spec.selection_mode,
                 "options": spec.options,
                 "placeholder": spec.placeholder,
                 "order": spec.order,
                 "show_when_value": spec.show_when_value,
-                "is_active": True,
+                "is_active": spec.is_active,
             },
         )
         by_code[spec.code] = field

@@ -7,7 +7,7 @@ class AnamnesisFieldSerializer(serializers.ModelSerializer):
         model = AnamnesisField
         fields = [
             'id', 'code', 'sector', 'sector_order', 'label',
-            'field_type', 'options', 'placeholder', 'depends_on',
+            'field_type', 'selection_mode', 'options', 'placeholder', 'depends_on',
             'show_when_value', 'order', 'is_active',
         ]
         read_only_fields = ['id']

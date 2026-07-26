@@ -14,6 +14,7 @@ from datetime import date, datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from apps.anamnesis.models import AnamneseBase
 from apps.clients.models import Client
 from apps.register.models import Professional
 
@@ -239,7 +240,6 @@ class Command(BaseCommand):
                     "document_type": "cpf" if cpf else None,
                     "document_number": cpf,
                     "profession": str(r.get("TX_OCUPACAO") or "").strip() or None,
-                    "clinical_history": clinical_history,
                     **addr,
                 }
 
@@ -274,6 +274,27 @@ class Command(BaseCommand):
                             data["email"] = None
                         Client.objects.create(**data)
                         created += 1
+
+                    client = existing if existing else Client.objects.filter(
+                        professional=professional,
+                        phone=phone,
+                    ).first()
+                    if client and clinical_history:
+                        tenant_membership = (
+                            professional.tenant_memberships.select_related("tenant")
+                            .filter(is_active=True, tenant__is_active=True)
+                            .order_by("created_at", "id")
+                            .first()
+                        )
+                        if tenant_membership:
+                            AnamneseBase.objects.update_or_create(
+                                client=client,
+                                tenant=tenant_membership.tenant,
+                                professional=professional,
+                                defaults={
+                                    "clinical_history": clinical_history,
+                                },
+                            )
 
                 except Exception as exc:
                     errors += 1

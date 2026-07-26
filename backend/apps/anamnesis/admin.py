@@ -8,12 +8,13 @@ class AnamnesisFieldAdmin(admin.ModelAdmin):
         'code',
         'sector',
         'field_type',
+        'selection_mode',
         'depends_on',
         'order',
         'is_active',
         'professional',
     )
-    list_filter = ('professional', 'sector', 'field_type', 'is_active')
+    list_filter = ('professional', 'sector', 'field_type', 'selection_mode', 'is_active')
     ordering = ('professional', 'sector_order', 'order')
     search_fields = ('label', 'code', 'sector')
 

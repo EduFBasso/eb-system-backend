@@ -38,9 +38,9 @@ class ProfessionalSettingsSerializer(serializers.ModelSerializer):
         return value
 
     def validate_default_duration_minutes(self, value: int) -> int:
-        if value not in (30, 60, 90, 120, 150):
+        if value not in (30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360):
             raise serializers.ValidationError(
-                "default_duration_minutes inválido. Use um dos valores: 30, 60, 90, 120, 150"
+                "default_duration_minutes inválido. Use um dos valores: 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360"
             )
         return value
 

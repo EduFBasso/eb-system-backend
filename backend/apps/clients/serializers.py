@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from django.db import transaction
 from django.utils import timezone
 from datetime import timezone as dt_timezone
 from apps.clients.models import Client
+from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
 import unicodedata, re
 
 # Helpers de normalização (UF/CEP)
@@ -40,16 +42,105 @@ def _normalize_cep(value: str) -> str:
         return digits
     raise serializers.ValidationError("CEP inválido. Use 8 dígitos (ex.: 13480460).")
 
+
+class AnamneseBaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnamneseBase
+        fields = [
+            'id',
+            'takes_medication',
+            'had_surgery',
+            'is_pregnant',
+            'pain_sensitivity',
+            'clinical_history',
+            'sport_activity',
+            'academic_activity',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class AnamnesePodologiaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnamnesePodologia
+        fields = [
+            'id',
+            'footwear_used',
+            'sock_used',
+            'plantar_view_left',
+            'plantar_view_right',
+            'dermatological_pathologies_left',
+            'dermatological_pathologies_right',
+            'nail_changes_left',
+            'nail_changes_right',
+            'deformities_left',
+            'deformities_right',
+            'sensitivity_test',
+            'other_procedures',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+def _active_anamnese_tenant(context) -> object:
+    tenant = context.get('tenant')
+    if tenant is not None:
+        return tenant
+
+    request = context.get('request')
+    user = getattr(request, 'user', None)
+    if user is None:
+        raise serializers.ValidationError('Usuário autenticado é obrigatório para gravar anamnese.')
+
+    membership = (
+        user.tenant_memberships.select_related('tenant')
+        .filter(is_active=True, tenant__is_active=True)
+        .order_by('created_at', 'id')
+        .first()
+    )
+    if membership is None:
+        raise serializers.ValidationError('Nenhum tenant ativo encontrado para o usuário autenticado.')
+    return membership.tenant
+
 class ClientSerializer(serializers.ModelSerializer):
-    takes_medication = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    had_surgery = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    is_pregnant = serializers.BooleanField(required=False)
     professional = serializers.PrimaryKeyRelatedField(read_only=True)
+    tenant = serializers.PrimaryKeyRelatedField(read_only=True)
+    anamnese_base = AnamneseBaseSerializer(required=False, allow_null=True)
+    anamnese_podologia = AnamnesePodologiaSerializer(required=False, allow_null=True)
 
     class Meta:
         model = Client
-        fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
+        fields = [
+            'id',
+            'tenant',
+            'professional',
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'rg',
+            'document_type',
+            'document_number',
+            'sex',
+            'marital_status',
+            'nationality',
+            'profession',
+            'address',
+            'neighborhood',
+            'city',
+            'state',
+            'postal_code',
+            'date_of_birth',
+            'address_number',
+            'address_complement',
+            'created_at',
+            'updated_at',
+            'anamnese_base',
+            'anamnese_podologia',
+        ]
+        read_only_fields = ['id', 'tenant', 'professional', 'created_at', 'updated_at']
         extra_kwargs = {
             "email": {"required": False, "allow_null": True, "allow_blank": True},
             # Telefone obrigatório e único (modelo aplica unique)
@@ -60,17 +151,6 @@ class ClientSerializer(serializers.ModelSerializer):
             "postal_code": {"required": False, "allow_null": True, "allow_blank": True},
             "address": {"required": False, "allow_null": True, "allow_blank": True},
             "neighborhood": {"required": False, "allow_null": True, "allow_blank": True},
-            "medication_details": {"required": False, "allow_null": True, "allow_blank": True},
-            "surgery_details": {"required": False, "allow_null": True, "allow_blank": True},
-            "pregnancy_details": {"required": False, "allow_null": True, "allow_blank": True},
-            "pain_sensitivity": {"required": False, "allow_null": True, "allow_blank": True},
-            "footwear_used": {"required": False, "allow_null": True, "allow_blank": True},
-            "footwear_other": {"required": False, "allow_null": True, "allow_blank": True},
-            "sock_used": {"required": False, "allow_null": True, "allow_blank": True},
-            "clinical_history": {"required": False, "allow_null": True, "allow_blank": True},
-            "clinical_history_other": {"required": False, "allow_null": True, "allow_blank": True},
-            "professional_procedures": {"required": False, "allow_null": True, "allow_blank": True},
-            # Continua com o restante dos campos clínicos…
             "date_of_birth": {"required": False, "allow_null": True},
             "address_number": {"required": False, "allow_null": True, "allow_blank": True},
             "address_complement": {"required": False, "allow_null": True, "allow_blank": True},
@@ -125,6 +205,73 @@ class ClientSerializer(serializers.ModelSerializer):
         if value in (None, ''):
             return ''
         return _normalize_cep(value)
+
+    def _save_nested_anamneses(self, client: Client, base_data, podologia_data) -> None:
+        tenant = _active_anamnese_tenant(self.context)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        def _clean_payload(payload):
+            if payload is None:
+                return None
+            cleaned = {key: value for key, value in payload.items() if value is not None}
+            return cleaned or None
+
+        base_payload = _clean_payload(base_data)
+        podologia_payload = _clean_payload(podologia_data)
+
+        with transaction.atomic():
+            if base_payload is not None:
+                AnamneseBase.objects.update_or_create(
+                    client=client,
+                    tenant=tenant,
+                    professional=user,
+                    defaults=base_payload,
+                )
+
+            if podologia_payload is not None:
+                AnamnesePodologia.objects.update_or_create(
+                    client=client,
+                    tenant=tenant,
+                    professional=user,
+                    defaults=podologia_payload,
+                )
+
+    def create(self, validated_data):
+        anamnese_base_data = validated_data.pop('anamnese_base', None)
+        anamnese_podologia_data = validated_data.pop('anamnese_podologia', None)
+        tenant = _active_anamnese_tenant(self.context)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        with transaction.atomic():
+            client = Client.objects.create(
+                tenant=tenant,
+                professional=user,
+                **validated_data,
+            )
+            self._save_nested_anamneses(client, anamnese_base_data, anamnese_podologia_data)
+
+        return client
+
+    def update(self, instance, validated_data):
+        anamnese_base_data = validated_data.pop('anamnese_base', None)
+        anamnese_podologia_data = validated_data.pop('anamnese_podologia', None)
+        tenant = _active_anamnese_tenant(self.context)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.tenant = tenant
+        instance.professional = user
+
+        with transaction.atomic():
+            instance.save()
+            self._save_nested_anamneses(instance, anamnese_base_data, anamnese_podologia_data)
+
+        return instance
 
 
 class UTCDateTimeField(serializers.DateTimeField):

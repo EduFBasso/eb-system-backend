@@ -125,6 +125,7 @@ class Command(BaseCommand):
                         sector=sector,
                         sector_order=sector_order,
                         field_type=field_def['field_type'],
+                        selection_mode=field_def.get('selection_mode', 'single'),
                         options=field_def.get('options'),
                         placeholder=field_def.get('placeholder', ''),
                         show_when_value=field_def.get('show_when_value', ''),
@@ -161,6 +162,9 @@ class Command(BaseCommand):
                     if obj.field_type != field_def['field_type']:
                         obj.field_type = field_def['field_type']
                         updated_fields.append('field_type')
+                    if obj.selection_mode != field_def.get('selection_mode', 'single'):
+                        obj.selection_mode = field_def.get('selection_mode', 'single')
+                        updated_fields.append('selection_mode')
                     if obj.order != field_def['order']:
                         obj.order = field_def['order']
                         updated_fields.append('order')

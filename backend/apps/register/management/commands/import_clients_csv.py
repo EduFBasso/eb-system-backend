@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any, List
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
 from apps.clients.models import Client
 from apps.register.models import Professional
 
@@ -47,6 +48,18 @@ class Command(BaseCommand):
             local_prof = Professional.objects.filter(is_active=True).order_by('-is_superuser', 'id').first()
             if not local_prof:
                 raise CommandError('Nenhum Professional ativo encontrado para associar clientes.')
+
+        tenant_membership = (
+            local_prof.tenant_memberships.select_related('tenant')
+            .filter(is_active=True, tenant__is_active=True)
+            .order_by('created_at', 'id')
+            .first()
+        )
+        if not tenant_membership:
+            raise CommandError(
+                f'Professional {local_prof.email} não possui tenant ativo para gravar anamnese.'
+            )
+        tenant = tenant_membership.tenant
 
         self.stdout.write(self.style.NOTICE(f'Importando para o Professional local: {local_prof.email} (id={local_prof.id})')) # type: ignore
 
@@ -105,25 +118,30 @@ class Command(BaseCommand):
                 # opcionais
                 profession = (item.get('profession') or None) or None
                 postal_code = (item.get('postal_code') or None) or None
-                footwear_used = (item.get('footwear_used') or None) or None
-                sock_used = (item.get('sock_used') or None) or None
-                sport_activity = (item.get('sport_activity') or None) or None
-                academic_activity = (item.get('academic_activity') or None) or None
-                takes_medication = (item.get('takes_medication') or None) or None
-                had_surgery = (item.get('had_surgery') or None) or None
-                is_pregnant = parse_bool(item.get('is_pregnant'))
-                pain_sensitivity = (item.get('pain_sensitivity') or None) or None
-                clinical_history = (item.get('clinical_history') or None) or None
-                plantar_view_left = (item.get('plantar_view_left') or None) or None
-                plantar_view_right = (item.get('plantar_view_right') or None) or None
-                dermatological_pathologies_left = (item.get('dermatological_pathologies_left') or None) or None
-                dermatological_pathologies_right = (item.get('dermatological_pathologies_right') or None) or None
-                nail_changes_left = (item.get('nail_changes_left') or None) or None
-                nail_changes_right = (item.get('nail_changes_right') or None) or None
-                deformities_left = (item.get('deformities_left') or None) or None
-                deformities_right = (item.get('deformities_right') or None) or None
-                sensitivity_test = (item.get('sensitivity_test') or None) or None
-                other_procedures = (item.get('other_procedures') or None) or None
+
+                base_payload = {
+                    'takes_medication': (item.get('takes_medication') or None) or None,
+                    'had_surgery': (item.get('had_surgery') or None) or None,
+                    'is_pregnant': parse_bool(item.get('is_pregnant')),
+                    'pain_sensitivity': (item.get('pain_sensitivity') or None) or None,
+                    'clinical_history': (item.get('clinical_history') or None) or None,
+                    'sport_activity': (item.get('sport_activity') or None) or None,
+                    'academic_activity': (item.get('academic_activity') or None) or None,
+                }
+                podologia_payload = {
+                    'footwear_used': (item.get('footwear_used') or None) or None,
+                    'sock_used': (item.get('sock_used') or None) or None,
+                    'plantar_view_left': (item.get('plantar_view_left') or None) or None,
+                    'plantar_view_right': (item.get('plantar_view_right') or None) or None,
+                    'dermatological_pathologies_left': (item.get('dermatological_pathologies_left') or None) or None,
+                    'dermatological_pathologies_right': (item.get('dermatological_pathologies_right') or None) or None,
+                    'nail_changes_left': (item.get('nail_changes_left') or None) or None,
+                    'nail_changes_right': (item.get('nail_changes_right') or None) or None,
+                    'deformities_left': (item.get('deformities_left') or None) or None,
+                    'deformities_right': (item.get('deformities_right') or None) or None,
+                    'sensitivity_test': (item.get('sensitivity_test') or None) or None,
+                    'other_procedures': (item.get('other_procedures') or None) or None,
+                }
 
                 if not first_name and not last_name and not phone_digits:
                     skipped += 1
@@ -149,25 +167,6 @@ class Command(BaseCommand):
                         'state': state if state is not None else existing.state,
                         'profession': profession if profession is not None else existing.profession,
                         'postal_code': postal_code if postal_code is not None else existing.postal_code,
-                        'footwear_used': footwear_used if footwear_used is not None else existing.footwear_used,
-                        'sock_used': sock_used if sock_used is not None else existing.sock_used,
-                        'sport_activity': sport_activity if sport_activity is not None else existing.sport_activity,
-                        'academic_activity': academic_activity if academic_activity is not None else existing.academic_activity,
-                        'takes_medication': takes_medication if takes_medication is not None else existing.takes_medication,
-                        'had_surgery': had_surgery if had_surgery is not None else existing.had_surgery,
-                        'is_pregnant': is_pregnant if is_pregnant is not None else existing.is_pregnant,
-                        'pain_sensitivity': pain_sensitivity if pain_sensitivity is not None else existing.pain_sensitivity,
-                        'clinical_history': clinical_history if clinical_history is not None else existing.clinical_history,
-                        'plantar_view_left': plantar_view_left if plantar_view_left is not None else existing.plantar_view_left,
-                        'plantar_view_right': plantar_view_right if plantar_view_right is not None else existing.plantar_view_right,
-                        'dermatological_pathologies_left': dermatological_pathologies_left if dermatological_pathologies_left is not None else existing.dermatological_pathologies_left,
-                        'dermatological_pathologies_right': dermatological_pathologies_right if dermatological_pathologies_right is not None else existing.dermatological_pathologies_right,
-                        'nail_changes_left': nail_changes_left if nail_changes_left is not None else existing.nail_changes_left,
-                        'nail_changes_right': nail_changes_right if nail_changes_right is not None else existing.nail_changes_right,
-                        'deformities_left': deformities_left if deformities_left is not None else existing.deformities_left,
-                        'deformities_right': deformities_right if deformities_right is not None else existing.deformities_right,
-                        'sensitivity_test': sensitivity_test if sensitivity_test is not None else existing.sensitivity_test,
-                        'other_procedures': other_procedures if other_procedures is not None else existing.other_procedures,
                     }
                     for field, value in updates.items():
                         if getattr(existing, field) != value:
@@ -175,6 +174,23 @@ class Command(BaseCommand):
                             changed = True
                     if changed and not dry_run:
                         existing.save()
+                    if not dry_run:
+                        base_values = {k: v for k, v in base_payload.items() if v is not None}
+                        if base_values:
+                            AnamneseBase.objects.update_or_create(
+                                client=existing,
+                                tenant=tenant,
+                                professional=local_prof,
+                                defaults=base_values,
+                            )
+                        podologia_values = {k: v for k, v in podologia_payload.items() if v is not None}
+                        if podologia_values:
+                            AnamnesePodologia.objects.update_or_create(
+                                client=existing,
+                                tenant=tenant,
+                                professional=local_prof,
+                                defaults=podologia_values,
+                            )
                     updated += 1 if changed else 0
                 else:
                     if not phone_digits:
@@ -193,26 +209,24 @@ class Command(BaseCommand):
                             state=state,
                             profession=profession,
                             postal_code=postal_code,
-                            footwear_used=footwear_used,
-                            sock_used=sock_used,
-                            sport_activity=sport_activity,
-                            academic_activity=academic_activity,
-                            takes_medication=takes_medication,
-                            had_surgery=had_surgery,
-                            is_pregnant=is_pregnant,
-                            pain_sensitivity=pain_sensitivity,
-                            clinical_history=clinical_history,
-                            plantar_view_left=plantar_view_left,
-                            plantar_view_right=plantar_view_right,
-                            dermatological_pathologies_left=dermatological_pathologies_left,
-                            dermatological_pathologies_right=dermatological_pathologies_right,
-                            nail_changes_left=nail_changes_left,
-                            nail_changes_right=nail_changes_right,
-                            deformities_left=deformities_left,
-                            deformities_right=deformities_right,
-                            sensitivity_test=sensitivity_test,
-                            other_procedures=other_procedures,
                         )
+                        client = Client.objects.get(phone=phone_digits)
+                        base_values = {k: v for k, v in base_payload.items() if v is not None}
+                        if base_values:
+                            AnamneseBase.objects.update_or_create(
+                                client=client,
+                                tenant=tenant,
+                                professional=local_prof,
+                                defaults=base_values,
+                            )
+                        podologia_values = {k: v for k, v in podologia_payload.items() if v is not None}
+                        if podologia_values:
+                            AnamnesePodologia.objects.update_or_create(
+                                client=client,
+                                tenant=tenant,
+                                professional=local_prof,
+                                defaults=podologia_values,
+                            )
                     created += 1
 
         import_batch(rows)

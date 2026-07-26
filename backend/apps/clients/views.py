@@ -14,6 +14,21 @@ from apps.clients.models import Client
 from apps.clients.serializers import ClientSerializer, ClientBasicSerializer
 
 
+def _get_active_tenant(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+
+    membership = (
+        user.tenant_memberships.select_related('tenant')
+        .filter(is_active=True, tenant__is_active=True)
+        .order_by('created_at', 'id')
+        .first()
+    )
+    if membership:
+        return membership.tenant
+    return None
+
+
 class ClientViewSet(ModelViewSet):
     serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated]
@@ -21,11 +36,42 @@ class ClientViewSet(ModelViewSet):
     ordering_fields = ['first_name', 'last_name', 'city', 'state']
     ordering = ['first_name']
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['tenant'] = _get_active_tenant(self.request.user)
+        return context
+
     def get_queryset(self): # type: ignore
         user_id = getattr(self.request.user, 'id', None)
         if not user_id:
             return Client.objects.none()
-        queryset = Client.objects.filter(professional_id=user_id)
+        tenant = _get_active_tenant(self.request.user)
+        if tenant is None:
+            return Client.objects.none()
+
+        from django.db.models import Prefetch
+        from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
+
+        queryset = (
+            Client.objects.filter(professional_id=user_id, tenant_id=tenant.id)
+            .select_related('tenant', 'professional')
+            .prefetch_related(
+                Prefetch(
+                    'anamneses_base',
+                    queryset=AnamneseBase.objects.filter(
+                        tenant_id=tenant.id,
+                        professional_id=user_id,
+                    ),
+                ),
+                Prefetch(
+                    'anamneses_podologia',
+                    queryset=AnamnesePodologia.objects.filter(
+                        tenant_id=tenant.id,
+                        professional_id=user_id,
+                    ),
+                ),
+            )
+        )
         nome = self.request.query_params.get('nome') # type: ignore
         if nome:
             queryset = queryset.filter(first_name__icontains=nome)
@@ -33,7 +79,7 @@ class ClientViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            serializer.save(professional=self.request.user)
+            serializer.save()
         except IntegrityError as e:
             msg = str(e).lower()
             if 'phone' in msg or 'phone_digits' in msg or 'register_client_phone' in msg:
@@ -66,7 +112,11 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
         user_id = getattr(self.request.user, 'id', None)
         if not user_id:
             return Client.objects.none()
-        base_qs = Client.objects.filter(professional_id=user_id)
+        tenant = _get_active_tenant(self.request.user)
+        if tenant is None:
+            return Client.objects.none()
+
+        base_qs = Client.objects.filter(professional_id=user_id, tenant_id=tenant.id)
 
         # Promoção oportunística: garante que o banco reflita o status real antes de anotar.
         user_appts = Appointment.objects.filter(professional_id=user_id)
