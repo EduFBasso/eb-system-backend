@@ -10,3 +10,13 @@ db.sqlite3
 
 .tmp/
 docs/
+carga_podologia.json
+
+apps/clients/management/commands/export_podologia_json.py
+apps/clients/management/commands/import_bruninha.py
+
+apps/odonto/management/commands/approve_bruna_reconciliation.py
+apps/odonto/management/commands/assist_bruna_reconciliation.py
+apps/odonto/management/commands/import_bruna_arcada.py
+apps/odonto/management/commands/reset_test_data_preserve_professional.py
+scripts/seed_common_anamnesis_fields.py

@@ -5,11 +5,11 @@
       "path": "backend",
     },
     {
-      "name": "🩺 CLINIC - Frontend (React)",
+      // "name": "🩺 CLINIC - Frontend (React)",
       "path": "frontend-clinic",
     },
     {
-      "name": "🍞 BAKERY - Frontend (Futuro)",
+      // "name": "🍞 BAKERY - Frontend (Futuro)",
       "path": "frontend-bakery",
     },
   ],
