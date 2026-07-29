@@ -218,14 +218,29 @@ class ClientViewSet(ModelViewSet):
         if client is None:
             return Response({'detail': LINK_EXPIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
-        full_name = f'{client.first_name} {client.last_name}'.strip()
+        base = AnamneseBase.objects.filter(
+            client=client,
+            tenant_id=tenant_id,
+            professional_id=professional_id,
+        ).first()
+
+        client_payload = {
+            'id': client.id,
+            'full_name': f'{client.first_name} {client.last_name}'.strip(),
+        }
+        for field in PUBLIC_CLIENT_FIELDS:
+            client_payload[field] = getattr(client, field, None)
+
+        base_payload = {}
+        if base is not None:
+            for field in PUBLIC_ANAMNESE_BASE_FIELDS:
+                base_payload[field] = getattr(base, field, None)
+
         return Response(
             {
                 'client': {
-                    'id': client.id,
-                    'first_name': client.first_name,
-                    'last_name': client.last_name,
-                    'full_name': full_name,
+                    **client_payload,
+                    'anamnese_base': base_payload,
                 }
             },
             status=status.HTTP_200_OK,

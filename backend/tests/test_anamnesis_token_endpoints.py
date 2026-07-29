@@ -75,6 +75,76 @@ def test_generate_and_validate_anamnesis_token(auth_client, client_obj):
     assert validate_response.data['client']['full_name'] == 'Maria Paciente'
 
 
+def test_validate_anamnesis_token_returns_prefill_data_without_podologia(
+    auth_client,
+    client_obj,
+):
+    client_obj.email = 'maria.paciente@example.com'
+    client_obj.profession = 'Professora'
+    client_obj.address = 'Rua A, 123'
+    client_obj.city = 'Limeira'
+    client_obj.state = 'SP'
+    client_obj.save(
+        update_fields=[
+            'email',
+            'profession',
+            'address',
+            'city',
+            'state',
+            'updated_at',
+        ]
+    )
+
+    AnamneseBase.objects.update_or_create(
+        client=client_obj,
+        tenant=client_obj.tenant,
+        professional=client_obj.professional,
+        defaults={
+            'takes_medication': 'Não',
+            'had_surgery': 'Não',
+            'is_pregnant': False,
+            'pain_sensitivity': 'Moderada',
+            'clinical_history': 'Hipertensão, Outros: Braço esquerdo com luxação',
+            'sport_activity': 'Leve',
+        },
+    )
+    AnamnesePodologia.objects.update_or_create(
+        client=client_obj,
+        tenant=client_obj.tenant,
+        professional=client_obj.professional,
+        defaults={
+            'footwear_used': 'Tênis',
+        },
+    )
+
+    generate_response = auth_client.post(
+        f'/register/clients/{client_obj.id}/generate-anamnesis-token/'
+    )
+    assert generate_response.status_code == 200, generate_response.content
+    token = generate_response.data['token']
+
+    public_client = APIClient()
+    validate_response = public_client.post(
+        '/register/clients/validate-anamnesis-token/',
+        {'token': token},
+        format='json',
+    )
+
+    assert validate_response.status_code == 200, validate_response.content
+    payload = validate_response.data['client']
+    assert payload['first_name'] == 'Maria'
+    assert payload['phone'] == '11999999998'
+    assert payload['email'] == 'maria.paciente@example.com'
+    assert payload['address'] == 'Rua A, 123'
+    assert payload['city'] == 'Limeira'
+    assert payload['state'] == 'SP'
+    assert payload['anamnese_base']['clinical_history'].endswith(
+        'Braço esquerdo com luxação'
+    )
+    assert payload['anamnese_base']['pain_sensitivity'] == 'Moderada'
+    assert 'anamnese_podologia' not in payload
+
+
 def test_validate_anamnesis_token_returns_expired_message_for_invalid_token():
     public_client = APIClient()
 
