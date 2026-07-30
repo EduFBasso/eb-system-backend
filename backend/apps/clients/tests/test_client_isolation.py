@@ -1,8 +1,10 @@
 import pytest
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.clients.models import Client
 from apps.register.models import Professional
+from apps.tenancy.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -10,27 +12,46 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def owner():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email="clients-owner@example.com",
         password="secret123",
         first_name="Owner",
         last_name="Client",
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Owner', slug='tenant-owner')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def other_professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email="clients-other@example.com",
         password="secret123",
         first_name="Other",
         last_name="Client",
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Other', slug='tenant-other')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def owner_client(owner):
     return Client.objects.create(
+        tenant=owner.tenant_memberships.first().tenant,
         professional=owner,
         first_name="Visible",
         last_name="Client",
@@ -41,6 +62,7 @@ def owner_client(owner):
 @pytest.fixture
 def other_client(other_professional):
     return Client.objects.create(
+        tenant=other_professional.tenant_memberships.first().tenant,
         professional=other_professional,
         first_name="Hidden",
         last_name="Client",
@@ -51,7 +73,8 @@ def other_client(other_professional):
 @pytest.fixture
 def api_client(owner):
     client = APIClient()
-    client.force_authenticate(user=owner)
+    token = AccessToken.for_user(owner)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 
 
@@ -59,7 +82,9 @@ def test_professional_lists_only_own_clients(api_client, owner_client, other_cli
     response = api_client.get("/register/clients/")
 
     assert response.status_code == 200, response.content
-    ids = {item["id"] for item in response.json()}
+    payload = response.json()
+    rows = payload.get("results", []) if isinstance(payload, dict) else payload
+    ids = {item["id"] for item in rows}
     assert owner_client.id in ids
     assert other_client.id not in ids
 

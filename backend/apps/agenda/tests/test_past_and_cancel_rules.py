@@ -1,30 +1,44 @@
 import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 from apps.clients.models import Client
 from apps.register.models import Professional
 from apps.agenda.models import Appointment
+from apps.tenancy.models import Tenant, TenantMembership
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email='rules@example.com', password='x', first_name='Regra', last_name='Test'
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Rules', slug='tenant-rules')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def api(professional):
     c = APIClient()
-    c.force_authenticate(user=professional)
+    token = AccessToken.for_user(professional)
+    c.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return c
 
 
 @pytest.fixture
 def client_obj(professional):
+    tenant = professional.tenant_memberships.first().tenant
     return Client.objects.create(
+        tenant=tenant,
         professional=professional,
         first_name='Cliente', last_name='Regras', phone='11981110000'
     )
@@ -34,6 +48,7 @@ def make(professional, client, delta_hours_start: int, duration_min=60, status=A
     start = (timezone.now() + timezone.timedelta(hours=delta_hours_start)).replace(second=0, microsecond=0)
     end = start + timezone.timedelta(minutes=duration_min)
     return Appointment.objects.create(
+        tenant=client.tenant,
         professional=professional,
         client=client,
         title=title,
@@ -84,7 +99,9 @@ def test_past_and_canceled_not_in_client_basic_next(api, professional, client_ob
     future_valid = make(professional, client_obj, 2, title='Futuro OK')
     r = api.get('/register/clients-basic/')
     assert r.status_code == 200
-    row = r.json()[0]
+    payload = r.json()
+    rows = payload.get('results', []) if isinstance(payload, dict) else payload
+    row = rows[0]
     assert row['next_appointment_title'] == 'Futuro OK'
     assert row['next_appointment_id'] == future_valid.id
     # Garantir que não escolheu o cancelado

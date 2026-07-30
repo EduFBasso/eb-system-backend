@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 from apps.anamnesis.models import AnamnesisField, AnamnesisResponse
 from apps.clients.models import Client
 from apps.register.models import Professional
-from apps.tenancy.models import TenantMembership
+from apps.tenancy.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -15,32 +15,59 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email='ana@example.com',
         password='secret123',
         first_name='Ana',
         last_name='Tester',
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Ana', slug='tenant-ana')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def other_professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email='other-ana@example.com',
         password='secret123',
         first_name='Bea',
         last_name='Tester',
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Bea', slug='tenant-bea')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def foreign_professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email='foreign-ana@example.com',
         password='secret123',
         first_name='Cleo',
         last_name='Tester',
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Cleo', slug='tenant-cleo')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
@@ -52,7 +79,9 @@ def auth_client(professional):
 
 @pytest.fixture
 def client_obj(professional):
+    tenant = professional.tenant_memberships.first().tenant
     return Client.objects.create(
+        tenant=tenant,
         professional=professional,
         first_name='Cliente',
         last_name='Teste',
@@ -140,6 +169,7 @@ def test_bulk_save_rejects_client_from_other_tenant(
     foreign_professional,
 ):
     foreign_client = Client.objects.create(
+        tenant=foreign_professional.tenant_memberships.first().tenant,
         professional=foreign_professional,
         first_name='Cliente',
         last_name='Externo',
@@ -226,30 +256,57 @@ def test_bulk_save_deletes_missing_snapshot_responses(auth_client, professional,
     assert remaining.get().value == 'Não'
 
 
-def test_migrate_legacy_splits_yes_no_and_detail(professional):
+def test_migrate_legacy_splits_yes_no_and_detail(auth_client, professional):
+    tenant = professional.tenant_memberships.first().tenant
     client = Client.objects.create(
+        tenant=tenant,
         professional=professional,
         first_name='Maria',
         last_name='Legacy',
         phone='19888888888',
-        takes_medication='Metformina',
-        had_surgery='Joelho direito',
-        is_pregnant=False,
     )
 
-    seed_stdout = StringIO()
     call_command(
         'seed_anamnesis',
         professional_email=professional.email,
-        stdout=seed_stdout,
+        stdout=StringIO(),
     )
 
-    migrate_stdout = StringIO()
-    call_command(
-        'migrate_anamnesis_legacy',
-        professional_email=professional.email,
-        stdout=migrate_stdout,
+    field_map = {
+        field.code: field.id
+        for field in AnamnesisField.objects.filter(
+            professional=professional,
+            code__in=[
+                'takes_medication',
+                'takes_medication_details',
+                'had_surgery',
+                'had_surgery_details',
+                'is_pregnant',
+            ],
+        )
+    }
+
+    response = auth_client.post(
+        '/anamnesis/responses/bulk_save/',
+        {
+            'client': client.id,
+            'responses': [
+                {'field': field_map['takes_medication'], 'value': 'Sim'},
+                {
+                    'field': field_map['takes_medication_details'],
+                    'value': 'Metformina',
+                },
+                {'field': field_map['had_surgery'], 'value': 'Sim'},
+                {
+                    'field': field_map['had_surgery_details'],
+                    'value': 'Joelho direito',
+                },
+                {'field': field_map['is_pregnant'], 'value': 'Não'},
+            ],
+        },
+        format='json',
     )
+    assert response.status_code == 200, response.content
 
     response_by_code = {
         response.field.code: response.value

@@ -3,11 +3,13 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.agenda.models import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
 from apps.anamnesis.models import AnamnesisField, AnamnesisResponse
 from apps.clients.models import Client
 from apps.register.models import Professional
+from apps.tenancy.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -15,24 +17,35 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    professional = Professional.objects.create_user(
         email='delete-owner@example.com',
         password='secret123',
         first_name='Owner',
         last_name='Tester',
     )
+    professional.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Delete', slug='tenant-delete')
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return professional
 
 
 @pytest.fixture
 def auth_client(professional):
     client = APIClient()
-    client.force_authenticate(user=professional)
+    token = AccessToken.for_user(professional)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 
 
 @pytest.fixture
 def client_obj(professional):
     return Client.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
         first_name='Cliente',
         last_name='Excluir',
@@ -41,8 +54,10 @@ def client_obj(professional):
 
 
 def test_delete_client_cascades_related_records(auth_client, professional, client_obj):
+    tenant = professional.tenant_memberships.first().tenant
     start_at = timezone.now() + timedelta(hours=1)
     appointment = Appointment.objects.create(
+        tenant=tenant,
         professional=professional,
         client=client_obj,
         title='Consulta ativa',
@@ -50,24 +65,28 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
         end_at=start_at + timedelta(hours=1),
     )
     FinalizeAudit.objects.create(
+        tenant=tenant,
         appointment=appointment,
         professional=professional,
         client=client_obj,
         server_now=timezone.now(),
     )
     encounter = Encounter.objects.create(
+        tenant=tenant,
         professional=professional,
         client=client_obj,
         appointment=appointment,
         notes='Atendimento em aberto',
     )
     ClinicalRecord.objects.create(
+        tenant=tenant,
         professional=professional,
         client=client_obj,
         encounter=encounter,
         content='Registro clínico',
     )
     Charge.objects.create(
+        tenant=tenant,
         professional=professional,
         client=client_obj,
         encounter=encounter,
