@@ -275,18 +275,34 @@ def dispatch_due_reminders(
 
     for appointment in appointments:
         summary.processed += 1
-        delivery = dispatch_appointment_reminder(
-            appointment,
-            client=client,
-            dry_run=dry_run,
-            force=appointment_id is not None,
-        )
-        if delivery is None:
-            continue
-        if delivery.status == ReminderDelivery.Status.SENT:
-            summary.sent += 1
-        elif delivery.status == ReminderDelivery.Status.FAILED:
+        try:
+            delivery = dispatch_appointment_reminder(
+                appointment,
+                client=client,
+                dry_run=dry_run,
+                force=appointment_id is not None,
+            )
+            if delivery is None:
+                continue
+            if delivery.status == ReminderDelivery.Status.SENT:
+                summary.sent += 1
+            elif delivery.status == ReminderDelivery.Status.FAILED:
+                summary.failed += 1
+            else:
+                summary.skipped += 1
+        except Exception as exc:  # pragma: no cover - defensive hardening for cron runtime
+            logger.exception(
+                "Erro inesperado ao enviar lembrete appointment_id=%s professional_id=%s: %s",
+                appointment.pk,
+                appointment.professional_id,
+                exc,
+            )
             summary.failed += 1
-        else:
-            summary.skipped += 1
+
+    if summary.processed == 0:
+        logger.info(
+            "Nenhum lembrete elegível encontrado (professional_email=%s appointment_id=%s).",
+            professional_email,
+            appointment_id,
+        )
     return summary

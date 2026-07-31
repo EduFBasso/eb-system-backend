@@ -6,10 +6,15 @@ Run this every 5 minutes via cron:
 This command is kept under agenda only as a stable entrypoint. Delivery logic
 now lives in apps.reminders.
 """
+import logging
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from apps.reminders.services.reminders import dispatch_due_reminders
+
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -40,11 +45,21 @@ class Command(BaseCommand):
             )
             return
 
-        summary = dispatch_due_reminders(
-            professional_email=options["professional_email"],
-            appointment_id=options["appointment_id"],
-            dry_run=options["dry_run"],
-        )
+        try:
+            summary = dispatch_due_reminders(
+                professional_email=options["professional_email"],
+                appointment_id=options["appointment_id"],
+                dry_run=options["dry_run"],
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard for cron runtime
+            logger.exception("Falha inesperada na execução do send_reminders: %s", exc)
+            self.stdout.write(
+                self.style.ERROR(
+                    f"send_reminders (erro) -> falha inesperada: {exc}"
+                )
+            )
+            return
+
         mode = "dry-run" if options["dry_run"] else "execução"
         self.stdout.write(
             f"send_reminders ({mode}) -> processados={summary.processed} enviados={summary.sent} falhas={summary.failed} ignorados={summary.skipped}"
