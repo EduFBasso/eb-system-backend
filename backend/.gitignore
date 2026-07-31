@@ -11,6 +11,8 @@ db.sqlite3
 .tmp/
 docs/
 carga_podologia.json
+carga_podologa.json
+carga_producao_limpa.json
 
 apps/clients/management/commands/export_podologia_json.py
 apps/clients/management/commands/import_bruninha.py

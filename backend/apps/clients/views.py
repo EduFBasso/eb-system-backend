@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.clients.models import Client
 from apps.clients.serializers import ClientSerializer, ClientBasicSerializer
-from apps.anamnesis.models import AnamneseBase
+from apps.anamnesis.models import AnamneseBase, AnamnesePodologia, AnamnesisResponse
 
 
 ANAMNESIS_LINK_SALT = 'anamnesis-link-v1'
@@ -108,6 +108,15 @@ class ClientViewSet(ModelViewSet):
                         tenant_id=tenant.id,
                         professional_id=user_id,
                     ),
+                ),
+                Prefetch(
+                    'anamnesis_responses',
+                    queryset=AnamnesisResponse.objects.filter(
+                        field__professional_id=user_id,
+                        field__professional__tenant_memberships__tenant=tenant,
+                        field__professional__tenant_memberships__is_active=True,
+                        field__professional__tenant_memberships__tenant__is_active=True,
+                    ).select_related('field'),
                 ),
             )
         )

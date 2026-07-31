@@ -59,11 +59,17 @@ class Command(BaseCommand):
             action='store_true',
             help='Mostra o que seria criado sem salvar no banco',
         )
+        parser.add_argument(
+            '--deactivate-missing',
+            action='store_true',
+            help='Desativa campos existentes do profissional que não estiverem no seed atual.',
+        )
 
     def handle(self, *args, **options):
         email = options['professional_email']
         seed_name = options['seed']
         dry_run = options['dry_run']
+        deactivate_missing = options['deactivate_missing']
 
         # Resolve professional
         try:
@@ -92,8 +98,10 @@ class Command(BaseCommand):
 
         created_count = 0
         existing_count = 0
+        deactivated_count = 0
         field_by_code: dict[str, AnamnesisField] = {}
         pending_dependencies: list[tuple[AnamnesisField, str | None, str]] = []
+        seed_codes: set[str] = set()
 
         for sector_block in sectors:
             sector = sector_block['sector']
@@ -101,6 +109,7 @@ class Command(BaseCommand):
 
             for field_def in sector_block['fields']:
                 code = field_def.get('code') or slugify(field_def['label']).replace('-', '_')
+                seed_codes.add(code)
                 if dry_run:
                     self.stdout.write(
                         f'  [dry-run] [{sector}] {field_def["label"]} '
@@ -201,6 +210,19 @@ class Command(BaseCommand):
                 if updated_fields:
                     obj.save(update_fields=updated_fields)
 
+            if deactivate_missing:
+                stale_fields = AnamnesisField.objects.filter(
+                    professional=professional,
+                    is_active=True,
+                ).exclude(code__in=seed_codes)
+                deactivated_count = stale_fields.update(is_active=False)
+                if deactivated_count:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f'  - {deactivated_count} campos ausentes no seed foram desativados.'
+                        )
+                    )
+
         if dry_run:
             self.stdout.write(
                 self.style.WARNING(f'\n[dry-run] {created_count} campos seriam criados.')
@@ -208,6 +230,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'\nConcluído: {created_count} criados, {existing_count} já existiam.'
+                    f'\nConcluído: {created_count} criados, {existing_count} já existiam, '
+                    f'{deactivated_count} desativados.'
                 )
             )

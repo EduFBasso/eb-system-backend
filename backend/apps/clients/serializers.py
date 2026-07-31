@@ -3,7 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timezone as dt_timezone
 from apps.clients.models import Client
-from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
+from apps.anamnesis.models import AnamneseBase, AnamnesePodologia, AnamnesisResponse
 import unicodedata, re
 
 # Helpers de normalização (UF/CEP)
@@ -109,6 +109,7 @@ class ClientSerializer(serializers.ModelSerializer):
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
     anamnese_base = AnamneseBaseSerializer(required=False, allow_null=True)
     anamnese_podologia = AnamnesePodologiaSerializer(required=False, allow_null=True)
+    anamnesis_responses = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
@@ -139,6 +140,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'updated_at',
             'anamnese_base',
             'anamnese_podologia',
+            'anamnesis_responses',
         ]
         read_only_fields = ['id', 'tenant', 'professional', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -272,6 +274,31 @@ class ClientSerializer(serializers.ModelSerializer):
             self._save_nested_anamneses(instance, anamnese_base_data, anamnese_podologia_data)
 
         return instance
+
+    def get_anamnesis_responses(self, client):
+        responses = getattr(client, 'anamnesis_responses', None)
+        if responses is None:
+            return []
+
+        items = []
+        for response in responses.all():
+            field = response.field
+            if field is None:
+                continue
+            items.append(
+                {
+                    'id': response.id,
+                    'field_id': field.id,
+                    'field_code': field.code,
+                    'sector': field.sector,
+                    'sector_order': field.sector_order,
+                    'label': field.label,
+                    'field_type': field.field_type,
+                    'selection_mode': field.selection_mode,
+                    'value': response.value,
+                }
+            )
+        return items
 
 
 class UTCDateTimeField(serializers.DateTimeField):
