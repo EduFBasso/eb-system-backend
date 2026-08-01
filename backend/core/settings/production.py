@@ -28,6 +28,18 @@ def _required_csv(key: str) -> list[str]:
     return values
 
 
+def _infer_webauthn_rp_id(origins: list[str]) -> str:
+    for origin in origins:
+        parsed = urlparse(origin)
+        host = (parsed.hostname or '').strip()
+        if host and host not in {'localhost', '127.0.0.1', '::1'}:
+            return host
+
+    raise ImproperlyConfigured(
+        'WEBAUTHN_RP_ID must be configured in production and must match the frontend origin.'
+    )
+
+
 def _database_from_url(database_url: str) -> dict[str, object]:
     parsed = urlparse(database_url)
     if parsed.scheme not in {'postgres', 'postgresql'}:
@@ -94,3 +106,12 @@ X_FRAME_OPTIONS = 'DENY'
 SERVE_MEDIA_FILES = config('SERVE_MEDIA_FILES', default=False, cast=bool)
 ALLOW_OTP_FALLBACK = False
 OTP_FALLBACK_CODE = ''
+
+# Passkeys/Face ID must use the public frontend origin in production.
+WEBAUTHN_ORIGINS = _csv('WEBAUTHN_ORIGINS', '') or CORS_ALLOWED_ORIGINS
+if not WEBAUTHN_ORIGINS:
+    raise ImproperlyConfigured('WEBAUTHN_ORIGINS must be configured in production.')
+
+WEBAUTHN_RP_ID = _str('WEBAUTHN_RP_ID', default='').strip() or _infer_webauthn_rp_id(
+    WEBAUTHN_ORIGINS
+)
