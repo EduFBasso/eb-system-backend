@@ -1,28 +1,16 @@
 {
   "folders": [
     {
-      // "name": "⚙️ ENGINE - Backend (Django)",
+      "name": "backend",
       "path": "backend",
-      "settings": {
-        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-        "python.terminal.activateEnvironment": true,
-      },
     },
     {
-      // "name": "🩺 CLINIC - Frontend (React)",
+      "name": "frontend-clinic",
       "path": "frontend-clinic",
-      "settings": {
-        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-        "python.terminal.activateEnvironment": true,
-      },
     },
     {
-      // "name": "🍞 BAKERY - Frontend (Futuro)",
+      "name": "frontend-bakery",
       "path": "frontend-bakery",
-      "settings": {
-        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-        "python.terminal.activateEnvironment": true,
-      },
     },
   ],
 
