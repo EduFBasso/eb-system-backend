@@ -1,10 +1,10 @@
 import pytest
 from rest_framework.test import APIClient
 
-from apps.clients.models import Client
-from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
-from apps.register.models import Professional
-from apps.tenancy.models import Tenant, TenantMembership
+from apps.clinic.models.clients import Client
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
+from apps.authentication.models import Professional
+from apps.authentication.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db

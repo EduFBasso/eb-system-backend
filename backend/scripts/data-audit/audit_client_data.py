@@ -33,8 +33,8 @@ def configure_django() -> None:
 
 configure_django()
 
-from apps.clients.models import Client
-from apps.odonto.models import DentalArcade, Procedure, Tooth
+from apps.clinic.models.clients import Client
+from apps.clinic.models.odonto import DentalArcade, Procedure, Tooth
 
 
 def safe_tooth_number(proc: Procedure) -> str:

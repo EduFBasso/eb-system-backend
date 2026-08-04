@@ -1,8 +1,8 @@
 import pytest
 from django.utils import timezone
 
-from apps.agenda.models import Appointment
-from apps.clients.models import Client
+from apps.clinic.models.agenda import Appointment
+from apps.clinic.models.clients import Client
 
 
 @pytest.mark.django_db

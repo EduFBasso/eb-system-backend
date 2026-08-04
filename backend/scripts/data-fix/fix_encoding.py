@@ -34,8 +34,8 @@ import django
 
 django.setup()
 
-from apps.clients.models import Client
-from apps.odonto.models import Procedure
+from apps.clinic.models.clients import Client
+from apps.clinic.models.odonto import Procedure
 
 
 def fix_text(value: str) -> str:

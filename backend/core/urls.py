@@ -6,9 +6,9 @@ from django.http import JsonResponse
 from django.db import connection
 from django.utils import timezone
 from django.views.generic import RedirectView
-from apps.register.authentication import EmailTokenObtainPairView
+from apps.authentication.authentication import EmailTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
-from apps.register.views_sessions import (
+from apps.authentication.views.views_sessions import (
     sessions_summary,
     sessions_active,
     sessions_revoke,
@@ -36,11 +36,11 @@ urlpatterns = [
     path('health', health_view),   # liveness (no slash)
     path('health/full', full_health_view),  # readiness + metadata
     path('admin/', admin.site.urls),
-    path('register/', include('apps.register.urls')),  # 🧩 Rotas do app clínico
-    path('agenda/', include('apps.agenda.urls')),
-    path('inventory/', include('apps.inventory.urls')),
-    path('anamnesis/', include('apps.anamnesis.urls')),
-    path('odonto/', include('apps.odonto.urls')),
+    path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
+    path('agenda/', include('apps.clinic.views.agenda_urls')),
+    path('inventory/', include('apps.clinic.views.inventory_urls')),
+    path('anamnesis/', include('apps.clinic.views.anamnesis_urls')),
+    path('odonto/', include('apps.clinic.views.odonto_urls')),
 
     # 📱 Sessões de dispositivos (fase 1)
     path('sessions/summary', sessions_summary),

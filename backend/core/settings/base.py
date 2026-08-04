@@ -28,14 +28,9 @@ SERVE_MEDIA_FILES: bool = config("SERVE_MEDIA_FILES", default=True, cast=bool)
 
 INSTALLED_APPS = [
     'rest_framework',
-    'apps.agenda',
-    'apps.anamnesis',
-    'apps.clients',
-    'apps.odonto',
-    'apps.reminders',
-    'apps.register',
-    'apps.tenancy',
-    'apps.inventory',
+    'apps.authentication',
+    'apps.clinic',
+    'apps.bakery',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,7 +40,7 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
-AUTH_USER_MODEL = 'register.Professional'
+AUTH_USER_MODEL = 'authentication.Professional'
 
 # === Middleware ===
 

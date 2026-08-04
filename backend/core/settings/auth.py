@@ -11,7 +11,7 @@ from ._helpers import DEBUG, _csv
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'apps.register.auth_device.JWTDeviceAuthentication',
+        'apps.authentication.auth_device.JWTDeviceAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),

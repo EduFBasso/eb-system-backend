@@ -35,8 +35,8 @@ def configure_django() -> None:
 
 configure_django()
 
-from apps.clients.models import Client
-from apps.odonto.models import DentalArcade, Tooth, Surface, Procedure
+from apps.clinic.models.clients import Client
+from apps.clinic.models.odonto import DentalArcade, Tooth, Surface, Procedure
 
 
 def get_client_full_name(client):

@@ -2,7 +2,7 @@ import pytest
 from django.test import override_settings
 from rest_framework.test import APIClient
 
-from apps.clients.models import Client
+from apps.clinic.models.clients import Client
 
 @pytest.mark.django_db
 def test_version_header_present():

@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.register.models import Professional, DeviceSession
+from apps.authentication.models import Professional, DeviceSession
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def test_sessions_revoke_other(auth_client, professional):
 
 def test_sessions_revoke_single(auth_client, professional):
     # Criar mais duas sessões
-    from apps.register.models import DeviceSession
+    from apps.authentication.models import DeviceSession
     s2 = DeviceSession.objects.create(
         professional=professional,
         device_id='other-device-1',

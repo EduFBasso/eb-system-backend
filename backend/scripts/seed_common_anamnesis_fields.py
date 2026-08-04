@@ -25,8 +25,8 @@ django.setup()
 
 from django.db import transaction
 
-from apps.anamnesis.models import AnamnesisField
-from apps.register.models import Professional
+from apps.clinic.models.anamnesis import AnamnesisField
+from apps.authentication.models import Professional
 
 
 @dataclass(frozen=True)

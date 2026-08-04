@@ -5,11 +5,11 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.agenda.models import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
-from apps.anamnesis.models import AnamnesisField, AnamnesisResponse
-from apps.clients.models import Client
-from apps.register.models import Professional
-from apps.tenancy.models import Tenant, TenantMembership
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
+from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
+from apps.clinic.models.clients import Client
+from apps.authentication.models import Professional
+from apps.authentication.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
