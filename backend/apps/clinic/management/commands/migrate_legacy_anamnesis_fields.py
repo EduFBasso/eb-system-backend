@@ -1,0 +1,1 @@
+from .migrate_anamnesis_legacy import Command

@@ -1,0 +1,1 @@
+from .normalize_odonto_encoding import Command

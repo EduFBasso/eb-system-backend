@@ -1,0 +1,1 @@
+from .telegram_link_professional import Command

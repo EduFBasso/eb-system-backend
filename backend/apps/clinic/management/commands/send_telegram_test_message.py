@@ -1,0 +1,1 @@
+from .telegram_send_test import Command

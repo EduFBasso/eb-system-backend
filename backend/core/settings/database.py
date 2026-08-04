@@ -2,11 +2,51 @@
 Configuração do banco de dados: PostgreSQL em produção, SQLite em testes/CI.
 Inclui guarda contra conexão acidental com DB remoto em modo DEBUG.
 """
-import os
+from django.core.exceptions import ImproperlyConfigured
 
-from decouple import config
+from decouple import AutoConfig
 
 from ._helpers import BASE_DIR, DEBUG, _IN_CI  # noqa: F401
+
+config = AutoConfig(search_path=str(BASE_DIR))
+
+
+def _load_local_env() -> dict[str, str]:
+    """Load key=value pairs from backend/.env explicitly.
+
+    This keeps local DB settings deterministic during Gate Zero refactor runs.
+    """
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+_LOCAL_ENV = _load_local_env()
+
+
+def _env(key: str, default: str = '') -> str:
+    local = _LOCAL_ENV.get(key)
+    if local is not None and local != '':
+        return local
+    return str(config(key, default=default))
+
+
+def _required_env(key: str) -> str:
+    value = _env(key, default='').strip()
+    if not value:
+        raise ImproperlyConfigured(
+            f"{key} must be configured (check backend/.env)."
+        )
+    return value
 
 # === Banco de Dados ===
 
@@ -22,12 +62,12 @@ if _USE_SQLITE_FOR_TESTS:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='clinic'),
-            'USER': config('DB_USER', default='clinic'),
-            'PASSWORD': config('DB_PASSWORD', default='clinic'),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
+            'ENGINE': _env('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': _required_env('DB_NAME'),
+            'USER': _required_env('DB_USER'),
+            'PASSWORD': _required_env('DB_PASSWORD'),
+            'HOST': _env('DB_HOST', default='127.0.0.1'),
+            'PORT': _env('DB_PORT', default='5432'),
             'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
             'OPTIONS': {'options': '-c client_encoding=UTF8'},
         }
