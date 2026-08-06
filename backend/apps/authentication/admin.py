@@ -1,6 +1,9 @@
 from django.contrib import admin
 from .models import Professional, DeviceSession, ProfessionalSettings
 
+# Garante o carregamento dos registros de Tenant/TenantMembership no Django Admin.
+from . import tenancy_admin  # noqa: F401
+
 
 @admin.register(Professional)
 class ProfessionalAdmin(admin.ModelAdmin):

@@ -1,0 +1,1 @@
+"""Utilitarios compartilhados entre os aplicativos do backend."""

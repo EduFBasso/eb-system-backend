@@ -7,6 +7,7 @@ from django.db import connection
 from django.utils import timezone
 from django.views.generic import RedirectView
 from apps.authentication.authentication import EmailTokenObtainPairView
+from apps.authentication.views.views_bakery_auth import BakeryTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from apps.authentication.views.views_sessions import (
     sessions_summary,
@@ -36,6 +37,8 @@ urlpatterns = [
     path('health', health_view),   # liveness (no slash)
     path('health/full', full_health_view),  # readiness + metadata
     path('admin/', admin.site.urls),
+    path('api/v1/auth/bakery/login/', BakeryTokenObtainPairView.as_view(), name='bakery_token_obtain_pair'),
+    path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
     path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
     path('agenda/', include('apps.clinic.views.agenda_urls')),
     path('inventory/', include('apps.clinic.views.inventory_urls')),

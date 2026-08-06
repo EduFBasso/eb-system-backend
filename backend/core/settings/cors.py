@@ -18,7 +18,7 @@ if DEV_ALLOW_LAN_HOSTS:
 
 CORS_ALLOWED_ORIGINS: list[str] = _csv(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
 )
 
 CORS_ALLOWED_ORIGIN_REGEXES: list[str] = _csv("CORS_ALLOWED_ORIGIN_REGEXES", "")
