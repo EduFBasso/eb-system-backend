@@ -52,7 +52,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--seed',
             default='podologia_unhas',
-            help='Nome do módulo de seed em apps/anamnesis/seeds/ (default: podologia_unhas)',
+            help='Nome do módulo de seed em apps/clinic/seeds/ (default: podologia_unhas)',
         )
         parser.add_argument(
             '--dry-run',
@@ -88,8 +88,8 @@ class Command(BaseCommand):
             module = importlib.import_module(f'apps.clinic.seeds.{seed_name}')
         except ModuleNotFoundError:
             raise CommandError(
-                f'Seed "{seed_name}" não encontrado em apps/anamnesis/seeds/. '
-                f'Crie o arquivo apps/anamnesis/seeds/{seed_name}.py'
+                f'Seed "{seed_name}" não encontrado em apps/clinic/seeds/. '
+                f'Crie o arquivo apps/clinic/seeds/{seed_name}.py'
             )
 
         sectors = getattr(module, 'SECTORS', None)

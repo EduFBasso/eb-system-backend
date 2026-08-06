@@ -1,7 +1,7 @@
 """Management command: send Telegram reminders for upcoming appointments.
 
 Run this every 5 minutes via cron:
-    */5 * * * * /path/to/.venv/bin/python manage.py send_reminders
+    */5 * * * * /path/to/.venv/bin/python manage.py send_clinic_appointment_reminders
 
 This command is kept under agenda only as a stable entrypoint. Delivery logic
 now lives in apps.reminders.
@@ -41,7 +41,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not settings.APPOINTMENT_REMINDERS_ENABLED:
             self.stdout.write(
-                "send_reminders (desativado) -> reminders globais desligados por APPOINTMENT_REMINDERS_ENABLED=false"
+                "send_clinic_appointment_reminders (desativado) -> reminders globais desligados por APPOINTMENT_REMINDERS_ENABLED=false"
             )
             return
 
@@ -52,15 +52,15 @@ class Command(BaseCommand):
                 dry_run=options["dry_run"],
             )
         except Exception as exc:  # pragma: no cover - defensive guard for cron runtime
-            logger.exception("Falha inesperada na execução do send_reminders: %s", exc)
+            logger.exception("Falha inesperada na execução do send_clinic_appointment_reminders: %s", exc)
             self.stdout.write(
                 self.style.ERROR(
-                    f"send_reminders (erro) -> falha inesperada: {exc}"
+                    f"send_clinic_appointment_reminders (erro) -> falha inesperada: {exc}"
                 )
             )
             return
 
         mode = "dry-run" if options["dry_run"] else "execução"
         self.stdout.write(
-            f"send_reminders ({mode}) -> processados={summary.processed} enviados={summary.sent} falhas={summary.failed} ignorados={summary.skipped}"
+            f"send_clinic_appointment_reminders ({mode}) -> processados={summary.processed} enviados={summary.sent} falhas={summary.failed} ignorados={summary.skipped}"
         )
