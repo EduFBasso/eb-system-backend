@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.authentication.backfill import backfill_existing_tenants
+from apps.authentication.services.backfill import backfill_existing_tenants
 
 
 class Command(BaseCommand):

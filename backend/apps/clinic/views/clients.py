@@ -4,7 +4,7 @@ from django.db.models import Q, OuterRef, Subquery, DateTimeField, CharField, Ca
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from apps.clinic.models.agenda import Appointment
-from apps.clinic.state_utils import promote_scheduled_to_ongoing, promote_overdue_scheduled_to_pending
+from apps.clinic.services.state_utils import promote_scheduled_to_ongoing, promote_overdue_scheduled_to_pending
 from rest_framework import filters
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response

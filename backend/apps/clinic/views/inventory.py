@@ -3,8 +3,8 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import Supplier, Product, StockMove, Service, ServiceMaterial
-from .serializers import (
+from apps.clinic.models.inventory import Supplier, Product, StockMove, Service, ServiceMaterial
+from apps.clinic.serializers.inventory import (
     SupplierSerializer,
     ProductSerializer,
     StockMoveSerializer,

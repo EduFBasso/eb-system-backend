@@ -151,7 +151,11 @@ def test_send_reminders_command_can_force_specific_appointment(
             "result": {"message_id": 88},
         }
 
-        call_command("send_reminders", "--appointment-id", str(appointment.pk))
+        call_command(
+            "send_clinic_appointment_reminders",
+            "--appointment-id",
+            str(appointment.pk),
+        )
 
     appointment.refresh_from_db()
     assert appointment.reminder_sent is True

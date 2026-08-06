@@ -10,8 +10,8 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 from django.core.mail import EmailMessage
-from .models import Professional, DeviceSession
-from .serializers import ProfessionalSerializer
+from apps.authentication.models import Professional, DeviceSession
+from apps.authentication.serializers.serializers_professionals import ProfessionalSerializer
 
 logger = logging.getLogger(__name__)
 

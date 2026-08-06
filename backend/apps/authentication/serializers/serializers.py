@@ -5,7 +5,7 @@ from .serializers_professionals import (
 )
 from .serializers_auth import CustomTokenObtainPairSerializer
 from rest_framework import serializers
-from .models import ProfessionalSettings
+from apps.authentication.models import ProfessionalSettings
 from typing import Any, Dict
 
 

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.clinic.models.clients import Client
-from .models import DentalArcade, Tooth, Surface, Procedure
+from apps.clinic.models.odonto import DentalArcade, Tooth, Surface, Procedure
 
 
 class ProcedureSerializer(serializers.ModelSerializer):

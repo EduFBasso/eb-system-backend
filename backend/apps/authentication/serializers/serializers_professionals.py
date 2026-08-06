@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Professional
+from apps.authentication.models import Professional
 from rest_framework.permissions import BasePermission
 
 class ProfessionalSerializer(serializers.ModelSerializer):

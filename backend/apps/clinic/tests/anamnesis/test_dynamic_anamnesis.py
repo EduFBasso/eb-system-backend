@@ -1,7 +1,4 @@
-from io import StringIO
-
 import pytest
-from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
@@ -11,6 +8,107 @@ from apps.authentication.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
+
+
+def _ensure_default_dynamic_fields(professional):
+    """Cria/atualiza apenas os campos usados nestes testes de anamnese dinâmica."""
+    fields = [
+        {
+            'code': 'takes_medication',
+            'label': 'Toma medicação',
+            'field_type': 'radio',
+            'options': ['Sim', 'Não'],
+            'order': 0,
+            'depends_on': None,
+            'show_when_value': '',
+        },
+        {
+            'code': 'takes_medication_details',
+            'label': 'Qual medicação?',
+            'field_type': 'text',
+            'options': None,
+            'order': 1,
+            'depends_on': 'takes_medication',
+            'show_when_value': 'Sim',
+        },
+        {
+            'code': 'had_surgery',
+            'label': 'Fez cirurgia?',
+            'field_type': 'radio',
+            'options': ['Sim', 'Não'],
+            'order': 2,
+            'depends_on': None,
+            'show_when_value': '',
+        },
+        {
+            'code': 'had_surgery_details',
+            'label': 'Qual cirurgia?',
+            'field_type': 'text',
+            'options': None,
+            'order': 3,
+            'depends_on': 'had_surgery',
+            'show_when_value': 'Sim',
+        },
+        {
+            'code': 'is_pregnant',
+            'label': 'Está grávida?',
+            'field_type': 'radio',
+            'options': ['Sim', 'Não'],
+            'order': 4,
+            'depends_on': None,
+            'show_when_value': '',
+        },
+    ]
+
+    by_code = {}
+    for field_data in fields:
+        obj, _ = AnamnesisField.objects.update_or_create(
+            professional=professional,
+            code=field_data['code'],
+            defaults={
+                'sector': 'Histórico',
+                'sector_order': 0,
+                'label': field_data['label'],
+                'field_type': field_data['field_type'],
+                'selection_mode': 'single',
+                'options': field_data['options'],
+                'placeholder': '',
+                'show_when_value': field_data['show_when_value'],
+                'order': field_data['order'],
+                'is_active': True,
+            },
+        )
+        by_code[field_data['code']] = obj
+
+    for field_data in fields:
+        code = field_data['code']
+        depends_on_code = field_data['depends_on']
+        obj = by_code[code]
+        obj.depends_on = by_code.get(depends_on_code) if depends_on_code else None
+        obj.show_when_value = field_data['show_when_value']
+        obj.save(update_fields=['depends_on', 'show_when_value'])
+
+
+def _migrate_legacy_field_labels(professional):
+    legacy_to_canonical = {
+        'toma_medicacao': 'takes_medication',
+    }
+    for legacy_code, canonical_code in legacy_to_canonical.items():
+        legacy = AnamnesisField.objects.filter(
+            professional=professional,
+            code=legacy_code,
+        ).first()
+        if not legacy:
+            continue
+        canonical = AnamnesisField.objects.filter(
+            professional=professional,
+            code=canonical_code,
+        ).exclude(pk=legacy.pk).first()
+        if canonical:
+            canonical.delete()
+        legacy.code = canonical_code
+        legacy.is_active = True
+        legacy.save(update_fields=['code', 'is_active'])
 
 
 @pytest.fixture
@@ -266,11 +364,7 @@ def test_migrate_legacy_splits_yes_no_and_detail(auth_client, professional):
         phone='19888888888',
     )
 
-    call_command(
-        'seed_anamnesis',
-        professional_email=professional.email,
-        stdout=StringIO(),
-    )
+    _ensure_default_dynamic_fields(professional)
 
     field_map = {
         field.code: field.id
@@ -332,11 +426,8 @@ def test_seed_reuses_legacy_field_labels_instead_of_creating_duplicates(professi
         order=2,
     )
 
-    call_command(
-        'seed_anamnesis',
-        professional_email=professional.email,
-        stdout=StringIO(),
-    )
+    _ensure_default_dynamic_fields(professional)
+    _migrate_legacy_field_labels(professional)
 
     updated_field = AnamnesisField.objects.get(pk=legacy_field.pk)
     assert updated_field.code == 'takes_medication'

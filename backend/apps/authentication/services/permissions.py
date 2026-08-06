@@ -2,7 +2,7 @@ from typing import Any
 
 from rest_framework import permissions
 
-from .models import TenantMembership
+from apps.authentication.models import TenantMembership
 
 
 def user_has_tenant_capability(user: Any, capability_name: str) -> bool:

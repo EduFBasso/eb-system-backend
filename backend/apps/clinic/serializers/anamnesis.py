@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AnamnesisField, AnamnesisResponse
+from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
 
 
 class AnamnesisFieldSerializer(serializers.ModelSerializer):

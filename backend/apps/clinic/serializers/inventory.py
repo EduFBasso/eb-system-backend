@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Supplier, Product, StockMove, Service, ServiceMaterial
+from apps.clinic.models.inventory import Supplier, Product, StockMove, Service, ServiceMaterial
 
 
 class SupplierSerializer(serializers.ModelSerializer):

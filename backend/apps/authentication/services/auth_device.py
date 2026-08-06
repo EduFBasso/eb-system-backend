@@ -7,7 +7,7 @@ DRF também carrega DEFAULT_AUTHENTICATION_CLASSES simultaneamente.
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import exceptions
 from django.utils.translation import gettext_lazy as _
-from .models import DeviceSession
+from apps.authentication.models import DeviceSession
 import logging
 
 _auth_logger = logging.getLogger('auth.device')

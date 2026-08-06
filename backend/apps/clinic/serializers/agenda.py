@@ -4,8 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.clinic.models.inventory import Product, Service
-
-from .models import (
+from apps.clinic.models.agenda import (
     Appointment,
     Charge,
     ChargeItem,

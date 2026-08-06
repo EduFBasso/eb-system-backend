@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.db import connection
 from django.utils import timezone
 from django.views.generic import RedirectView
-from apps.authentication.authentication import EmailTokenObtainPairView
+from apps.authentication.services.authentication import EmailTokenObtainPairView
 from apps.authentication.views.views_bakery_auth import BakeryTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from apps.authentication.views.views_sessions import (

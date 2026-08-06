@@ -5,8 +5,7 @@ from django.dispatch import receiver
 from django.utils.text import slugify
 
 from apps.authentication.models import Professional
-
-from .models import Tenant, TenantMembership
+from apps.authentication.models import Tenant, TenantMembership
 
 _ODONTO_SPECIALTY_TOKENS = ("odonto", "dent", "ortodont")
 

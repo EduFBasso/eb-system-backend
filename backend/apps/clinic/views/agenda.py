@@ -8,8 +8,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from django.utils import timezone
 
-from .models import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
-from .serializers import (
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
+from apps.clinic.serializers.agenda import (
     AppointmentSerializer,
     ChargeSerializer,
     ClinicalRecordSerializer,

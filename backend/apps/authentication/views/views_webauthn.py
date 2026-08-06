@@ -42,7 +42,7 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from .models import DeviceSession, Professional, WebAuthnCredential
+from apps.authentication.models import DeviceSession, Professional, WebAuthnCredential
 from .serializers_professionals import ProfessionalSerializer
 
 logger = logging.getLogger(__name__)

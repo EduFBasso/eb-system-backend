@@ -8,9 +8,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from apps.authentication.permissions import HasTenantCapability
-
-from .models import (
+from apps.authentication.services.permissions import HasTenantCapability
+from apps.clinic.models.odonto import (
     DentalArcade,
     Tooth,
     Surface,
@@ -18,7 +17,7 @@ from .models import (
     ProcedureNameSuggestion,
     ProductCatalogItem,
 )
-from .serializers import (
+from apps.clinic.serializers.odonto import (
     DentalArcadeDetailSerializer,
     DentalArcadeListSerializer,
     DentalArcadeWriteSerializer,

@@ -1,8 +1,8 @@
 # backend\apps\register\views_professionals.py
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from .models import Professional, ProfessionalSettings
-from .serializers import (
+from apps.authentication.models import Professional, ProfessionalSettings
+from apps.authentication.serializers.serializers import (
     ProfessionalSerializer,
     ProfessionalBasicSerializer,
     ProfessionalSettingsSerializer,

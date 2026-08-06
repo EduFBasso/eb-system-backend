@@ -11,8 +11,8 @@ from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 
 from apps.clinic.models.clients import Client
-from .models import AnamnesisField, AnamnesisResponse
-from .serializers import (
+from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
+from apps.clinic.serializers.anamnesis import (
     AnamnesisFieldSerializer,
     AnamnesisResponseSerializer,
     AnamnesisResponseBulkSerializer,

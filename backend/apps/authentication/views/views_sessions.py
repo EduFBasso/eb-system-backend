@@ -25,7 +25,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import transaction
-from .models import DeviceSession
+from apps.authentication.models import DeviceSession
 import logging
 import re
 
