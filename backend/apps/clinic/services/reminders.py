@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 # reminders that become due a few seconds before the next execution.
 REMINDER_DISPATCH_TOLERANCE = timedelta(minutes=2)
 
+# Allow the first dispatches after work start to notify the first appointment
+# of the day when its ideal reminder time happened overnight.
+WORK_START_RETROACTIVE_GRACE = timedelta(minutes=15)
+
 
 @dataclass
 class DispatchSummary:
@@ -29,6 +34,46 @@ class DispatchSummary:
     sent: int = 0
     failed: int = 0
     skipped: int = 0
+
+
+def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
+    local_now = timezone.localtime(now)
+    work_start = local_now.replace(
+        hour=prof_settings.work_start_hour,
+        minute=prof_settings.work_start_minute,
+        second=0,
+        microsecond=0,
+    )
+    if prof_settings.work_end_hour == 24:
+        work_end = local_now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ) + timedelta(days=1)
+    else:
+        work_end = local_now.replace(
+            hour=prof_settings.work_end_hour,
+            minute=prof_settings.work_end_minute,
+            second=0,
+            microsecond=0,
+        )
+    return local_now, work_start, work_end
+
+
+def _is_within_work_window(now, prof_settings: ProfessionalSettings) -> bool:
+    local_now, work_start, work_end = _get_work_window_bounds(now, prof_settings)
+    return work_start <= local_now < work_end
+
+
+def _get_catch_up_window_end(now, prof_settings: ProfessionalSettings):
+    local_now, work_start, _ = _get_work_window_bounds(now, prof_settings)
+    catch_up_window_end = work_start + timedelta(
+        minutes=prof_settings.reminder_minutes_before
+    )
+    if local_now >= catch_up_window_end:
+        return None
+    return catch_up_window_end
 
 
 def _format_client_name(appointment: Appointment) -> str:
@@ -127,21 +172,44 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
         )
 
     for prof_settings in prof_settings_qs:
+        if not _is_within_work_window(now, prof_settings):
+            continue
+
         trigger_window_end = now + timedelta(
             minutes=prof_settings.reminder_minutes_before
         )
         trigger_window_start = trigger_window_end - REMINDER_DISPATCH_TOLERANCE
+        appointment_filters = Q(
+            start_at__gte=trigger_window_start,
+            start_at__lte=trigger_window_end,
+        )
+
+        catch_up_window_end = _get_catch_up_window_end(now, prof_settings)
+        if catch_up_window_end is not None:
+            local_now, work_start, _ = _get_work_window_bounds(now, prof_settings)
+            catch_up_window_start = work_start
+            retroactive_floor = local_now - WORK_START_RETROACTIVE_GRACE
+            if retroactive_floor > catch_up_window_start:
+                catch_up_window_start = retroactive_floor
+
+            # Reminders that became due before work start stay queued until the
+            # professional enters the next work window. A short grace window
+            # right after opening also covers the first appointment of the day.
+            appointment_filters |= Q(
+                start_at__gte=catch_up_window_start,
+                start_at__lte=catch_up_window_end,
+            )
 
         appointments = (
             Appointment.objects.filter(
                 professional=prof_settings.professional,
                 status=Appointment.Status.SCHEDULED,
-                start_at__gte=trigger_window_start,
-                start_at__lte=trigger_window_end,
                 reminder_sent=False,
             )
+            .filter(appointment_filters)
             .select_related("client", "professional")
             .order_by("start_at")
+            .distinct()
         )
         for appointment in appointments:
             yield appointment

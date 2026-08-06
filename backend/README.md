@@ -42,6 +42,31 @@ cd backend
 ./.venv/bin/python manage.py runserver
 ```
 
+## Teste local de reminders
+
+Fluxo mais próximo do ambiente online:
+
+```bash
+cd backend
+bash dev.sh
+```
+
+Esse script sobe o Django e executa o comando canônico de reminders em loop a cada 5 minutos.
+
+Teste manual pontual do comando:
+
+```bash
+cd backend
+./.venv/bin/python manage.py send_clinic_appointment_reminders --dry-run
+```
+
+Variações úteis:
+
+```bash
+./.venv/bin/python manage.py send_clinic_appointment_reminders --appointment-id <id>
+./.venv/bin/python manage.py send_clinic_appointment_reminders --professional-email <email>
+```
+
 Validação:
 
 ```bash

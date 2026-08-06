@@ -198,6 +198,114 @@ def test_get_due_appointments_tolerates_scheduler_drift_after_threshold(
     assert appointment.id in due_ids
 
 
+def test_get_due_appointments_skips_dispatch_before_work_start(
+    appointment,
+    reminder_settings,
+):
+    reference = timezone.localtime(timezone.now()).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    appointment.start_at = reference.replace(hour=7, minute=0)
+    appointment.end_at = reference.replace(hour=8, minute=0)
+    appointment.save(update_fields=["start_at", "end_at"])
+
+    reminder_settings.work_start_hour = 6
+    reminder_settings.work_start_minute = 0
+    reminder_settings.work_end_hour = 21
+    reminder_settings.work_end_minute = 0
+    reminder_settings.reminder_minutes_before = 90
+    reminder_settings.save(
+        update_fields=[
+            "work_start_hour",
+            "work_start_minute",
+            "work_end_hour",
+            "work_end_minute",
+            "reminder_minutes_before",
+        ]
+    )
+
+    now = reference.replace(hour=5, minute=45)
+
+    due_ids = [item.id for item in get_due_appointments(now=now)]
+
+    assert appointment.id not in due_ids
+
+
+def test_get_due_appointments_releases_overnight_backlog_at_work_start(
+    appointment,
+    reminder_settings,
+):
+    reference = timezone.localtime(timezone.now()).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    appointment.start_at = reference.replace(hour=7, minute=0)
+    appointment.end_at = reference.replace(hour=8, minute=0)
+    appointment.save(update_fields=["start_at", "end_at"])
+
+    reminder_settings.work_start_hour = 6
+    reminder_settings.work_start_minute = 0
+    reminder_settings.work_end_hour = 21
+    reminder_settings.work_end_minute = 0
+    reminder_settings.reminder_minutes_before = 90
+    reminder_settings.save(
+        update_fields=[
+            "work_start_hour",
+            "work_start_minute",
+            "work_end_hour",
+            "work_end_minute",
+            "reminder_minutes_before",
+        ]
+    )
+
+    now = reference.replace(hour=6, minute=5)
+
+    due_ids = [item.id for item in get_due_appointments(now=now)]
+
+    assert appointment.id in due_ids
+
+
+def test_get_due_appointments_allows_first_appointment_shortly_after_opening(
+    appointment,
+    reminder_settings,
+):
+    reference = timezone.localtime(timezone.now()).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    appointment.start_at = reference.replace(hour=6, minute=0)
+    appointment.end_at = reference.replace(hour=7, minute=0)
+    appointment.save(update_fields=["start_at", "end_at"])
+
+    reminder_settings.work_start_hour = 6
+    reminder_settings.work_start_minute = 0
+    reminder_settings.work_end_hour = 21
+    reminder_settings.work_end_minute = 0
+    reminder_settings.reminder_minutes_before = 180
+    reminder_settings.save(
+        update_fields=[
+            "work_start_hour",
+            "work_start_minute",
+            "work_end_hour",
+            "work_end_minute",
+            "reminder_minutes_before",
+        ]
+    )
+
+    now = reference.replace(hour=6, minute=5)
+
+    due_ids = [item.id for item in get_due_appointments(now=now)]
+
+    assert appointment.id in due_ids
+
+
 def test_dispatch_due_reminders_is_disabled_by_global_flag(
     appointment,
     reminder_settings,

@@ -5,7 +5,7 @@
 #   cd backend
 #   bash dev.sh
 #
-# O loop de lembretes roda send_reminders a cada 5 minutos por padrão
+# O loop de lembretes roda send_clinic_appointment_reminders a cada 5 minutos por padrão
 # (mesmo comportamento esperado para o cron configurado no Render em produção).
 # Em produção NÃO use este script — configure o cron job no Render.
 
@@ -15,13 +15,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-REMINDERS_LOOP_INTERVAL_SECONDS="${REMINDERS_LOOP_INTERVAL_SECONDS:-300}"
+REMINDERS_LOOP_INTERVAL_SECONDS="${REMINDERS_LOOP_INTERVAL_SECONDS:-60}"
 
 # ── Loop de lembretes em background ────────────────────────────────────────
 reminder_loop() {
-    echo "[reminders] Loop iniciado — rodando send_reminders a cada ${REMINDERS_LOOP_INTERVAL_SECONDS} s"
+    echo "[reminders] Loop iniciado — rodando send_clinic_appointment_reminders a cada ${REMINDERS_LOOP_INTERVAL_SECONDS} s"
     while true; do
-        python manage.py send_reminders 2>&1 | sed 's/^/[reminders] /'
+        python manage.py send_clinic_appointment_reminders 2>&1 | sed 's/^/[reminders] /'
         sleep "$REMINDERS_LOOP_INTERVAL_SECONDS"
     done
 }
