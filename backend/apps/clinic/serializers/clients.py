@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timezone as dt_timezone
 from apps.clinic.models.clients import Client
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia, AnamnesisResponse
+from utils.cep import normalize_cep
 import unicodedata, re
 
 # Helpers de normalização (UF/CEP)
@@ -32,16 +33,6 @@ def _normalize_uf(value: str) -> str:
     if key in _UF_MAP:
         return _UF_MAP[key]
     raise serializers.ValidationError("Estado inválido. Use a sigla (ex.: SP) ou o nome completo do estado.")
-
-def _normalize_cep(value: str) -> str:
-    raw = (value or '').strip()
-    if not raw:
-        return ''
-    digits = re.sub(r'\D+', '', raw)
-    if len(digits) == 8:
-        return digits
-    raise serializers.ValidationError("CEP inválido. Use 8 dígitos (ex.: 13480460).")
-
 
 class AnamneseBaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -206,7 +197,10 @@ class ClientSerializer(serializers.ModelSerializer):
     def validate_postal_code(self, value: str) -> str:
         if value in (None, ''):
             return ''
-        return _normalize_cep(value)
+        digits = normalize_cep(value)
+        if len(digits) == 8:
+            return digits
+        raise serializers.ValidationError("CEP inválido. Use 8 dígitos (ex.: 13480460).")
 
     def _save_nested_anamneses(self, client: Client, base_data, podologia_data) -> None:
         tenant = _active_anamnese_tenant(self.context)

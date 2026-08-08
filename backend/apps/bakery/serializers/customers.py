@@ -80,6 +80,8 @@ class BakeryCustomerSerializer(serializers.ModelSerializer):
         )
         extra_kwargs = {
             "user": {"required": False},
+            "cpf": {"required": False, "allow_blank": True},
+            "cnpj": {"required": False, "allow_blank": True},
         }
 
     def validate(self, attrs):
