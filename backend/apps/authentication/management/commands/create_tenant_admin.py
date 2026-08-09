@@ -40,6 +40,44 @@ def _capabilities_for_specialty(specialty: str) -> dict[str, bool]:
     return caps
 
 
+def _normalize_secret_token(value: str) -> str:
+    return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
+
+
+def _password_uses_identity(raw_password: str, *, email: str, first_name: str, last_name: str, login_alias: str) -> bool:
+    normalized_password = _normalize_secret_token(raw_password)
+    if not normalized_password:
+        return False
+
+    local_part = (email or '').split('@')[0]
+    full_name = f"{first_name} {last_name}".strip()
+    candidates = [first_name, last_name, full_name, email, local_part, login_alias]
+    normalized_candidates = {_normalize_secret_token(item) for item in candidates if item}
+    return normalized_password in normalized_candidates
+
+
+def _has_duplicate_bakery_owner_name(first_name: str, last_name: str, current_professional_id: int | None) -> bool:
+    queryset = TenantMembership.objects.filter(
+        tenant__ecosystem=Tenant.Ecosystem.BAKERY,
+        role=TenantMembership.Role.OWNER,
+        professional__first_name__iexact=(first_name or '').strip(),
+        professional__last_name__iexact=(last_name or '').strip(),
+    )
+    if current_professional_id is not None:
+        queryset = queryset.exclude(professional_id=current_professional_id)
+    return queryset.exists()
+
+
+def _is_password_reused(raw_password: str, current_user: Professional | None = None) -> bool:
+    queryset = Professional.objects.all()
+    if current_user and current_user.pk:
+        queryset = queryset.exclude(pk=current_user.pk)
+    for professional in queryset.iterator():
+        if professional.has_usable_password() and professional.check_password(raw_password):
+            return True
+    return False
+
+
 class Command(BaseCommand):
     help = "Cria ou atualiza um admin (owner) de tenant — Clinic ou Bakery."
 
@@ -73,6 +111,15 @@ class Command(BaseCommand):
         if not password:
             raise CommandError("--password não pode estar vazio.")
 
+        if _password_uses_identity(
+            password,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            login_alias=login_alias,
+        ):
+            raise CommandError("A senha não pode ser igual ao nome, sobrenome, e-mail ou alias de login.")
+
         # Capabilities
         if ecosystem == "clinic":
             capabilities = _capabilities_for_specialty(specialty)
@@ -92,6 +139,19 @@ class Command(BaseCommand):
         )
         if not created:
             self.stdout.write(f"  Professional já existe: {email}")
+
+        if ecosystem == "bakery" and _has_duplicate_bakery_owner_name(
+            first_name,
+            last_name,
+            current_professional_id=professional.id,
+        ):
+            raise CommandError(
+                "Já existe outro owner Bakery com o mesmo nome e sobrenome. Use um nome administrativo diferente."
+            )
+
+        if _is_password_reused(password, current_user=professional):
+            raise CommandError("Esta senha já está em uso por outro profissional.")
+
         professional.set_password(password)
         professional.save(update_fields=["password"])
 

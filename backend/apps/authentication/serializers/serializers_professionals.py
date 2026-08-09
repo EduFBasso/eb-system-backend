@@ -36,7 +36,7 @@ class ProfessionalSerializer(serializers.ModelSerializer):
 class ProfessionalBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Professional
-        fields = ['id', 'email', 'first_name', 'last_name', 'display_name', 'register_number']
+        fields = ['id', 'email', 'first_name', 'last_name', 'display_name', 'register_number', 'specialty']
 
 
 class CanManageProfessionals(BasePermission):

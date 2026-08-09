@@ -10,6 +10,7 @@ from apps.authentication.serializers.serializers import (
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 from django.conf import settings as django_settings
 from django.core import signing
 from django.utils import timezone
@@ -364,5 +365,20 @@ class ProfessionalBasicViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        # Oculta superusuários da lista pública de profissionais (não exibir no menu de login)
-        return Professional.objects.filter(is_superuser=False, is_active=True)
+        # Cada frontend passa ?ecosystem=<valor>; padrão clinic para retrocompatibilidade.
+        # A filtragem estrita por membership garante isolamento entre sistemas.
+        ecosystem = self.request.query_params.get('ecosystem', 'clinic')
+        if ecosystem not in {'clinic', 'bakery'}:
+            ecosystem = 'clinic'
+        return (
+            Professional.objects.filter(
+                is_superuser=False,
+                is_active=True,
+                tenant_memberships__is_active=True,
+                tenant_memberships__tenant__is_active=True,
+                tenant_memberships__tenant__ecosystem=ecosystem,
+            )
+            .exclude(email__iendswith='@local.invalid')
+            .distinct()
+            .order_by('first_name', 'last_name', 'id')
+        )
