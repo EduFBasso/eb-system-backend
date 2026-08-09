@@ -5,103 +5,113 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from apps.authentication.models import TenantMembership
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer
 
 
 class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Serializer de login exclusivo do ecossistema Bakery.
+    """Login exclusivo do ecossistema Bakery.
 
-    Regra de acesso:
-    - autentica com email + password no user global;
-    - exige membership ativa em tenant ativo com capability `bakery`.
+    Recebe: { login, password, tenant_slug }
+    - login pode ser email ou login_alias da membership naquele tenant.
+    - tenant_slug identifica o tenant sem ambiguidade.
     """
 
     username_field = "email"
 
-    @staticmethod
-    def _resolve_customer_by_login(login_value: str) -> BakeryCustomer | None:
-        # Compatibilidade com fluxo legado do frontend Bakery: login por apelido.
-        return (
-            BakeryCustomer.objects.select_related('user', 'tenant')
+    login = serializers.CharField(write_only=True)
+    tenant_slug = serializers.SlugField(write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove o campo 'email' padrão do TokenObtainPairSerializer
+        self.fields.pop("email", None)
+
+    def _resolve_email(self, login: str, tenant: Tenant) -> str | None:
+        """Resolve login como email ou login_alias dentro do tenant."""
+        if "@" in login:
+            return login.strip().lower()
+
+        # Busca por alias na membership do tenant
+        membership = (
+            TenantMembership.objects
+            .select_related("professional")
             .filter(
-                nickname__iexact=login_value,
-                tenant__is_active=True,
+                tenant=tenant,
+                login_alias__iexact=login,
+                is_active=True,
             )
-            .order_by('id')
             .first()
         )
+        if membership:
+            return membership.professional.email
+
+        return None
 
     def validate(self, attrs):
-        login_value = (attrs.get("email") or "").strip()
-        password = attrs.get("password")
+        login = attrs.get("login", "").strip()
+        password = attrs.get("password", "")
+        tenant_slug = attrs.get("tenant_slug", "").strip()
 
-        customer = None
-        email = login_value
-        if "@" not in login_value:
-            customer = self._resolve_customer_by_login(login_value)
-            if customer is not None:
-                email = customer.user.email
+        if not login or not password or not tenant_slug:
+            raise serializers.ValidationError(_("login, password e tenant_slug são obrigatórios."))
 
-        normalized_attrs = {**attrs, "email": email}
+        # Resolve tenant
+        try:
+            tenant = Tenant.objects.get(slug=tenant_slug, is_active=True, ecosystem=Tenant.Ecosystem.BAKERY)
+        except Tenant.DoesNotExist:
+            raise serializers.ValidationError(_("Tenant Bakery não encontrado ou inativo."))
 
+        # Resolve email dentro do tenant
+        email = self._resolve_email(login, tenant)
+        if not email:
+            raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
+
+        # Autentica
         user = authenticate(username=email, password=password)
         if user is None:
-            raise serializers.ValidationError(
-                _("Invalid credentials or user not found.")
-            )
+            raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
 
         if not user.is_active:
-            raise serializers.ValidationError(_("This account is inactive."))
+            raise serializers.ValidationError(_("Esta conta está desativada."))
 
-        memberships = TenantMembership.objects.select_related("tenant").filter(
-            professional=user,
-            is_active=True,
-            tenant__is_active=True,
-        )
-        has_bakery_capability = any(
-            membership.tenant.has_capability("bakery")
-            for membership in memberships
-        )
-        if not has_bakery_capability:
-            raise serializers.ValidationError(
-                _("User has no active tenant with bakery capability.")
+        # Exige membership ativa no tenant Bakery
+        try:
+            membership = TenantMembership.objects.select_related("tenant").get(
+                professional=user,
+                tenant=tenant,
+                is_active=True,
             )
+        except TenantMembership.DoesNotExist:
+            raise serializers.ValidationError(_("Usuário não possui acesso a este tenant Bakery."))
 
-        if customer is None:
-            customer = (
-                BakeryCustomer.objects.select_related('tenant')
-                .filter(user=user, tenant__is_active=True)
-                .order_by('id')
-                .first()
-            )
-
+        # Verifica se é customer e aplica regras de status
+        customer: BakeryCustomer | None = (
+            BakeryCustomer.objects
+            .filter(user=user, tenant=tenant)
+            .first()
+        )
         if customer is not None:
             if customer.status == BakeryCustomer.ApprovalStatus.PENDING:
-                raise serializers.ValidationError(
-                    _("Customer is pending approval.")
-                )
+                raise serializers.ValidationError(_("Cadastro ainda não aprovado."))
             if customer.status == BakeryCustomer.ApprovalStatus.BLOCKED:
-                raise serializers.ValidationError(
-                    _("Customer is blocked.")
-                )
+                raise serializers.ValidationError(_("Conta bloqueada."))
 
+        # Gera token usando o email resolvido
+        normalized_attrs = {**attrs, "email": email}
         data = super().validate(normalized_attrs)
+
+        data["tenant_id"] = tenant.id
+        data["ecosystem"] = "bakery"
+        data["role"] = membership.role
+
         if customer is not None:
             data["customer"] = {
                 "id": customer.id,
-                "customer_id": customer.id,
                 "nickname": customer.nickname,
                 "customer_type": customer.customer_type,
                 "phone": customer.phone,
                 "status": customer.status,
-                "zip_code": customer.zip_code,
-                "street": customer.street,
-                "number": customer.number,
-                "complement": customer.complement,
-                "neighborhood": customer.neighborhood,
-                "city": customer.city,
-                "state": customer.state,
                 "credit_limit": str(customer.credit_limit),
             }
         else:
@@ -111,5 +121,6 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "last_name": user.last_name,
                 "email": user.email,
             }
-        data["ecosystem"] = "bakery"
+
         return data
+

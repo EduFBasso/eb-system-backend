@@ -8,5 +8,4 @@ class AuthenticationConfig(AppConfig):
     verbose_name = 'Authentication'
 
     def ready(self):
-        # Import signal registrations
-        from .services import signals  # noqa: F401
+        pass

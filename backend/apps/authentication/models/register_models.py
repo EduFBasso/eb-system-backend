@@ -79,7 +79,8 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     city = models.CharField("Cidade", max_length=50, blank=True)
     state = models.CharField("Estado", max_length=2, blank=True)
 
-    is_staff = models.BooleanField(default=True)
+    # SU/plataforma somente; papéis de domínio vêm de TenantMembership
+    is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField("Ativo", default=True)
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
     deactivated_at = models.DateTimeField("Desativado em", null=True, blank=True)

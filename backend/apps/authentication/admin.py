@@ -1,35 +1,35 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.utils.html import format_html
 from .models import Professional, DeviceSession, ProfessionalSettings, Tenant, TenantMembership
 
 
 @admin.register(Professional)
-class ProfessionalAdmin(admin.ModelAdmin):
-    """Admin simplificado para fluxo OTP: não solicita senha fixa.
-
-    - Oculta o campo "password" do formulário.
-    - Ao criar um profissional sem senha, define uma senha "inutilizável" (set_unusable_password).
-    """
-
+class ProfessionalAdmin(UserAdmin):
     list_display = (
         "first_name",
         "last_name",
         "email",
-        "register_number",
+        "specialty",
+        "password_status",
         "is_active",
         "is_staff",
     )
     search_fields = ("first_name", "last_name", "email", "register_number")
     list_filter = ("is_active", "is_staff")
-    # Oculta o campo de senha do formulário
-    exclude = ("password",)
-    readonly_fields = ("last_login", "created_at")
+    readonly_fields = ("last_login", "created_at", "password_status")
+    ordering = ("email",)
 
+    # Herda o campo de senha com link para redefinição do UserAdmin
     fieldsets = (
         (None, {
+            "fields": ("email", "password", "password_status")
+        }),
+        ("Dados", {
             "fields": (
                 "first_name",
                 "last_name",
-                "email",
+                "display_name",
                 "phone",
                 "register_number",
                 "specialty",
@@ -40,14 +40,25 @@ class ProfessionalAdmin(admin.ModelAdmin):
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Datas", {"fields": ("last_login", "created_at")}),
     )
+    add_fieldsets = (
+        (None, {
+            "classes": ("wide",),
+            "fields": ("email", "first_name", "last_name", "specialty", "password1", "password2"),
+        }),
+    )
     filter_horizontal = ("groups", "user_permissions")
 
-    def save_model(self, request, obj, form, change):
-        # Para novos profissionais, se nenhuma senha foi fornecida (campo oculto),
-        # garante que a conta não tenha senha fixa.
-        if not change and not obj.password:
-            obj.set_unusable_password()
-        super().save_model(request, obj, form, change)
+    # UserAdmin usa username; nosso model usa email
+    USERNAME_FIELD = "email"
+
+    def password_status(self, obj):
+        if not obj.pk:
+            return "—"
+        if obj.has_usable_password():
+            return format_html('<span style="color:green">✅ Senha definida</span>')
+        return format_html('<span style="color:red">⚠️ Sem senha (somente OTP/TOTP)</span>')
+
+    password_status.short_description = "Status da senha"
 
 
 @admin.register(DeviceSession)
@@ -66,8 +77,8 @@ class TenantMembershipInline(admin.TabularInline):
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'is_active', 'updated_at']
-    list_filter = ['is_active']
+    list_display = ['name', 'slug', 'ecosystem', 'is_active', 'updated_at']
+    list_filter = ['ecosystem', 'is_active']
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ['name']}
     inlines = [TenantMembershipInline]
@@ -75,9 +86,9 @@ class TenantAdmin(admin.ModelAdmin):
 
 @admin.register(TenantMembership)
 class TenantMembershipAdmin(admin.ModelAdmin):
-    list_display = ['tenant', 'professional', 'role', 'is_active']
+    list_display = ['tenant', 'professional', 'role', 'login_alias', 'is_active']
     list_filter = ['role', 'is_active', 'tenant']
-    search_fields = ['tenant__name', 'tenant__slug', 'professional__email']
+    search_fields = ['tenant__name', 'tenant__slug', 'professional__email', 'login_alias']
     autocomplete_fields = ['tenant', 'professional']
 
 

@@ -24,7 +24,8 @@ class ProductViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().filter(tenant=self.get_active_tenant())
-        if not self.request.user.is_staff:
+        membership = getattr(self, "bakery_membership", None)
+        if not (membership and membership.role == "owner"):
             queryset = queryset.filter(is_active=True)
         return queryset
 
@@ -46,7 +47,8 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().filter(tenant=self.get_active_tenant())
-        if not self.request.user.is_staff:
+        membership = getattr(self, "bakery_membership", None)
+        if not (membership and membership.role == "owner"):
             queryset = queryset.filter(customer__user=self.request.user)
 
         status_value = self.request.query_params.get("status")
@@ -75,7 +77,8 @@ class OrderItemViewSet(BakeryTenantScopedMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().filter(tenant=self.get_active_tenant())
-        if not self.request.user.is_staff:
+        membership = getattr(self, "bakery_membership", None)
+        if not (membership and membership.role == "owner"):
             queryset = queryset.filter(order__customer__user=self.request.user)
 
         order_id = self.request.query_params.get("order")

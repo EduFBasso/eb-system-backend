@@ -3,8 +3,17 @@ from django.db import models
 
 
 class Tenant(models.Model):
+    class Ecosystem(models.TextChoices):
+        CLINIC = 'clinic', 'Clinic'
+        BAKERY = 'bakery', 'Bakery'
+
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140, unique=True)
+    ecosystem = models.CharField(
+        max_length=20,
+        choices=Ecosystem.choices,
+        default=Ecosystem.CLINIC,
+    )
     capabilities = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -17,6 +26,7 @@ class Tenant(models.Model):
         indexes = [
             models.Index(fields=['slug']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['ecosystem', 'is_active']),
         ]
 
     def __str__(self):
@@ -57,6 +67,8 @@ class TenantMembership(models.Model):
         choices=Role.choices,
         default=Role.MEMBER,
     )
+    # Alias de login definido pelo SU; único por tenant (case-insensitive via constraint)
+    login_alias = models.CharField(max_length=60, blank=True, default='')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -68,6 +80,14 @@ class TenantMembership(models.Model):
         indexes = [
             models.Index(fields=['professional', 'is_active']),
             models.Index(fields=['tenant', 'role']),
+            models.Index(fields=['tenant', 'login_alias']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'login_alias'],
+                condition=models.Q(login_alias__gt=''),
+                name='uq_tenant_membership_login_alias',
+            ),
         ]
 
     def __str__(self):

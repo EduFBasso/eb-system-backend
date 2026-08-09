@@ -17,7 +17,7 @@ from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
 from utils.pagination import StandardResultsSetPagination
-from utils.permissions import HasActiveBakeryTenant, IsCustomerOrAdmin
+from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin
 
 from .base import BakeryTenantScopedMixin
 
@@ -32,10 +32,18 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     ordering = ("nickname",)
     queryset = BakeryCustomer.objects.select_related("tenant", "user")
 
+    def _is_owner(self) -> bool:
+        membership = getattr(self, "bakery_membership", None)
+        if membership:
+            return membership.role == "owner"
+        from utils.permissions import _get_bakery_membership
+        m = _get_bakery_membership(self.request)
+        return bool(m and m.role == "owner")
+
     def get_queryset(self):
         tenant = self.get_active_tenant()
         queryset = super().get_queryset().filter(tenant=tenant)
-        if not self.request.user.is_staff:
+        if not self._is_owner():
             queryset = queryset.filter(user=self.request.user)
 
         status_value = self.request.query_params.get("status")
@@ -46,7 +54,7 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         tenant = self.get_active_tenant()
         user = serializer.validated_data.get("user")
-        if not self.request.user.is_staff or user is None:
+        if not self._is_owner() or user is None:
             user = self.request.user
         serializer.save(tenant=tenant, user=user)
 
@@ -64,14 +72,25 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         alphabet = string.ascii_letters + string.digits
         return ''.join(random.choice(alphabet) for _ in range(length))
 
+    @staticmethod
+    def _normalize_secret_input(value) -> str:
+        # Defensive: copy/paste on mobile/desktop can include hidden unicode chars.
+        return ''.join(ch for ch in str(value or '') if ch not in '\u00A0\u200B\u200C\u200D\u2060\uFEFF').strip()
+
     def _require_admin_password(self, request):
-        if not request.user.is_staff:
+        membership = getattr(self, "bakery_membership", None)
+        if membership is None:
+            from utils.permissions import _get_bakery_membership
+            membership = _get_bakery_membership(request)
+        if membership is None or membership.role != "owner":
             return Response(
-                {'detail': 'Apenas administradores podem executar esta ação.'},
+                {'detail': 'Apenas o owner pode executar esta ação.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        admin_password = request.data.get('admin_password') or request.data.get('password')
+        admin_password = self._normalize_secret_input(
+            request.data.get('admin_password') or request.data.get('password')
+        )
         if not admin_password:
             return Response(
                 {'detail': 'admin_password é obrigatória.'},
@@ -293,9 +312,20 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         customer = self.get_object()
         password_plain_text = cache.get(self._password_cache_key(customer.id))
         if not password_plain_text:
+            # Compatibilidade operacional: clientes aprovados antes deste fluxo
+            # podem não ter senha cacheada. Geramos uma nova senha sob confirmação
+            # do admin para manter continuidade do atendimento.
+            password_plain_text = self._generate_password()
+            customer.user.set_password(password_plain_text)
+            customer.user.save(update_fields=['password'])
+            cache.set(self._password_cache_key(customer.id), password_plain_text, timeout=60 * 60 * 24 * 30)
+
             return Response(
-                {'detail': 'Senha oficial não está disponível para este cliente.'},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    'password_plain_text': password_plain_text,
+                    'detail': 'Nova senha gerada para o cliente, pois a senha anterior não estava disponível.',
+                },
+                status=status.HTTP_200_OK,
             )
 
         return Response({'password_plain_text': password_plain_text}, status=status.HTTP_200_OK)

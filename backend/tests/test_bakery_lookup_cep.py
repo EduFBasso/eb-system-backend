@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 
@@ -393,3 +394,107 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
     )
 
     assert login_response.status_code == 400
+
+
+def test_bakery_admin_can_login_with_first_name_alias():
+    tenant = Tenant.objects.create(
+        name='Bakery Tenant 7',
+        slug='bakery-tenant-7',
+        capabilities={'bakery': True},
+        is_active=True,
+    )
+    admin = Professional.objects.create_user(
+        email='admin7@bakery.test',
+        password='secret123',
+        first_name='Dono',
+        last_name='Bakery',
+        display_name='Admin Panificadora',
+        is_staff=True,
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+
+    client = APIClient()
+    login_response = client.post(
+        '/api/v1/auth/bakery/login/',
+        {
+            'email': 'Dono',
+            'password': 'secret123',
+        },
+        format='json',
+    )
+
+    assert login_response.status_code == 200
+    assert login_response.data['professional']['email'] == 'admin7@bakery.test'
+    assert 'access' in login_response.data
+
+
+def test_bakery_reveal_password_generates_new_password_when_missing():
+    tenant = Tenant.objects.create(
+        name='Bakery Tenant 8',
+        slug='bakery-tenant-8',
+        capabilities={'bakery': True},
+        is_active=True,
+    )
+    admin = Professional.objects.create_user(
+        email='admin8@bakery.test',
+        password='secret123',
+        first_name='Admin',
+        last_name='Bakery',
+        is_staff=True,
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin)
+    register_response = client.post(
+        '/api/v1/bakery/customers/register/',
+        {
+            'nickname': 'Cliente Sem Cache',
+            'customer_type': 'PF',
+            'cpf': '11122233411',
+            'phone': '11999999911',
+            'zip_code': '01310100',
+            'street': 'Avenida Paulista',
+            'number': '1000',
+            'neighborhood': 'Bela Vista',
+            'city': 'São Paulo',
+            'state': 'SP',
+        },
+        format='json',
+    )
+    customer_id = register_response.data['id']
+
+    approve_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/approve/',
+        {
+            'credit_limit': '1000.00',
+            'admin_password': 'secret123',
+            'password': 'SenhaInicial1',
+        },
+        format='json',
+    )
+    assert approve_response.status_code == 200
+
+    cache.delete(f'bakery:customer:{customer_id}:plain-password')
+
+    reveal_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/reveal-password/',
+        {
+            'admin_password': 'secret123',
+        },
+        format='json',
+    )
+
+    assert reveal_response.status_code == 200
+    assert reveal_response.data['password_plain_text']
+    assert 'detail' in reveal_response.data
