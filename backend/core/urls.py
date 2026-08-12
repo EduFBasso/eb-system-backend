@@ -39,6 +39,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/auth/bakery/login/', BakeryTokenObtainPairView.as_view(), name='bakery_token_obtain_pair'),
     path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
+    path('clinic/', include('apps.clinic.urls')),
     path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
     path('agenda/', include('apps.clinic.views.agenda_urls')),
     path('inventory/', include('apps.clinic.views.inventory_urls')),

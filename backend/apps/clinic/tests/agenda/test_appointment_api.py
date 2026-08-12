@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.clinic.models.agenda import Appointment
 
 
@@ -19,7 +19,25 @@ def professional(db):
 
 
 @pytest.fixture
-def auth_client(api_client, professional):
+def tenant(db, professional):
+    t = Tenant.objects.create(
+        name='Consultório Podologia',
+        slug='consultorio-podologia',
+        ecosystem='clinic',
+        is_active=True,
+        capabilities={'clinic': True, 'podologia': True, 'odonto': True},
+    )
+    TenantMembership.objects.create(
+        tenant=t,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    return t
+
+
+@pytest.fixture
+def auth_client(api_client, professional, tenant):
     # Obtem token JWT e seta Authorization header
     r = api_client.post('/token/', {'email': professional.email, 'password': 'secret123'}, format='json')
     access = r.json()['access']

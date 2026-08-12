@@ -22,7 +22,13 @@ def professional():
 
 @pytest.fixture
 def tenant(professional):
-    t = Tenant.objects.create(name='Tenant Teste', slug='tenant-teste')
+    t = Tenant.objects.create(
+        name='Consultório Podologia',
+        slug='consultorio-podologia',
+        ecosystem='clinic',
+        is_active=True,
+        capabilities={'clinic': True, 'podologia': True, 'odonto': True},
+    )
     TenantMembership.objects.create(
         tenant=t,
         professional=professional,
@@ -40,7 +46,7 @@ def auth_client(professional):
 
 
 @pytest.fixture
-def client_obj(auth_client):
+def client_obj(auth_client, tenant):
     response = auth_client.post(
         '/register/clients/',
         {

@@ -61,8 +61,9 @@ class ProfessionalCreationForm(UserCreationForm):
         model = Professional
         fields = ("email", "first_name", "last_name", "specialty")
 
-    def clean_password2(self):
-        password2 = super().clean_password2()
+    def clean(self):
+        cleaned_data = super().clean()
+        password2 = cleaned_data.get("password2")
         if _is_password_reused(password2):
             raise forms.ValidationError("Esta senha já está em uso por outro profissional.")
         professional = Professional(
@@ -72,17 +73,18 @@ class ProfessionalCreationForm(UserCreationForm):
         )
         if _password_uses_identity(password2, professional):
             raise forms.ValidationError("A senha não pode ser igual ao nome, sobrenome ou e-mail.")
-        return password2
+        return cleaned_data
 
 
 class ProfessionalAdminPasswordChangeForm(AdminPasswordChangeForm):
-    def clean_password2(self):
-        password2 = super().clean_password2()
+    def clean(self):
+        cleaned_data = super().clean()
+        password2 = cleaned_data.get("password2")
         if _is_password_reused(password2, current_user=self.user):
             raise forms.ValidationError("Esta senha já está em uso por outro profissional.")
         if _password_uses_identity(password2, self.user):
             raise forms.ValidationError("A senha não pode ser igual ao nome, sobrenome ou e-mail.")
-        return password2
+        return cleaned_data
 
 
 class TenantMembershipAdminForm(forms.ModelForm):

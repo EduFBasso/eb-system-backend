@@ -87,7 +87,11 @@ def _active_anamnese_tenant(context) -> object:
 
     membership = (
         user.tenant_memberships.select_related('tenant')
-        .filter(is_active=True, tenant__is_active=True)
+        .filter(
+            is_active=True,
+            tenant__is_active=True,
+            tenant__ecosystem='clinic',
+        )
         .order_by('created_at', 'id')
         .first()
     )
