@@ -3,82 +3,111 @@ from django.db import models
 
 
 class DentalArcade(models.Model):
+    """
+    [SOLID - Single Responsibility Principle]
+    Modela o cabeçalho do Odontograma do paciente (Histórico de Tratamento Odontológico).
+    Funciona como o contêiner principal que agrupa o estado da boca do cliente.
+    """
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pendente'
-        COMPLETED = 'completed', 'Concluido'
+        PENDING = 'pending', 'Plano de Tratamento Pendente'
+        COMPLETED = 'completed', 'Tratamento Concluído'
 
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    # [Garantia Multi-tenant] Vinculação explícita e obrigatória à clínica controladora
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
+    
     professional = models.ForeignKey(
         'authentication.Professional',
         on_delete=models.CASCADE,
         related_name='dental_arcades',
-        verbose_name='Profissional',
+        verbose_name='Dentista Responsável',
     )
     client = models.ForeignKey(
         'clinic.Client',
         on_delete=models.CASCADE,
         related_name='dental_arcades',
-        verbose_name='Cliente',
+        verbose_name='Cliente/Paciente',
     )
     external_treatment_id = models.BigIntegerField(
         null=True,
         blank=True,
-        help_text='ID_PT_HEADER da base legada (quando aplicavel).',
+        help_text='Chave primária (ID_PT_HEADER) importada da planilha/banco legado de 10 anos.',
     )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
     )
-    started_at = models.DateField(null=True, blank=True)
-    completed_at = models.DateField(null=True, blank=True)
-    notes = models.TextField(blank=True, default='')
+    started_at = models.DateField("Data de Início", null=True, blank=True)
+    completed_at = models.DateField("Data de Conclusão", null=True, blank=True)
+    notes = models.TextField("Anotações Gerais do Caso", blank=True, default='')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Arcada dentaria'
-        verbose_name_plural = 'Arcadas dentarias'
+        verbose_name = 'Odonto - Arcada / Tratamento'
+        verbose_name_plural = 'Odonto - Arcadas / Tratamentos'
         ordering = ['-updated_at']
-        unique_together = [('professional', 'external_treatment_id')]
+        
+        # Isola a integridade da migração legada por clínica
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'professional', 'external_treatment_id'],
+                name='uniq_dental_arcade_migration_control'
+            )
+        ]
         indexes = [
-            models.Index(fields=['professional', 'client']),
-            models.Index(fields=['professional', 'status']),
+            models.Index(fields=['tenant', 'professional', 'client']),
+            models.Index(fields=['tenant', 'status']),
         ]
 
     def __str__(self):
-        return f'Arcada #{self.id} - {self.client}'
+        return f'Plano Odonto #{self.id} — Paciente: {self.client}'
 
 
 class Tooth(models.Model):
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    """
+    [SOLID - Single Responsibility]
+    Representa cada dente individual no mapa anatômico da boca daquele paciente específico.
+    """
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     arcade = models.ForeignKey(
         DentalArcade,
         on_delete=models.CASCADE,
         related_name='teeth',
-        verbose_name='Arcada',
+        verbose_name='Tratamento/Arcada Mãe',
     )
     sequence = models.PositiveSmallIntegerField(
-        help_text='Posicao sequencial no mapa da arcada (1-32).',
+        help_text='Posição física sequencial no desenho visual da tela (1 a 32).',
     )
     international_number = models.PositiveSmallIntegerField(
-        help_text='Numero internacional odontologico (11-48).',
+        help_text='Notação Dentária Internacional de dois dígitos (FDI) — ex: 11 ao 48.',
     )
-    external_arcade_row_id = models.BigIntegerField(null=True, blank=True)
-    observations = models.TextField(blank=True, default='')
+    external_arcade_row_id = models.BigIntegerField("ID Linha Legada", null=True, blank=True)
+    observations = models.TextField("Observações Clínicas do Dente", blank=True, default='')
+    
+    # Campo inteligente para armazenar anomalias (Cárie, Canal, Pivot) usando bitwise/flags
     anomalies_bitmap = models.BigIntegerField(default=0)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Dente'
-        verbose_name_plural = 'Dentes'
+        verbose_name = 'Odonto - Dente'
+        verbose_name_plural = 'Odonto - Dentes'
         ordering = ['sequence']
-        unique_together = [
-            ('arcade', 'sequence'),
-            ('arcade', 'international_number'),
+        
+        constraints = [
+            models.UniqueConstraint(
+                fields=['arcade', 'sequence'],
+                name='uniq_tooth_sequence_per_arcade'
+            ),
+            models.UniqueConstraint(
+                fields=['arcade', 'international_number'],
+                name='uniq_tooth_fdi_number_per_arcade'
+            )
         ]
         indexes = [
             models.Index(fields=['arcade', 'sequence']),
@@ -86,53 +115,70 @@ class Tooth(models.Model):
         ]
 
     def __str__(self):
-        return f'Dente {self.international_number} (Arcada {self.arcade_id})'
+        return f'Dente {self.international_number} (Plano #{self.arcade_id})'
 
 
 class Surface(models.Model):
+    """
+    [SOLID - Single Responsibility]
+    Modela as divisões/faces de um dente (Faces Clínicas).
+    Utilizado para detalhar tratamentos estritos em restaurações.
+    """
     class SurfaceCode(models.TextChoices):
-        O = 'O', 'Oclusal'
+        O = 'O', 'Oclusal (Mastigação dentes traseiros)'
         PO = 'PO', 'Palatina/Oclusal'
-        MO = 'MO', 'Mesial/Oclusal'
-        VO = 'VO', 'Vestibular/Oclusal'
+        MO = 'MO', 'Mesial/Oclusal (Face lateral interna)'
+        VO = 'VO', 'Vestibular/Oclusal (Face voltada para a bochecha)'
         LDI = 'LDI', 'Lingual/Distal/Incisal'
 
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     tooth = models.ForeignKey(
         Tooth,
         on_delete=models.CASCADE,
         related_name='surfaces',
         verbose_name='Dente',
     )
-    code = models.CharField(max_length=10, choices=SurfaceCode.choices)
-    label = models.CharField(max_length=40, blank=True, default='')
+    code = models.CharField("Código da Face", max_length=10, choices=SurfaceCode.choices)
+    label = models.CharField("Rótulo / Descritivo Visual", max_length=40, blank=True, default='')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Face'
-        verbose_name_plural = 'Faces'
+        verbose_name = 'Odonto - Face Dentária'
+        verbose_name_plural = 'Odonto - Faces Dentárias'
         ordering = ['id']
-        unique_together = [('tooth', 'code')]
+        
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tooth', 'code'],
+                name='uniq_surface_code_per_tooth'
+            )
+        ]
         indexes = [models.Index(fields=['tooth', 'code'])]
 
     def __str__(self):
-        return f'Face {self.code} ({self.tooth})'
+        return f'Face {self.code} — Dente {self.tooth.international_number}'
 
 
 class Procedure(models.Model):
+    """
+    [SOLID - Interface Segregation]
+    Registra a ação/procedimento ou produto aplicado em um elemento anatômico da boca.
+    Pode flutuar entre a arcada inteira, um dente isolado ou apenas uma face.
+    """
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pendente'
-        COMPLETED = 'completed', 'Concluido'
+        PENDING = 'pending', 'Pendente (Orçado)'
+        COMPLETED = 'completed', 'Concluído (Realizado)'
         CANCELED = 'canceled', 'Cancelado'
 
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     arcade = models.ForeignKey(
         DentalArcade,
         on_delete=models.CASCADE,
         related_name='procedures',
-        verbose_name='Arcada',
+        verbose_name='Plano de Tratamento',
     )
     tooth = models.ForeignKey(
         Tooth,
@@ -140,7 +186,7 @@ class Procedure(models.Model):
         null=True,
         blank=True,
         related_name='procedures',
-        verbose_name='Dente',
+        verbose_name='Dente Afetado',
     )
     surface = models.ForeignKey(
         Surface,
@@ -148,87 +194,109 @@ class Procedure(models.Model):
         null=True,
         blank=True,
         related_name='procedures',
-        verbose_name='Face',
+        verbose_name='Face Afetada',
     )
     external_item_id = models.BigIntegerField(
         null=True,
         blank=True,
-        help_text='ID_PT_ITEM da base legada (quando aplicavel).',
+        help_text='Código identificador da linha (ID_PT_ITEM) vindo da base legada.',
     )
-    code = models.CharField(max_length=40, blank=True, default='')
-    name = models.CharField(max_length=255)
+    code = models.CharField("Código do Procedimento (TUSS/Interno)", max_length=40, blank=True, default='')
+    name = models.CharField("Nome do Procedimento / Material", max_length=255)
     status = models.CharField(
+        "Estado da Execução",
         max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
     )
     region_raw = models.CharField(
+        "Região Anatômica (Legado)",
         max_length=30,
         blank=True,
         default='',
-        help_text='Valor original importado de TX_REGIAO.',
+        help_text='Texto bruto extraído da coluna TX_REGIAO durante a migração.',
     )
     faces_raw = models.CharField(
+        "Faces Clínicas (Legado)",
         max_length=30,
         blank=True,
         default='',
-        help_text='Valor original importado de TX_FACES.',
+        help_text='Texto bruto extraído da coluna TX_FACES durante a migração.',
     )
-    started_at = models.DateField(null=True, blank=True)
-    completed_at = models.DateField(null=True, blank=True)
-    patient_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    paid_at = models.DateField(null=True, blank=True)
-    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
-    notes = models.TextField(blank=True, default='')
-    is_active = models.BooleanField(default=True)
-    is_product = models.BooleanField(default=False, help_text='Se True, é um produto/material; se False, é um procedimento')
+    started_at = models.DateField("Data Inicial", null=True, blank=True)
+    completed_at = models.DateField("Data de Término", null=True, blank=True)
+    
+    # Camada financeira histórica da planilha legada
+    patient_amount = models.DecimalField("Valor Orçado (R$)", max_digits=12, decimal_places=2, null=True, blank=True)
+    paid_amount = models.DecimalField("Valor Pago pelo Paciente (R$)", max_digits=12, decimal_places=2, null=True, blank=True)
+    paid_at = models.DateField("Data do Pagamento", null=True, blank=True)
+    
+    duration_minutes = models.PositiveSmallIntegerField("Tempo estimado (Minutos)", null=True, blank=True)
+    notes = models.TextField("Notas de Execução Clínicas", blank=True, default='')
+    is_active = models.BooleanField("Ativo?", default=True)
+    is_product = models.BooleanField("É insumo/material consumível?", default=False)
+    
+    # Auto-relacionamento estruturado para vincular os materiais gastos em um determinado procedimento
     parent_procedure = models.ForeignKey(
         'self',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name='products',
-        help_text='Procedimento pai ao qual este produto esta vinculado.',
+        help_text='Procedimento clínico principal ao qual este material de consumo está atrelado.',
+        verbose_name="Procedimento Vinculado"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Procedimento odontologico'
-        verbose_name_plural = 'Procedimentos odontologicos'
+        verbose_name = 'Odonto - Procedimento Realizado'
+        verbose_name_plural = 'Odonto - Procedimentos Realizados'
         ordering = ['id']
-        unique_together = [('arcade', 'external_item_id')]
+        
+        constraints = [
+            models.UniqueConstraint(
+                fields=['arcade', 'external_item_id'],
+                name='uniq_procedure_item_migration_control')
+                ]
+        
         indexes = [
-            models.Index(fields=['arcade', 'status']),
-            models.Index(fields=['arcade', 'tooth']),
-            models.Index(fields=['external_item_id']),
-        ]
+            models.Index(fields=['tenant', 'arcade', 'status']),
+            models.Index(fields=['tenant', 'arcade', 'tooth']),
+            ]
 
-    def __str__(self):
-        return f'{self.name} ({self.status})'
+        def str(self):
+            return f'{self.name} — Status: {self.get_status_display()}'
 
 
 class ProcedureNameSuggestion(models.Model):
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    """
+    [SOLID - Single Responsibility Principle]
+    Dicionário preditivo para o preenchimento rápido de nomes de procedimentos comuns da dentista.
+    Evita que ela precise digitar o nome do procedimento do zero a cada consulta.
+    """
+    # [Garantia Multi-tenant] A lista de sugestões pertence à clínica controladora
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
+    
     professional = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'authentication.Professional',
         on_delete=models.CASCADE,
         related_name='odonto_procedure_name_suggestions',
         verbose_name='Profissional',
     )
-    name = models.CharField(max_length=255)
+    name = models.CharField("Sugestão de Nome", max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Sugestao de nome de procedimento'
-        verbose_name_plural = 'Sugestoes de nomes de procedimento'
+        verbose_name = 'Odonto - Sugestão de Nome de Procedimento'
+        verbose_name_plural = 'Odonto - Sugestões de Nomes de Procedimentos'
         ordering = ['name']
         indexes = [
-            models.Index(fields=['professional', 'name']),
+            # Otimiza a busca na tela combinando a clínica e o nome digitado
+            models.Index(fields=['tenant', 'professional', 'name']),
         ]
 
     def __str__(self):
@@ -236,15 +304,25 @@ class ProcedureNameSuggestion(models.Model):
 
 
 class ProductCatalogItem(models.Model):
-    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=True, blank=True)
+    """
+    [SOLID - Single Responsibility Principle]
+    Catálogo histórico auxiliar utilizado durante a migração legada 
+    para sugerir ou registrar os últimos valores praticados em insumos odontológicos.
+    """
+    # [Garantia Multi-tenant] O catálogo de apoio fica restrito à clínica correspondente
+    tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
+    
     professional = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'authentication.Professional',
         on_delete=models.CASCADE,
         related_name='odonto_product_catalog_items',
         verbose_name='Profissional',
     )
-    name = models.CharField(max_length=255)
+    name = models.CharField("Nome do Insumo / Material", max_length=255)
+    
+    # Armazena o último valor financeiro capturado da planilha histórica de 10 anos
     last_value = models.DecimalField(
+        "Último Valor Registrado (R$)",
         max_digits=12,
         decimal_places=2,
         null=True,
@@ -255,11 +333,11 @@ class ProductCatalogItem(models.Model):
 
     class Meta:
         app_label = 'clinic'
-        verbose_name = 'Item de catalogo de produto'
-        verbose_name_plural = 'Itens de catalogo de produto'
+        verbose_name = 'Odonto - Item do Catálogo de Apoio'
+        verbose_name_plural = 'Odonto - Itens do Catálogo de Apoio'
         ordering = ['name']
         indexes = [
-            models.Index(fields=['professional', 'name']),
+            models.Index(fields=['tenant', 'professional', 'name']),
         ]
 
     def __str__(self):

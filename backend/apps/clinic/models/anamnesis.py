@@ -3,6 +3,11 @@ from django.utils.text import slugify
 
 
 class AnamneseBase(models.Model):
+    """
+    [SOLID - Single Responsibility Principle]
+    Guarda EXCLUSIVAMENTE o histórico clínico global do cliente que não muda
+    independente da especialidade médica (Podologia, Odonto, Geral).
+    """
     client = models.ForeignKey(
         'clinic.Client',
         on_delete=models.CASCADE,
@@ -13,14 +18,19 @@ class AnamneseBase(models.Model):
         'authentication.Tenant',
         on_delete=models.CASCADE,
         related_name='anamneses_base',
-        verbose_name='Tenant',
+        verbose_name='Tenant (Clínica)',
     )
+
     professional = models.ForeignKey(
         'authentication.Professional',
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # Se o profissional for deletado, a anamnese continua existindo
+        null=True,                  # Permite ficar vazio se o próprio cliente preencher via link público
+        blank=True,                 # Permite salvar sem preencher no painel admin
         related_name='anamneses_base',
-        verbose_name='Profissional',
+        verbose_name='Profissional Responsável',
     )
+    
+    # Campos clínicos globais (Fixos para qualquer saúde)
     takes_medication = models.CharField('Toma medicação', max_length=255, null=True, blank=True)
     had_surgery = models.CharField('Já fez cirurgia', max_length=255, null=True, blank=True)
     is_pregnant = models.BooleanField('Está grávida', null=True, blank=True)
@@ -28,44 +38,50 @@ class AnamneseBase(models.Model):
     clinical_history = models.TextField('Histórico clínico', null=True, blank=True)
     sport_activity = models.CharField('Atividade esportiva', max_length=50, null=True, blank=True)
     academic_activity = models.CharField('Atividade acadêmica', max_length=50, null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
         ordering = ['-updated_at', '-created_at']
-        verbose_name = 'Anamnese base'
-        verbose_name_plural = 'Anamneses base'
+        verbose_name = 'Anamnese Geral'
+        verbose_name_plural = 'Anamneses Gerais'
         constraints = [
+            # Um cliente possui apenas UMA anamnese geral por clínica (Tenant)
             models.UniqueConstraint(
-                fields=['client', 'tenant', 'professional'],
-                name='uniq_anamnese_base_client_tenant_professional',
+                fields=['client', 'tenant'],
+                name='uniq_anamnese_base_client_tenant',
             ),
         ]
 
     def __str__(self):
-        return f'{self.client} — Anamnese base'
+        return f'{self.client} — Anamnese Geral'
 
 
 class AnamnesePodologia(models.Model):
-    client = models.ForeignKey(
-        'clinic.Client',
+    """
+    [SOLID - Open/Closed Principle]
+    Esta tabela estende a AnamneseBase. Se o cliente for na podóloga,
+    criamos este registro. Se for na dentista, este fica vazio e cria-se o de Odonto.
+    O núcleo (AnamneseBase) nunca precisa ser modificado para novas especialidades.
+    """
+    # Relacionamento 1 para 1 com a Base garante a extensão limpa dos dados
+    anamnese_base = models.OneToOneField(
+        AnamneseBase,
         on_delete=models.CASCADE,
-        related_name='anamneses_podologia',
-        verbose_name='Cliente',
+        related_name='podologia',
+        verbose_name='Anamnese Base',
     )
-    tenant = models.ForeignKey(
-        'authentication.Tenant',
-        on_delete=models.CASCADE,
-        related_name='anamneses_podologia',
-        verbose_name='Tenant',
-    )
+    # Armazena qual profissional de podologia preencheu esta parte técnica
     professional = models.ForeignKey(
         'authentication.Professional',
         on_delete=models.CASCADE,
         related_name='anamneses_podologia',
-        verbose_name='Profissional',
+        verbose_name='Podólogo(a)',
     )
+    
+    # Campos exclusivos da Podologia
     footwear_used = models.CharField('Calçado usado', max_length=50, null=True, blank=True)
     sock_used = models.CharField('Meia usada', max_length=50, null=True, blank=True)
     plantar_view_left = models.TextField('Vista plantar esquerda', null=True, blank=True)
@@ -78,31 +94,25 @@ class AnamnesePodologia(models.Model):
     deformities_right = models.TextField('Deformidades pé direito', null=True, blank=True)
     sensitivity_test = models.TextField('Teste de sensibilidade', null=True, blank=True)
     other_procedures = models.TextField('Outros procedimentos', null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
         ordering = ['-updated_at', '-created_at']
-        verbose_name = 'Anamnese podologia'
-        verbose_name_plural = 'Anamneses podologia'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['client', 'tenant', 'professional'],
-                name='uniq_anamnese_podologia_client_tenant_professional',
-            ),
-        ]
+        verbose_name = 'Anamnese Especialidade - Podologia'
+        verbose_name_plural = 'Anamneses Especialidade - Podologia'
 
     def __str__(self):
-        return f'{self.client} — Anamnese podologia'
+        return f'{self.anamnese_base.client} — Especificação Podologia'
 
 
 class AnamnesisField(models.Model):
     """
-    Defines a question/field in the anamnesis form for a specific professional.
-    Each professional has their own set of fields, grouped by sector.
+    Estrutura para perguntas dinâmicas (Custom Fields).
+    Útil caso queira criar perguntas na tela sem mexer em tabelas do banco.
     """
-
     FIELD_TYPE_CHOICES = [
         ('radio', 'Radio buttons'),
         ('text', 'Texto livre'),
@@ -186,39 +196,29 @@ class AnamnesisField(models.Model):
     is_active = models.BooleanField(
         'Ativo',
         default=True,
-        help_text='Desativar em vez de apagar preserva respostas históricas.',
+        help_text='Desativar preserva o histórico médico antigo.',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         app_label = 'clinic'
-        ordering = ['sector_order', 'order']
-        unique_together = [('professional', 'code')]
-        verbose_name = 'Campo de anamnese'
-        verbose_name_plural = 'Campos de anamnese'
+        verbose_name = 'Campo de Anamnese Customizado'
+        verbose_name_plural = 'Campos de Anamnese Customizados'
 
     def save(self, *args, **kwargs):
-        if not self.code:
-            base_code = slugify(self.label).replace('-', '_') or 'anamnesis_field'
-            candidate = base_code
-            suffix = 2
-            while AnamnesisField.objects.filter(
-                professional=self.professional,
-                code=candidate,
-            ).exclude(pk=self.pk).exists():
-                candidate = f'{base_code}_{suffix}'
-                suffix += 1
-            self.code = candidate
+        if not self.code and self.label:
+            self.code = slugify(self.label)[:120]
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'[{self.sector}] {self.label} ({self.professional})'
+        return f'{self.label} ({self.professional})'
 
 
 class AnamnesisResponse(models.Model):
     """
-    Records a patient's answer to one anamnesis field at a point in time.
-    field_label_snap preserves the question text even if the field is later renamed/deleted.
+    [SOLID - Single Responsibility Principle]
+    Grava o histórico exato da resposta de um paciente para uma pergunta dinâmica.
+    O campo field_label_snap preserva o texto original da pergunta feita no passado,
+    garantindo a segurança jurídica dos dados médicos mesmo se a pergunta mudar depois.
     """
 
     client = models.ForeignKey(
@@ -229,27 +229,32 @@ class AnamnesisResponse(models.Model):
     )
     field = models.ForeignKey(
         AnamnesisField,
-        on_delete=models.SET_NULL,
+        on_delete=models.SET_NULL, # Preserva a resposta histórica mesmo se o campo for apagado
         null=True,
         blank=True,
         related_name='responses',
-        verbose_name='Campo',
+        verbose_name='Campo Dinâmico',
     )
     field_label_snap = models.CharField(
-        'Pergunta (snapshot)',
+        'Pergunta (Histórico)',
         max_length=200,
-        help_text='Cópia do label no momento da resposta.',
+        help_text='Cópia fiel da pergunta no momento exato em que foi respondida.',
     )
     value = models.TextField('Resposta', blank=True, default='')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'clinic'
-        # One response per client per field
-        unique_together = [('client', 'field')]
-        verbose_name = 'Resposta de anamnese'
-        verbose_name_plural = 'Respostas de anamnese'
+        verbose_name = 'Resposta de Anamnese Customizada'
+        verbose_name_plural = 'Respostas de Anamneses Customizadas'
+        constraints = [
+            # Garante que um cliente tenha apenas uma resposta registrada para cada campo específico
+            models.UniqueConstraint(
+                fields=['client', 'field'],
+                name='uniq_anamnesis_response_client_field',
+            ),
+        ]
 
     def __str__(self):
-        field_info = self.field_label_snap or (str(self.field) if self.field else 'campo excluído')
+        field_info = self.field_label_snap or (str(self.field) if self.field else 'Campo excluído')
         return f'{self.client} — {field_info}: {self.value[:40]}'
