@@ -1,3 +1,4 @@
+# backend/apps/authentication/management/commands/migrate_sqlite_snapshot.py
 from __future__ import annotations
 
 import sqlite3
@@ -27,14 +28,12 @@ from django.db.models import (
     TextField,
 )
 
+from apps.authentication.models.tenancy_models import Tenant
 
+# [Alinhamento de Módulos] Atualizado para refletir a nova estrutura de apps consolidada
 DEFAULT_APP_LABELS = [
-    "register",
-    "clients",
-    "agenda",
-    "inventory",
-    "anamnesis",
-    "reminders",
+    "authentication",
+    "clinic",
 ]
 SOURCE_DB_ALIAS = "sqlite_source"
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
@@ -42,7 +41,7 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 class Command(BaseCommand):
     help = (
-        "Migra dados de um snapshot SQLite para o banco default (PostgreSQL) com dry-run por padrao."
+        "Migra dados de um snapshot SQLite antigo para o banco default (PostgreSQL) Multi-tenant."
     )
 
     def add_arguments(self, parser):
@@ -52,29 +51,37 @@ class Command(BaseCommand):
             help="Caminho absoluto para o arquivo SQLite de origem.",
         )
         parser.add_argument(
+            "--inject-tenant-id",
+            required=True,
+            type=int,
+            dest="inject_tenant_id",
+            help="ID do Tenant (Clínica) que herdará os registros importados que não possuem a coluna tenant_id no SQLite.",
+        )
+        parser.add_argument(
             "--apps",
             default=",".join(DEFAULT_APP_LABELS),
             help=(
-                "Lista de app labels separados por virgula para migrar. "
-                f"Padrao: {','.join(DEFAULT_APP_LABELS)}"
+                "Lista de app labels separados por vírgula para migrar. "
+                f"Padrão: {','.join(DEFAULT_APP_LABELS)}"
             ),
         )
         parser.add_argument(
             "--execute",
             action="store_true",
-            help="Aplica a migracao. Sem esta flag, apenas simula (dry-run).",
+            help="Aplica a migração real. Sem esta flag, executa apenas em modo de simulação (dry-run).",
         )
         parser.add_argument(
             "--truncate-target",
             action="store_true",
             help=(
-                "Antes de importar, limpa as tabelas dos apps informados no banco de destino "
-                "(TRUNCATE ... CASCADE para PostgreSQL)."
+                "Antes de importar, limpa as tabelas dos apps informados no banco de destino PostgreSQL "
+                "(TRUNCATE ... CASCADE)."
             ),
         )
 
     def handle(self, *args, **options):
         source = Path(str(options["source"])).expanduser().resolve()
+        tenant_id = int(options["inject_tenant_id"])
         app_labels = self._parse_app_labels(str(options["apps"]))
         execute = bool(options["execute"])
         truncate_target = bool(options["truncate_target"])
@@ -83,19 +90,24 @@ class Command(BaseCommand):
         self._validate_app_labels(app_labels)
         self._ensure_not_sqlite_default()
 
+        # [Segurança] Verifica se o ID do Tenant injetado existe realmente no Postgres
+        if not Tenant.objects.filter(id=tenant_id).exists():
+            raise CommandError(f"Erro: O Tenant ID {tenant_id} injetado não existe no banco de dados principal.")
+
         migration_plan = self._build_migration_plan(source, app_labels)
         source_counts = Counter(
             {item["model_label"]: item["row_count"] for item in migration_plan}
         )
         target_counts = self._count_target(app_labels)
 
-        self.stdout.write("Resumo da migracao SQLite -> default")
-        self.stdout.write(f"- source: {source}")
-        self.stdout.write(f"- apps: {', '.join(app_labels)}")
-        self.stdout.write(f"- registros no source: {sum(source_counts.values())}")
-        self.stdout.write(f"- registros no target: {sum(target_counts.values())}")
+        self.stdout.write("Resumo da migração estrutural SQLite -> PostgreSQL (Default)")
+        self.stdout.write(f"- Arquivo Source: {source}")
+        self.stdout.write(f"- Apps Escaneados: {', '.join(app_labels)}")
+        self.stdout.write(f"- Tenant Injetado nos dados órfãos: ID {tenant_id}")
+        self.stdout.write(f"- Registros identificados no source: {sum(source_counts.values())}")
+        self.stdout.write(f"- Registros atuais no target: {sum(target_counts.values())}")
 
-        self.stdout.write("\nTop modelos no source:")
+        self.stdout.write("\nVolumetria identificada no arquivo SQLite de origem:")
         for model_label, count in source_counts.most_common(15):
             self.stdout.write(f"- {model_label}: {count}")
 
@@ -105,7 +117,7 @@ class Command(BaseCommand):
             if item["missing_columns"]
         ]
         if missing_columns:
-            self.stdout.write("\nColunas ausentes no source (serao preenchidas com default quando possivel):")
+            self.stdout.write("\nColunas ausentes nas tabelas SQLite (serão tratadas ou injetadas automaticamente):")
             for item in missing_columns[:15]:
                 cols = ", ".join(item["missing_columns"])
                 self.stdout.write(f"- {item['model_label']}: {cols}")
@@ -114,30 +126,27 @@ class Command(BaseCommand):
             self.stdout.write("")
             self.stdout.write(
                 self.style.WARNING(
-                    "Dry-run concluido. Nada foi alterado. "
-                    "Use --execute para aplicar e --truncate-target para limpar antes de importar."
+                    "Simulação (Dry-run) concluída. Nenhuma alteração foi realizada física no banco.\n"
+                    "Utilize a flag --execute para efetivar e --truncate-target para limpar antes de processar."
                 )
             )
             return
 
         if not truncate_target:
             raise CommandError(
-                "Para execucao real, use tambem --truncate-target. "
-                "Isso evita duplicacao/inconsistencia durante a carga."
+                "Aviso de Segurança: Para a execução real da carga, utilize obrigatoriamente a flag --truncate-target. "
+                "Isso previne a duplicação e colisão de IDs de chaves primárias legadas."
             )
 
         with transaction.atomic():
             self._truncate_target_tables(app_labels)
-            self._load_from_sqlite(source, migration_plan)
+            # Injeta o tenant_id na assinatura da função interna de carregamento
+            self._load_from_sqlite(source, migration_plan, tenant_id)
             self._reset_sequences(app_labels)
 
         self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("Migracao aplicada com sucesso."))
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"- registros importados: {sum(source_counts.values())}"
-            )
-        )
+        self.stdout.write(self.style.SUCCESS("✅ Carga e Migração de Snapshot SQLite aplicada com sucesso absoluto."))
+        self.stdout.write(self.style.SUCCESS(f"- Total de registros injetados e importados: {sum(source_counts.values())}"))
 
     def _parse_app_labels(self, raw: str) -> list[str]:
         labels = [p.strip() for p in raw.split(",") if p.strip()]
@@ -147,29 +156,30 @@ class Command(BaseCommand):
 
     def _validate_source(self, source: Path) -> None:
         if not source.exists():
-            raise CommandError(f"Arquivo source nao encontrado: {source}")
+            raise CommandError(f"Arquivo de origem SQLite não foi localizado no caminho: {source}")
         if not source.is_file():
-            raise CommandError(f"Source invalido (nao e arquivo): {source}")
+            raise CommandError(f"O caminho do Source indicado não corresponde a um arquivo válido: {source}")
 
     def _validate_app_labels(self, app_labels: Iterable[str]) -> None:
         installed = {cfg.label for cfg in apps.get_app_configs()}
         unknown = [label for label in app_labels if label not in installed]
         if unknown:
             raise CommandError(
-                f"Apps invalidos em --apps: {', '.join(unknown)}. "
-                f"Instalados: {', '.join(sorted(installed))}"
+                f"Módulos inválidos informados em --apps: {', '.join(unknown)}. "
+                f"Módulos carregados no Django: {', '.join(sorted(installed))}"
             )
 
     def _ensure_not_sqlite_default(self) -> None:
         engine = settings.DATABASES["default"].get("ENGINE", "")
         if "postgresql" not in engine:
             raise CommandError(
-                "Banco default atual nao e PostgreSQL. "
-                "Configure o ambiente para apontar para o Postgres (Docker/Render) antes da migracao."
+                "Configuração Inválida: Seu banco padrão atual do settings.py não está apontando para PostgreSQL. "
+                "Ative o container do Postgres antes de iniciar o script de migração."
             )
 
     def _build_migration_plan(self, source: Path, app_labels: list[str]) -> list[dict]:
         source_tables = self._read_source_tables(source)
+        # Varre a árvore topológica para mapear dependências de chaves estrangeiras
         ordered_models = self._topological_model_order(app_labels)
         plan: list[dict] = []
 
@@ -213,11 +223,12 @@ class Command(BaseCommand):
             )
 
         if not plan:
-            raise CommandError("Nenhum modelo/tabela elegivel encontrado no source.")
+            raise CommandError("Nenhum modelo/tabela elegível ou mapeada foi localizado no snapshot do SQLite.")
 
         return plan
 
     def _read_source_tables(self, source: Path) -> dict[str, set[str]]:
+        """Acessa os metadados das tabelas SQLite via PRAGMA para mapear as colunas."""
         tables: dict[str, set[str]] = {}
         with sqlite3.connect(str(source)) as conn:
             rows = conn.execute(
@@ -233,6 +244,11 @@ class Command(BaseCommand):
             return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
 
     def _topological_model_order(self, app_labels: list[str]) -> list[type]:
+        """
+        [SOLID - Dependency Inversion Principle]
+        Aplica o algoritmo de ordenação topológica (Kahn) para ler as FKs e ordenar a 
+        inserção de tabelas pais ANTES das tabelas filhas, prevenindo quebras de integridade.
+        """
         models = [
             m
             for m in apps.get_models()
@@ -260,7 +276,7 @@ class Command(BaseCommand):
                         ready.append(candidate)
 
         if len(ordered) != len(models):
-            # Fallback deterministico caso exista ciclo.
+            # Fallback determinístico caso exista algum relacionamento cíclico oculto nos dados legados
             return sorted(models, key=lambda mm: mm._meta.db_table)
 
         return ordered
@@ -275,6 +291,7 @@ class Command(BaseCommand):
         return counts
 
     def _truncate_target_tables(self, app_labels: list[str]) -> None:
+        """Limpa as tabelas default de forma agressiva (CASCADE) liberando chaves no Postgres."""
         table_names: list[str] = []
         for model in apps.get_models():
             if (
@@ -286,14 +303,19 @@ class Command(BaseCommand):
             table_names.append(model._meta.db_table)
 
         if not table_names:
-            raise CommandError("Nenhuma tabela alvo encontrada para truncar.")
+            raise CommandError("Nenhuma tabela alvo foi identificada no banco default para limpeza.")
 
         quoted = ", ".join(connection.ops.quote_name(t) for t in sorted(set(table_names)))
         sql = f"TRUNCATE {quoted} RESTART IDENTITY CASCADE;"
         with connection.cursor() as cursor:
             cursor.execute(sql)
 
-    def _load_from_sqlite(self, source: Path, migration_plan: list[dict]) -> None:
+    def _load_from_sqlite(self, source: Path, migration_plan: list[dict], inject_tenant_id: int) -> None:
+        """
+        [Camada de Transformação ETL]
+        Extrai os dados do SQLite, preenche as colunas Multi-tenant ausentes de forma dinâmica
+        e injeta os payloads no PostgreSQL através de bulk_create de alta performance.
+        """
         with sqlite3.connect(str(source)) as src_conn:
             src_conn.row_factory = sqlite3.Row
             for item in migration_plan:
@@ -317,20 +339,29 @@ class Command(BaseCommand):
                     kwargs = {}
                     for field_entry in item["field_entries"]:
                         field = field_entry["field"]
+                        
                         if field_entry["from_source"]:
                             kwargs[field.attname] = row[field_entry["source_column"]]
                         else:
-                            kwargs[field.attname] = self._fallback_value(field)
+                            # [Multi-tenant Dynamic Injection]
+                            # Se a coluna ausente for a chave estrangeira do Tenant, injeta o ID fornecido via terminal
+                            if field.name in ("tenant", "tenant_id"):
+                                kwargs[field.attname] = inject_tenant_id
+                            else:
+                                kwargs[field.attname] = self._fallback_value(field)
+                                
                     objects.append(model(**kwargs))
 
                 if objects:
+                    # Injeta em lotes (Batches) de 500 para mitigar estouro de memória RAM e limites do Postgres
                     model.objects.bulk_create(objects, batch_size=500)
 
                 self.stdout.write(
-                    f"- importado {item['model_label']}: {len(objects)}"
+                    f"  Carregado com sucesso -> {item['model_label']}: {len(objects)} linhas"
                 )
 
     def _fallback_value(self, field):
+        """Define os fallbacks estruturais padrão para as demais colunas ausentes na migração."""
         if field.has_default():
             default = field.get_default()
             return default() if callable(default) else default
@@ -363,11 +394,12 @@ class Command(BaseCommand):
             return None
 
         raise CommandError(
-            f"Sem valor para coluna ausente {field.model._meta.db_table}.{field.column}. "
-            "Adicione default no model/migration ou ajuste o source."
+            f"Falha Crítica de Esquema: Sem valor default viável para coluna ausente "
+            f"'{field.model._meta.db_table}.{field.column}'. Adicione default no model ou ajuste o SQLite de origem."
         )
 
     def _reset_sequences(self, app_labels: list[str]) -> None:
+        """Ajusta os seletores seriais de autoincremento do Postgres (Sequences) pós-carga em lote."""
         out = StringIO()
         call_command("sqlsequencereset", *app_labels, stdout=out, no_color=True)
         raw_sql = out.getvalue().strip()
