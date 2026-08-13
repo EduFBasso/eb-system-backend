@@ -266,8 +266,8 @@ class Procedure(models.Model):
             models.Index(fields=['tenant', 'arcade', 'tooth']),
             ]
 
-        def str(self):
-            return f'{self.name} — Status: {self.get_status_display()}'
+    def __str__(self):
+        return f'{self.name} — Status: {self.get_status_display()}'
 
 
 class ProcedureNameSuggestion(models.Model):

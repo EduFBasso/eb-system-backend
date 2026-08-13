@@ -101,7 +101,12 @@ class DentalArcadeViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         return DentalArcadeWriteSerializer
 
     def perform_create(self, serializer: BaseSerializer) -> None:
-        serializer.save(professional=self.current_user())
+        user = self.current_user()
+        membership = user.tenant_memberships.filter(
+            is_active=True, tenant__is_active=True
+        ).order_by('created_at', 'id').select_related('tenant').first()
+        tenant = membership.tenant if membership else None
+        serializer.save(professional=user, tenant=tenant)
 
     @action(detail=True, methods=['post'], url_path='initialize-default-structure')
     def initialize_default_structure(self, request, pk=None):
@@ -126,7 +131,7 @@ class DentalArcadeViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             tooth, tooth_created = Tooth.objects.get_or_create(
                 arcade=arcade,
                 sequence=sequence,
-                defaults={'international_number': international_number},
+                defaults={'international_number': international_number, 'tenant': arcade.tenant},
             )
             if tooth_created:
                 created_teeth += 1
@@ -135,7 +140,7 @@ class DentalArcadeViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
                 _, surface_created = Surface.objects.get_or_create(
                     tooth=tooth,
                     code=code,
-                    defaults={'label': code},
+                    defaults={'label': code, 'tenant': arcade.tenant},
                 )
                 if surface_created:
                     created_surfaces += 1
@@ -206,7 +211,7 @@ class ProcedureViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             raise PermissionDenied('Arcada invalida para criacao do procedimento.')
         if arcade.professional_id != self.current_user_id():
             raise PermissionDenied('Arcada nao pertence ao profissional autenticado.')
-        instance = serializer.save()
+        instance = serializer.save(tenant=arcade.tenant)
         _refresh_arcade_status(instance.arcade)
 
     def perform_update(self, serializer: BaseSerializer) -> None:

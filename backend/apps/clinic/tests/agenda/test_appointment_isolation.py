@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import Professional, Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -12,28 +12,42 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def owner():
-    return Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="agenda-owner@example.com",
         password="secret123",
         first_name="Owner",
         last_name="Agenda",
     )
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Agenda Owner', slug='tenant-agenda-owner')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
 def other_professional():
-    return Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="agenda-other@example.com",
         password="secret123",
         first_name="Other",
         last_name="Agenda",
     )
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Agenda Other', slug='tenant-agenda-other')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
 def owner_client(owner):
     return Client.objects.create(
-        professional=owner,
+        tenant=owner.tenant_memberships.first().tenant,
         first_name="Owner",
         last_name="Client",
         phone="11972000001",
@@ -43,7 +57,7 @@ def owner_client(owner):
 @pytest.fixture
 def other_client(other_professional):
     return Client.objects.create(
-        professional=other_professional,
+        tenant=other_professional.tenant_memberships.first().tenant,
         first_name="Other",
         last_name="Client",
         phone="11972000002",
@@ -54,6 +68,7 @@ def other_client(other_professional):
 def owner_appointment(owner, owner_client):
     start = timezone.now() + timezone.timedelta(days=1)
     return Appointment.objects.create(
+        tenant=owner.tenant_memberships.first().tenant,
         professional=owner,
         client=owner_client,
         title="Owner Appointment",
@@ -68,6 +83,7 @@ def owner_appointment(owner, owner_client):
 def other_appointment(other_professional, other_client):
     start = timezone.now() + timezone.timedelta(days=1, hours=1)
     return Appointment.objects.create(
+        tenant=other_professional.tenant_memberships.first().tenant,
         professional=other_professional,
         client=other_client,
         title="Other Appointment",

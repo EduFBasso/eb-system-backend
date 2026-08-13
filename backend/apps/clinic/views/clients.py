@@ -92,22 +92,14 @@ class ClientViewSet(ModelViewSet):
         from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 
         queryset = (
-            Client.objects.filter(professional_id=user_id, tenant_id=tenant.id)
-            .select_related('tenant', 'professional')
+            Client.objects.filter(tenant_id=tenant.id)
+            .select_related('tenant')
             .prefetch_related(
                 Prefetch(
                     'anamneses_base',
                     queryset=AnamneseBase.objects.filter(
                         tenant_id=tenant.id,
-                        professional_id=user_id,
-                    ),
-                ),
-                Prefetch(
-                    'anamneses_podologia',
-                    queryset=AnamnesePodologia.objects.filter(
-                        tenant_id=tenant.id,
-                        professional_id=user_id,
-                    ),
+                    ).prefetch_related('podologia'),
                 ),
                 Prefetch(
                     'anamnesis_responses',
@@ -160,7 +152,7 @@ class ClientViewSet(ModelViewSet):
         if not isinstance(payload, dict):
             return None
 
-        if not payload.get('client_id') or not payload.get('tenant_id') or not payload.get('professional_id'):
+        if not payload.get('client_id') or not payload.get('tenant_id'):
             return None
 
         return payload
@@ -194,7 +186,6 @@ class ClientViewSet(ModelViewSet):
         payload = {
             'client_id': client.id,
             'tenant_id': client.tenant_id,
-            'professional_id': client.professional_id,
         }
         token = signer.sign(json.dumps(payload, separators=(',', ':')))
         return Response({'token': token, 'expires_in': 3600}, status=status.HTTP_200_OK)
@@ -217,12 +208,10 @@ class ClientViewSet(ModelViewSet):
 
         client_id = payload['client_id']
         tenant_id = payload['tenant_id']
-        professional_id = payload['professional_id']
 
         client = Client.objects.filter(
             id=client_id,
             tenant_id=tenant_id,
-            professional_id=professional_id,
         ).first()
         if client is None:
             return Response({'detail': LINK_EXPIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
@@ -230,7 +219,6 @@ class ClientViewSet(ModelViewSet):
         base = AnamneseBase.objects.filter(
             client=client,
             tenant_id=tenant_id,
-            professional_id=professional_id,
         ).first()
 
         client_payload = {
@@ -277,7 +265,6 @@ class ClientViewSet(ModelViewSet):
         client = Client.objects.filter(
             id=payload['client_id'],
             tenant_id=payload['tenant_id'],
-            professional_id=payload['professional_id'],
         ).first()
         if client is None:
             return Response({'detail': LINK_EXPIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
@@ -329,7 +316,6 @@ class ClientViewSet(ModelViewSet):
                     AnamneseBase.objects.update_or_create(
                         client=client,
                         tenant_id=payload['tenant_id'],
-                        professional_id=payload['professional_id'],
                         defaults=base_updates,
                     )
         except IntegrityError:
@@ -365,7 +351,7 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
         if tenant is None:
             return Client.objects.none()
 
-        base_qs = Client.objects.filter(professional_id=user_id, tenant_id=tenant.id)
+        base_qs = Client.objects.filter(tenant_id=tenant.id)
 
         # Promoção oportunística: garante que o banco reflita o status real antes de anotar.
         user_appts = Appointment.objects.filter(professional_id=user_id)
@@ -381,11 +367,8 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
                 client_id=OuterRef('pk'),
             )
             .exclude(status=Appointment.Status.CANCELED)
-            .filter(Q(start_at__gte=now) | Q(status=Appointment.Status.ONGOING))
-            .order_by(
-                Case(When(status=Appointment.Status.ONGOING, then=0), default=1, output_field=IntegerField()),
-                'start_at',
-            )
+            .filter(start_at__gte=now)
+            .order_by('start_at')
         )
         last_appt_qs = (
             Appointment.objects.filter(

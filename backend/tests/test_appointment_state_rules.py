@@ -3,6 +3,19 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
+from apps.authentication.models import Tenant, TenantMembership
+
+
+def _setup_tenant(professional):
+    tenant = Tenant.objects.create(
+        name=f'Tenant {professional.pk}',
+        slug=f'tenant-state-{professional.pk}',
+    )
+    TenantMembership.objects.create(
+        tenant=tenant, professional=professional,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return tenant
 
 
 @pytest.mark.django_db
@@ -14,10 +27,12 @@ def test_patch_cannot_transition_status(client, django_user_model):
         last_name='One',
     )
     client.force_login(pro)
+    tenant = _setup_tenant(pro)
     now = timezone.now()
-    c = Client.objects.create(professional=pro, first_name='Cliente', last_name='Teste')
+    c = Client.objects.create(tenant=tenant, first_name='Cliente', last_name='Teste', phone='11900000001')
 
     appt = Appointment.objects.create(
+        tenant=tenant,
         professional=pro,
         client=c,
         title='Consulta',
@@ -49,10 +64,12 @@ def test_create_promotes_overdue_to_pending_and_blocks_new_schedule(
         last_name='Two',
     )
     client.force_login(pro)
+    tenant = _setup_tenant(pro)
     now = timezone.now()
-    c = Client.objects.create(professional=pro, first_name='Cliente', last_name='Pendente')
+    c = Client.objects.create(tenant=tenant, first_name='Cliente', last_name='Pendente', phone='11900000002')
 
     overdue = Appointment.objects.create(
+        tenant=tenant,
         professional=pro,
         client=c,
         title='Sessão anterior',

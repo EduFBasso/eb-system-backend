@@ -52,7 +52,6 @@ def other_professional():
 def owner_client(owner):
     return Client.objects.create(
         tenant=owner.tenant_memberships.first().tenant,
-        professional=owner,
         first_name="Visible",
         last_name="Client",
         phone="11971000001",
@@ -63,7 +62,6 @@ def owner_client(owner):
 def other_client(other_professional):
     return Client.objects.create(
         tenant=other_professional.tenant_memberships.first().tenant,
-        professional=other_professional,
         first_name="Hidden",
         last_name="Client",
         phone="11971000002",
@@ -125,5 +123,4 @@ def test_client_create_ignores_payload_professional_and_uses_authenticated_user(
 
     assert response.status_code == 201, response.content
     created = Client.objects.get(id=response.json()["id"])
-    assert created.professional_id == owner.id
-    assert created.professional_id != other_professional.id
+    assert created.tenant_id == owner.tenant_memberships.first().tenant.id

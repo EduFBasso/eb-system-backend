@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.clinic.models.agenda import Appointment
 
 pytestmark = pytest.mark.django_db
@@ -10,22 +10,30 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(email='restri@example.com', password='x', first_name='Res', last_name='Tri')
+    pro = Professional.objects.create_user(email='restri@example.com', password='x', first_name='Res', last_name='Tri')
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Restri', slug='tenant-restri')
+    TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)
+    return pro
 
 
 @pytest.fixture
 def other_professional():
-    return Professional.objects.create_user(email='other@example.com', password='x', first_name='Other', last_name='Pro')
+    pro = Professional.objects.create_user(email='other@example.com', password='x', first_name='Other', last_name='Pro')
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Other Restri', slug='tenant-other-restri')
+    TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)
+    return pro
 
 
 @pytest.fixture
 def client1(professional):
-    return Client.objects.create(professional=professional, first_name='Cli', last_name='One', phone='11970000001')
+    return Client.objects.create(tenant=professional.tenant_memberships.first().tenant, first_name='Cli', last_name='One', phone='11970000001')
 
 
 @pytest.fixture
 def client2(professional):
-    return Client.objects.create(professional=professional, first_name='Cli', last_name='Two', phone='11970000002')
+    return Client.objects.create(tenant=professional.tenant_memberships.first().tenant, first_name='Cli', last_name='Two', phone='11970000002')
 
 
 @pytest.fixture
@@ -45,7 +53,7 @@ def test_client_cannot_change(api_client, professional, client1, client2):
     r = api_client.post('/agenda/appointments/', {
         'client': client1.id,
         'title': 'Sessão',
-        'visit_type': 'avaliacao',
+        'visit_type': 'consulta',
         'start_at': start.isoformat(),
         'end_at': end.isoformat(),
     }, format='json')
@@ -70,7 +78,7 @@ def test_delete_is_blocked(api_client, client1):
     r = api_client.post('/agenda/appointments/', {
         'client': client1.id,
         'title': 'Sessão',
-        'visit_type': 'avaliacao',
+        'visit_type': 'consulta',
         'start_at': start.isoformat(),
         'end_at': end.isoformat(),
     }, format='json')
@@ -88,7 +96,7 @@ def test_cancel_action(api_client, client1):
     r = api_client.post('/agenda/appointments/', {
         'client': client1.id,
         'title': 'Sessão',
-        'visit_type': 'avaliacao',
+        'visit_type': 'consulta',
         'start_at': start.isoformat(),
         'end_at': end.isoformat(),
     }, format='json')

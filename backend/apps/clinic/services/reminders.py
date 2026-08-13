@@ -89,12 +89,8 @@ def _build_visit_reminder_phrase(appointment: Appointment) -> str:
     visit_type = appointment.visit_type
     if visit_type == Appointment.VisitType.CONSULTA:
         return "da sua consulta"
-    if visit_type == Appointment.VisitType.AVALIACAO:
-        return "da sua avaliação"
     if visit_type == Appointment.VisitType.RETORNO:
         return "do seu retorno"
-    if visit_type == Appointment.VisitType.PROCEDIMENTO:
-        return "do seu procedimento"
     return "do seu atendimento"
 
 
@@ -224,6 +220,7 @@ def dispatch_appointment_reminder(
 ) -> ReminderDelivery | None:
     if not settings.APPOINTMENT_REMINDERS_ENABLED:
         return ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
@@ -239,6 +236,7 @@ def dispatch_appointment_reminder(
 
     if appointment.reminder_sent and not force:
         return ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
@@ -251,6 +249,7 @@ def dispatch_appointment_reminder(
         link = appointment.professional.telegram_link
     except TelegramProfessionalLink.DoesNotExist:
         return ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
@@ -261,6 +260,7 @@ def dispatch_appointment_reminder(
 
     if not link.is_active:
         return ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
@@ -292,6 +292,7 @@ def dispatch_appointment_reminder(
         link.last_error = str(exc)
         link.save(update_fields=["last_error", "updated_at"])
         return ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
@@ -304,6 +305,7 @@ def dispatch_appointment_reminder(
     link.save(update_fields=["last_error", "updated_at"])
     with transaction.atomic():
         delivery = ReminderDelivery.objects.create(
+            tenant=appointment.tenant,
             appointment=appointment,
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,

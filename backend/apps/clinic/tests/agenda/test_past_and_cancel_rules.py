@@ -39,7 +39,6 @@ def client_obj(professional):
     tenant = professional.tenant_memberships.first().tenant
     return Client.objects.create(
         tenant=tenant,
-        professional=professional,
         first_name='Cliente', last_name='Regras', phone='11981110000'
     )
 
@@ -80,7 +79,7 @@ def test_cancel_keeps_record_and_frees_slot(api, professional, client_obj):
     new_payload = {
         'client': client_obj.id,
         'title': 'Novo',
-        'visit_type': 'avaliacao',
+        'visit_type': 'consulta',
         'start_at': fut.start_at.isoformat(),
         'end_at': fut.end_at.isoformat(),
     }

@@ -30,10 +30,10 @@ from .models import (
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ("first_name", "last_name", "email", "phone", "city", "state", "professional")
+    list_display = ("first_name", "last_name", "email", "phone", "city", "state", "tenant")
     search_fields = ("first_name", "last_name", "email", "phone")
-    list_filter = ("professional", "city", "state")
-    autocomplete_fields = ("professional",)
+    list_filter = ("tenant", "city", "state")
+    autocomplete_fields = ("tenant",)
 
 
 @admin.register(Appointment)
@@ -92,10 +92,10 @@ class AnamneseBaseAdmin(admin.ModelAdmin):
 
 @admin.register(AnamnesePodologia)
 class AnamnesePodologiaAdmin(admin.ModelAdmin):
-    list_display = ("id", "client", "professional", "tenant", "updated_at")
-    list_filter = ("professional", "tenant")
-    search_fields = ("client__first_name", "client__last_name", "other_procedures")
-    autocomplete_fields = ("client", "professional")
+    list_display = ("id", "anamnese_base", "professional", "updated_at")
+    list_filter = ("professional",)
+    search_fields = ("anamnese_base__client__first_name", "anamnese_base__client__last_name", "other_procedures")
+    autocomplete_fields = ("anamnese_base", "professional")
 
 
 @admin.register(AnamnesisField)
@@ -175,10 +175,10 @@ class ProductCatalogItemAdmin(admin.ModelAdmin):
 
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ("name", "professional", "email", "phone", "city", "state")
+    list_display = ("name", "tenant", "email", "phone", "city", "state")
     search_fields = ("name", "email", "phone", "city")
     list_filter = ("state",)
-    autocomplete_fields = ("professional",)
+    autocomplete_fields = ("tenant",)
 
 
 @admin.register(Product)
@@ -186,7 +186,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "type",
-        "professional",
+        "tenant",
         "unit",
         "price",
         "track_inventory",
@@ -195,16 +195,16 @@ class ProductAdmin(admin.ModelAdmin):
     )
     list_filter = ("type", "track_inventory", "is_active")
     search_fields = ("name", "scientific_name", "sku")
-    autocomplete_fields = ("professional", "supplier")
+    autocomplete_fields = ("tenant", "supplier")
 
 
 @admin.register(StockMove)
 class StockMoveAdmin(admin.ModelAdmin):
-    list_display = ("product", "move_type", "quantity", "unit_cost", "created_at", "professional")
+    list_display = ("product", "move_type", "quantity", "unit_cost", "created_at")
     list_filter = ("move_type",)
     search_fields = ("product__name", "reason", "reference")
     date_hierarchy = "created_at"
-    autocomplete_fields = ("professional", "product")
+    autocomplete_fields = ("product",)
 
 
 class ServiceMaterialInline(admin.TabularInline):
@@ -214,11 +214,11 @@ class ServiceMaterialInline(admin.TabularInline):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ("name", "professional", "base_price", "duration_minutes", "is_active")
+    list_display = ("name", "tenant", "base_price", "duration_minutes", "is_active")
     search_fields = ("name",)
     list_filter = ("is_active",)
     inlines = [ServiceMaterialInline]
-    autocomplete_fields = ("professional",)
+    autocomplete_fields = ("tenant",)
 
 
 @admin.register(TelegramProfessionalLink)

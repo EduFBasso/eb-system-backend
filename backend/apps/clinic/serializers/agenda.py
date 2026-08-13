@@ -153,9 +153,17 @@ class AppointmentSerializer(serializers.ModelSerializer):
         client = attrs.get("client", getattr(self.instance, "client", None))
 
         if client is not None and professional is not None:
-            if getattr(client, "professional_id", None) != getattr(professional, "id", None):
+            # Garante que o cliente pertence ao mesmo Tenant do profissional autenticado
+            req = self.context.get("request") if hasattr(self, "context") else None
+            user = getattr(req, "user", None) if req else None
+            tenant = None
+            if user:
+                membership = user.tenant_memberships.filter(is_active=True, tenant__is_active=True).first()
+                if membership:
+                    tenant = membership.tenant
+            if tenant is not None and getattr(client, "tenant_id", None) != tenant.id:
                 raise serializers.ValidationError(
-                    {"client": "Cliente não pertence ao profissional autenticado."}
+                    {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
                 )
 
         # Regra de transição: bloquear novo agendamento se o cliente possui compromisso pendente.
@@ -252,6 +260,15 @@ class EncounterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
+        tenant = (
+            getattr(self.instance, "tenant", None)
+            or (
+                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
+                .order_by('created_at', 'id').values_list('tenant', flat=True).first()
+                and professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
+                .order_by('created_at', 'id').select_related('tenant').first().tenant
+            ) if professional else None
+        )
         client = attrs.get("client", getattr(self.instance, "client", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
         started_at = attrs.get("started_at", getattr(self.instance, "started_at", timezone.now()))
@@ -263,6 +280,7 @@ class EncounterSerializer(serializers.ModelSerializer):
         status = attrs.get("status", getattr(self.instance, "status", Encounter.Status.OPEN))
 
         instance = Encounter(
+            tenant=tenant,
             professional=professional,
             client=client,
             appointment=appointment,
@@ -312,6 +330,13 @@ class ClinicalRecordSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
+        tenant = (
+            getattr(self.instance, "tenant", None)
+            or (
+                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
+                .order_by('created_at', 'id').select_related('tenant').first().tenant
+            ) if professional else None
+        )
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
         record_type = attrs.get("record_type", getattr(self.instance, "record_type", ClinicalRecord.RecordType.EVOLUTION))
@@ -321,6 +346,7 @@ class ClinicalRecordSerializer(serializers.ModelSerializer):
         is_confidential = attrs.get("is_confidential", getattr(self.instance, "is_confidential", False))
 
         instance = ClinicalRecord(
+            tenant=tenant,
             professional=professional,
             client=client,
             encounter=encounter,
@@ -399,6 +425,13 @@ class ChargeSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
+        tenant = (
+            getattr(self.instance, "tenant", None)
+            or (
+                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
+                .order_by('created_at', 'id').select_related('tenant').first().tenant
+            ) if professional else None
+        )
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
@@ -414,6 +447,7 @@ class ChargeSerializer(serializers.ModelSerializer):
         paid_at = attrs.get("paid_at", getattr(self.instance, "paid_at", None))
 
         instance = Charge(
+            tenant=tenant,
             professional=professional,
             client=client,
             encounter=encounter,

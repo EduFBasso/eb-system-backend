@@ -111,6 +111,11 @@ class Client(models.Model):
         """
         return self.anamneses_base.filter(tenant_id=self.tenant_id).order_by('-updated_at').first()
 
+    @property
+    def anamnese_podologia(self):
+        """Atalho direto para o serializer acessar a extensão de Podologia."""
+        return self.get_specialized_anamnesis('podologia')
+
     def get_specialized_anamnesis(self, specialty="podologia"):
         """
         [SOLID - Open/Closed Principle]

@@ -102,9 +102,9 @@ def odonto_memberships(odonto_tenant, owner, other_professional):
 
 
 @pytest.fixture
-def owner_client(owner):
+def owner_client(owner, odonto_tenant):
     return Client.objects.create(
-        professional=owner,
+        tenant=odonto_tenant,
         first_name="Owner",
         last_name="Client",
         phone="11973000001",
@@ -112,9 +112,9 @@ def owner_client(owner):
 
 
 @pytest.fixture
-def other_client(other_professional):
+def other_client(other_professional, odonto_tenant):
     return Client.objects.create(
-        professional=other_professional,
+        tenant=odonto_tenant,
         first_name="Other",
         last_name="Client",
         phone="11973000002",
@@ -122,18 +122,19 @@ def other_client(other_professional):
 
 
 @pytest.fixture
-def owner_arcade(owner, owner_client):
-    return DentalArcade.objects.create(professional=owner, client=owner_client)
+def owner_arcade(owner, owner_client, odonto_tenant):
+    return DentalArcade.objects.create(tenant=odonto_tenant, professional=owner, client=owner_client)
 
 
 @pytest.fixture
-def other_arcade(other_professional, other_client):
-    return DentalArcade.objects.create(professional=other_professional, client=other_client)
+def other_arcade(other_professional, other_client, odonto_tenant):
+    return DentalArcade.objects.create(tenant=odonto_tenant, professional=other_professional, client=other_client)
 
 
 @pytest.fixture
-def owner_procedure(owner_arcade):
+def owner_procedure(owner_arcade, odonto_tenant):
     return Procedure.objects.create(
+        tenant=odonto_tenant,
         arcade=owner_arcade,
         name="Owner Procedure",
         status=Procedure.Status.PENDING,
@@ -141,8 +142,9 @@ def owner_procedure(owner_arcade):
 
 
 @pytest.fixture
-def other_procedure(other_arcade):
+def other_procedure(other_arcade, odonto_tenant):
     return Procedure.objects.create(
+        tenant=odonto_tenant,
         arcade=other_arcade,
         name="Other Procedure",
         status=Procedure.Status.PENDING,
@@ -191,18 +193,30 @@ def test_professional_cannot_read_other_professional_arcade(api_client, other_ar
     assert response.status_code == 404
 
 
-def test_professional_cannot_create_arcade_for_other_professional_client(
+def test_professional_cannot_create_arcade_for_client_from_other_tenant(
     api_client,
-    other_client,
+    odonto_tenant,
+    owner,
 ):
+    # Client pertencente a um tenant diferente — deve ser bloqueado
+    from apps.authentication.models import Tenant
+    other_tenant = Tenant.objects.create(name='Other Clinic', slug='other-clinic')
+    from apps.clinic.models.clients import Client
+    cross_tenant_client = Client.objects.create(
+        tenant=other_tenant,
+        first_name='Cross',
+        last_name='Tenant',
+        phone='11900099900',
+    )
+
     response = api_client.post(
         "/odonto/arcades/",
-        {"client": other_client.id},
+        {"client": cross_tenant_client.id},
         format="json",
     )
 
     assert response.status_code == 400, response.content
-    assert not DentalArcade.objects.filter(client=other_client).exists()
+    assert not DentalArcade.objects.filter(client=cross_tenant_client).exists()
 
 
 def test_arcade_create_ignores_payload_professional_and_uses_authenticated_user(
@@ -272,11 +286,16 @@ def test_professional_cannot_attach_surface_from_other_arcade(
     other_arcade,
 ):
     other_tooth = Tooth.objects.create(
+        tenant=other_arcade.tenant,
         arcade=other_arcade,
         sequence=1,
         international_number=11,
     )
-    other_surface = Surface.objects.create(tooth=other_tooth, code=Surface.SurfaceCode.O)
+    other_surface = Surface.objects.create(
+        tenant=other_arcade.tenant,
+        tooth=other_tooth,
+        code=Surface.SurfaceCode.O,
+    )
 
     response = api_client.post(
         "/odonto/procedures/",

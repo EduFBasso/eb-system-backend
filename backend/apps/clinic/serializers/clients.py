@@ -100,7 +100,6 @@ def _active_anamnese_tenant(context) -> object:
     return membership.tenant
 
 class ClientSerializer(serializers.ModelSerializer):
-    professional = serializers.PrimaryKeyRelatedField(read_only=True)
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
     anamnese_base = AnamneseBaseSerializer(required=False, allow_null=True)
     anamnese_podologia = AnamnesePodologiaSerializer(required=False, allow_null=True)
@@ -111,7 +110,6 @@ class ClientSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'tenant',
-            'professional',
             'first_name',
             'last_name',
             'email',
@@ -137,7 +135,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'anamnese_podologia',
             'anamnesis_responses',
         ]
-        read_only_fields = ['id', 'tenant', 'professional', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'tenant', 'created_at', 'updated_at']
         extra_kwargs = {
             "email": {"required": False, "allow_null": True, "allow_blank": True},
             # Telefone obrigatório e único (modelo aplica unique)
@@ -222,20 +220,21 @@ class ClientSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             if base_payload is not None:
-                AnamneseBase.objects.update_or_create(
+                base, _ = AnamneseBase.objects.update_or_create(
                     client=client,
                     tenant=tenant,
-                    professional=user,
-                    defaults=base_payload,
+                    defaults={**base_payload, 'professional': user},
                 )
 
             if podologia_payload is not None:
-                AnamnesePodologia.objects.update_or_create(
-                    client=client,
-                    tenant=tenant,
-                    professional=user,
-                    defaults=podologia_payload,
-                )
+                base_obj = AnamneseBase.objects.filter(
+                    client=client, tenant=tenant
+                ).first()
+                if base_obj is not None:
+                    AnamnesePodologia.objects.update_or_create(
+                        anamnese_base=base_obj,
+                        defaults={**podologia_payload, 'professional': user},
+                    )
 
     def create(self, validated_data):
         anamnese_base_data = validated_data.pop('anamnese_base', None)
@@ -247,7 +246,6 @@ class ClientSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             client = Client.objects.create(
                 tenant=tenant,
-                professional=user,
                 **validated_data,
             )
             self._save_nested_anamneses(client, anamnese_base_data, anamnese_podologia_data)
@@ -265,7 +263,6 @@ class ClientSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         instance.tenant = tenant
-        instance.professional = user
 
         with transaction.atomic():
             instance.save()

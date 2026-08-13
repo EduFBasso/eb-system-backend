@@ -80,7 +80,7 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
             field__professional__tenant_memberships__tenant=tenant,
             field__professional__tenant_memberships__is_active=True,
             field__professional__tenant_memberships__tenant__is_active=True,
-            client__professional__tenant_memberships__tenant=tenant,
+            client__tenant=tenant,
         ).select_related('field')
 
         client_id = req.query_params.get('client')
@@ -110,9 +110,7 @@ class AnamnesisResponseViewSet(viewsets.ModelViewSet):
         client = get_object_or_404(
             Client,
             pk=client_id,
-            professional__tenant_memberships__tenant=tenant,
-            professional__tenant_memberships__is_active=True,
-            professional__tenant_memberships__tenant__is_active=True,
+            tenant=tenant,
         )
 
         saved = []

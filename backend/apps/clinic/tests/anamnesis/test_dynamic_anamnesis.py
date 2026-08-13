@@ -180,7 +180,6 @@ def client_obj(professional):
     tenant = professional.tenant_memberships.first().tenant
     return Client.objects.create(
         tenant=tenant,
-        professional=professional,
         first_name='Cliente',
         last_name='Teste',
         phone='19999999999',
@@ -268,7 +267,6 @@ def test_bulk_save_rejects_client_from_other_tenant(
 ):
     foreign_client = Client.objects.create(
         tenant=foreign_professional.tenant_memberships.first().tenant,
-        professional=foreign_professional,
         first_name='Cliente',
         last_name='Externo',
         phone='18888888888',
@@ -358,7 +356,6 @@ def test_migrate_legacy_splits_yes_no_and_detail(auth_client, professional):
     tenant = professional.tenant_memberships.first().tenant
     client = Client.objects.create(
         tenant=tenant,
-        professional=professional,
         first_name='Maria',
         last_name='Legacy',
         phone='19888888888',

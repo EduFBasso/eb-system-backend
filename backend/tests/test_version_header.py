@@ -3,6 +3,7 @@ from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.clinic.models.clients import Client
+from apps.authentication.models import Tenant, TenantMembership
 
 @pytest.mark.django_db
 def test_version_header_present():
@@ -22,8 +23,10 @@ def test_online_mutation_lock_blocks_patch_but_not_get(django_user_model):
         first_name='Lock',
         last_name='Tester',
     )
+    tenant = Tenant.objects.create(name='Tenant Lock', slug=f'tenant-lock-{user.pk}')
+    TenantMembership.objects.create(tenant=tenant, professional=user, role=TenantMembership.Role.OWNER, is_active=True)
     client_obj = Client.objects.create(
-        professional=user,
+        tenant=tenant,
         first_name='Cliente',
         last_name='Travado',
         phone='11999999992',

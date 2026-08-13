@@ -91,7 +91,6 @@ class ClientAnamnesisApiTests(APITestCase):
 
         created_client = Client.objects.get(id=response.data['id'])
         self.assertEqual(created_client.tenant_id, self.tenant_a.id)
-        self.assertEqual(created_client.professional_id, self.prof_a.id)
 
         anamnese_base = AnamneseBase.objects.get(
             client=created_client,
@@ -103,9 +102,8 @@ class ClientAnamnesisApiTests(APITestCase):
         self.assertFalse(anamnese_base.is_pregnant)
 
         anamnese_podologia = AnamnesePodologia.objects.get(
-            client=created_client,
-            tenant=self.tenant_a,
-            professional=self.prof_a,
+            anamnese_base__client=created_client,
+            anamnese_base__tenant=self.tenant_a,
         )
         self.assertEqual(anamnese_podologia.footwear_used, 'Tênis')
         self.assertEqual(anamnese_podologia.sensitivity_test, 'Normal')
@@ -114,7 +112,6 @@ class ClientAnamnesisApiTests(APITestCase):
         # Dados pertencentes ao Tenant B
         client_b = Client.objects.create(
             tenant=self.tenant_b,
-            professional=self.prof_b,
             first_name='Cliente',
             last_name='TenantB',
             phone='11999999992',

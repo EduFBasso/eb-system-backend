@@ -46,7 +46,6 @@ def auth_client(professional):
 def client_obj(professional):
     return Client.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
-        professional=professional,
         first_name='Cliente',
         last_name='Excluir',
         phone='11999999991',

@@ -229,9 +229,15 @@ class DentalArcadeWriteSerializer(serializers.ModelSerializer):
     def validate_client(self, value: Client) -> Client:
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if not user or value.professional_id != user.id:  # pyright: ignore[reportAttributeAccessIssue]
+        if not user:
+            raise serializers.ValidationError('Autenticação necessária.')
+        # Verifica que o cliente pertence ao mesmo Tenant do profissional autenticado
+        tenant = user.tenant_memberships.filter(
+            is_active=True, tenant__is_active=True
+        ).values_list('tenant_id', flat=True).first()
+        if tenant is None or value.tenant_id != tenant:
             raise serializers.ValidationError(
-                'Cliente nao pertence ao profissional autenticado.',
+                'Cliente não pertence à clínica (Tenant) do profissional autenticado.',
             )
         return value
 

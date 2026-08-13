@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, ProfessionalSettings
+from apps.authentication.models import Professional, ProfessionalSettings, Tenant, TenantMembership
 from apps.clinic.models.reminders import ReminderDelivery, TelegramProfessionalLink
 from apps.clinic.services.reminders import (
     build_whatsapp_prefilled_text,
@@ -26,18 +26,25 @@ def enable_reminders(settings):
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="telegram@example.com",
         password="secret123",
         first_name="Ana",
         last_name="Silva",
     )
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Reminders', slug='tenant-reminders')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
 def client(professional):
     return Client.objects.create(
-        professional=professional,
+        tenant=professional.tenant_memberships.first().tenant,
         first_name="Maria",
         last_name="Souza",
         email="maria@example.com",
@@ -50,6 +57,7 @@ def appointment(professional, client):
     start_at = timezone.now() + timedelta(minutes=10)
     end_at = start_at + timedelta(minutes=60)
     return Appointment.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
         client=client,
         title="Consulta",
@@ -66,6 +74,10 @@ def reminder_settings(professional):
         professional=professional,
         reminder_enabled=True,
         reminder_minutes_before=10,
+        work_start_hour=0,
+        work_start_minute=0,
+        work_end_hour=24,
+        work_end_minute=0,
     )
 
 
@@ -77,6 +89,7 @@ def test_dispatch_appointment_reminder_sends_telegram(
 ):
     settings.TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
         chat_id="123456",
         telegram_username="ana_silva",
@@ -140,6 +153,7 @@ def test_send_reminders_command_can_force_specific_appointment(
 ):
     settings.TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
         chat_id="123456",
     )

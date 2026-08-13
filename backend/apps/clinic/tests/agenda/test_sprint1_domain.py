@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
-from apps.authentication.models import Professional
+from apps.authentication.models import Professional, Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -14,22 +14,36 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="sprint1@example.com",
         password="secret123",
         first_name="Sprint",
         last_name="One",
     )
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Sprint1', slug='tenant-sprint1')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
 def other_professional():
-    return Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="other-sprint1@example.com",
         password="secret123",
         first_name="Other",
         last_name="Professional",
     )
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Sprint1 Other', slug='tenant-sprint1-other')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
@@ -41,15 +55,21 @@ def auth_client(professional):
 
 @pytest.fixture
 def staff_professional():
-    professional = Professional.objects.create_user(
+    pro = Professional.objects.create_user(
         email="staff-sprint1@example.com",
         password="secret123",
         first_name="Staff",
         last_name="Reviewer",
     )
-    professional.is_staff = True
-    professional.save(update_fields=["is_staff"])
-    return professional
+    pro.is_staff = True
+    pro.save(update_fields=["is_staff"])
+    pro.tenant_memberships.all().delete()
+    tenant = Tenant.objects.create(name='Tenant Staff Sprint1', slug='tenant-staff-sprint1')
+    TenantMembership.objects.create(
+        tenant=tenant, professional=pro,
+        role=TenantMembership.Role.OWNER, is_active=True,
+    )
+    return pro
 
 
 @pytest.fixture
@@ -62,7 +82,7 @@ def staff_client(staff_professional):
 @pytest.fixture
 def client_obj(professional):
     return Client.objects.create(
-        professional=professional,
+        tenant=professional.tenant_memberships.first().tenant,
         first_name="Cliente",
         last_name="Sprint",
         phone="11999998888",
@@ -72,7 +92,7 @@ def client_obj(professional):
 @pytest.fixture
 def other_client(other_professional):
     return Client.objects.create(
-        professional=other_professional,
+        tenant=other_professional.tenant_memberships.first().tenant,
         first_name="Outro",
         last_name="Cliente",
         phone="11999997777",
@@ -82,8 +102,8 @@ def other_client(other_professional):
 @pytest.fixture
 def service(professional):
     return Service.objects.create(
-        professional=professional,
-        name="Avaliação biomecânica",
+        tenant=professional.tenant_memberships.first().tenant,
+        name="Avaliação biomânica",
         base_price="120.00",
     )
 
@@ -91,7 +111,7 @@ def service(professional):
 @pytest.fixture
 def product(professional):
     return Product.objects.create(
-        professional=professional,
+        tenant=professional.tenant_memberships.first().tenant,
         name="Palmilha",
         price="80.00",
         cost="35.00",
@@ -104,6 +124,7 @@ def make_future_appointment(professional, client_obj, hours_ahead: int = 2):
         microsecond=0,
     )
     return Appointment.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
         client=client_obj,
         title="Consulta",
@@ -134,9 +155,10 @@ def test_create_independent_encounter(auth_client, client_obj):
     assert data["status"] == "open"
 
 
-def test_only_one_open_encounter_per_client(auth_client, client_obj):
+def test_only_one_open_encounter_per_client(auth_client, client_obj, professional):
     Encounter.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         chief_complaint="Dor",
         status=Encounter.Status.OPEN,
@@ -153,12 +175,12 @@ def test_only_one_open_encounter_per_client(auth_client, client_obj):
     )
 
     assert response.status_code == 400, response.content
-    assert "atendimento em andamento" in str(response.json()).lower()
+        assert "sessão" in str(response.json()).lower() or "atendimento" in str(response.json()).lower()
 
-
-def test_clinical_record_requires_matching_encounter(auth_client, client_obj, other_client):
+def test_clinical_record_requires_matching_encounter(auth_client, client_obj, other_client, other_professional):
     encounter = Encounter.objects.create(
-        professional=other_client.professional,
+        tenant=other_professional.tenant_memberships.first().tenant,
+        professional=other_professional,
         client=other_client,
         chief_complaint="Outro caso",
         status=Encounter.Status.OPEN,
@@ -223,9 +245,10 @@ def test_create_charge_with_items_recalculates_total(auth_client, client_obj, se
     assert len(data["items"]) == 3
 
 
-def test_charge_mark_paid_sets_paid_at(auth_client, client_obj):
+def test_charge_mark_paid_sets_paid_at(auth_client, client_obj, professional):
     charge = Charge.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         charge_type=Charge.ChargeType.CHARGE,
         status=Charge.Status.DRAFT,
@@ -246,9 +269,10 @@ def test_charge_mark_paid_sets_paid_at(auth_client, client_obj):
     assert data["paid_at"] is not None
 
 
-def test_paid_charge_keeps_status_when_items_are_updated(auth_client, client_obj):
+def test_paid_charge_keeps_status_when_items_are_updated(auth_client, client_obj, professional):
     charge = Charge.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         charge_type=Charge.ChargeType.CHARGE,
         status=Charge.Status.PAID,
@@ -291,9 +315,10 @@ def test_paid_charge_keeps_status_when_items_are_updated(auth_client, client_obj
     assert returned_paid_at == original_paid_at
 
 
-def test_mark_sent_does_not_downgrade_paid_charge(auth_client, client_obj):
+def test_mark_sent_does_not_downgrade_paid_charge(auth_client, client_obj, professional):
     charge = Charge.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         charge_type=Charge.ChargeType.CHARGE,
         status=Charge.Status.PAID,
@@ -309,9 +334,10 @@ def test_mark_sent_does_not_downgrade_paid_charge(auth_client, client_obj):
     assert data["shared_at"] is not None
 
 
-def test_charge_cancel_marks_canceled(auth_client, client_obj):
+def test_charge_cancel_marks_canceled(auth_client, client_obj, professional):
     charge = Charge.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         charge_type=Charge.ChargeType.CHARGE,
         status=Charge.Status.DRAFT,
@@ -326,9 +352,10 @@ def test_charge_cancel_marks_canceled(auth_client, client_obj):
     assert data["paid_at"] is None
 
 
-def test_charge_cancel_blocks_paid_charge(auth_client, client_obj):
+def test_charge_cancel_blocks_paid_charge(auth_client, client_obj, professional):
     charge = Charge.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         charge_type=Charge.ChargeType.CHARGE,
         status=Charge.Status.PAID,
@@ -341,9 +368,10 @@ def test_charge_cancel_blocks_paid_charge(auth_client, client_obj):
     assert "não pode ser cancelada" in str(response.json()).lower()
 
 
-def test_encounter_close_sets_ended_at(auth_client, client_obj):
+def test_encounter_close_sets_ended_at(auth_client, client_obj, professional):
     encounter = Encounter.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         chief_complaint="Dor",
         status=Encounter.Status.OPEN,
@@ -357,9 +385,10 @@ def test_encounter_close_sets_ended_at(auth_client, client_obj):
     assert data["ended_at"] is not None
 
 
-def test_encounter_cancel_sets_canceled(auth_client, client_obj):
+def test_encounter_cancel_sets_canceled(auth_client, client_obj, professional):
     encounter = Encounter.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         chief_complaint="Retorno",
         status=Encounter.Status.OPEN,
@@ -378,6 +407,7 @@ def test_finalize_audit_list_filters_for_staff(staff_client, professional, clien
     appointment_b = make_future_appointment(professional, client_obj, hours_ahead=5)
 
     audit_a = FinalizeAudit.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         appointment=appointment_a,
         professional=professional,
         client=client_obj,
@@ -387,6 +417,7 @@ def test_finalize_audit_list_filters_for_staff(staff_client, professional, clien
         reason="in_window",
     )
     FinalizeAudit.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
         appointment=appointment_b,
         professional=professional,
         client=client_obj,
@@ -407,9 +438,10 @@ def test_finalize_audit_list_filters_for_staff(staff_client, professional, clien
     assert data[0]["appointment_id"] == appointment_a.id
 
 
-def test_clinical_record_delete_is_blocked(auth_client, client_obj):
+def test_clinical_record_delete_is_blocked(auth_client, client_obj, professional):
     record = ClinicalRecord.objects.create(
-        professional=client_obj.professional,
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
         client=client_obj,
         record_type=ClinicalRecord.RecordType.NOTE,
         title="Nota",

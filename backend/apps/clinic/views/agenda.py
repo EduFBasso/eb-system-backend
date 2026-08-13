@@ -329,6 +329,7 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
                     client_now_dt = timezone.make_aware(client_now_dt, timezone=timezone.utc)
                 drift_ms = int((now - client_now_dt).total_seconds() * 1000)
             FinalizeAudit.objects.create(
+                tenant=obj.tenant,
                 appointment=obj,
                 professional=obj.professional,
                 client=obj.client,
