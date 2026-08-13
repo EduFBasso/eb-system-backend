@@ -1,91 +1,99 @@
-# backend/apps/register/models.py
+# backend/apps/authentication/models/register_models.py
 from phonenumber_field.modelfields import PhoneNumberField
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
 
+
 class ProfessionalManager(BaseUserManager):
+    """
+    Gerenciador customizado para a criação de instâncias de Profissionais/Usuários.
+    Garante o fluxo correto de senhas utilizáveis vs. códigos OTP rápidos de autenticação.
+    """
     def create_user(self, email, password=None, **extra_fields):
         if not email:
-            raise ValueError("O e-mail é obrigatório")
+            raise ValueError("O e-mail é obrigatório para cadastro.")
 
         email = self.normalize_email(email)
-        extra_fields.setdefault("is_staff", False)       # Não é staff
-        extra_fields.setdefault("is_superuser", False)   # Nem superusuário
+        extra_fields.setdefault("is_staff", False)       
+        extra_fields.setdefault("is_superuser", False)   
 
         user = self.model(email=email, **extra_fields)
 
         if password:
-            user.set_password(password)  # Criptografa a senha
+            user.set_password(password)  
         else:
-            user.set_unusable_password() # Se for login via código/OTP
+            user.set_unusable_password() 
 
         user.save(using=self._db)
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        # Apenas para uso interno, por exemplo: Django Admin
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
 
 class Professional(AbstractBaseUser, PermissionsMixin):
+    """
+    [SOLID - Single Responsibility Principle]
+    Esta classe é o modelo de Usuário Customizado (Auth User) unificado do sistema.
+    Representa a identidade de qualquer profissional ou administrador na plataforma.
+    O controle de quais clínicas este usuário gerencia ocorre via TenantMembership.
+    """
     first_name = models.CharField("Nome", max_length=50)
     last_name = models.CharField("Sobrenome", max_length=70)
     display_name = models.CharField(
         "Nome de exibição",
         max_length=100,
         blank=True,
-        help_text="Como os clientes a conhecem: ex. 'Podóloga Regiane', 'Dra. Juliana' ou 'Clínica Árcaro'. Se vazio, usa o primeiro nome.",
+        help_text="Como os clientes o conhecem visualmente nas notificações: ex. 'Podóloga Regiane'.",
     )
-    phone = PhoneNumberField("Telefone", region="BR", blank=True) # type: ignore
-    email = models.EmailField("E-mail", unique=True)
+    phone = PhoneNumberField("Telefone Celular", region="BR", blank=True) 
+    email = models.EmailField("E-mail corporativo", unique=True)
 
     register_number = models.CharField(
-        "Registro Profissional", 
+        "Registro Profissional (CRM/CRBM)", 
         max_length=30, 
         unique=True,
         blank=True,
         null=True
     )
-    specialty = models.CharField("Especialidade", max_length=100, blank=True)
+    specialty = models.CharField("Especialidade Atendida", max_length=100, blank=True)
     can_manage_professionals = models.BooleanField(
-    default=False,
-    verbose_name="Pode gerenciar profissionais"
-)
+        default=False,
+        verbose_name="Pode gerenciar profissionais / Admin global"
+    )
+    
+    # Campo chave do segundo fator (2FA)
     totp_secret = models.CharField(
-        "TOTP Secret",
+        "Segredo TOTP (2FA)",
         max_length=64,
         blank=True,
-        help_text="Base32 secret for TOTP (Google Authenticator). Empty = TOTP not configured.",
+        help_text="Chave Base32 para Google Authenticator. Se vazio, o 2FA local fica totalmente desativado.",
     )
 
-    # Preferência de tema da interface
     UI_THEME_CHOICES = (
         ("blue", "Azul"),
         ("green", "Verde"),
         ("pink", "Rosa"),
-        ("black", "Escuro"),
     )
     ui_theme = models.CharField(
-        "Tema da interface",
+        "Tema visual do Painel",
         max_length=10,
         choices=UI_THEME_CHOICES,
         default="blue",
     )
 
-    # Endereço
     city = models.CharField("Cidade", max_length=50, blank=True)
     state = models.CharField("Estado", max_length=2, blank=True)
 
-    # SU/plataforma somente; papéis de domínio vêm de TenantMembership
-    is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField("Ativo", default=True)
+    is_staff = models.BooleanField("Acesso ao Django Admin", default=False)
+    is_active = models.BooleanField("Usuário Ativo no Sistema", default=True)
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
     deactivated_at = models.DateTimeField("Desativado em", null=True, blank=True)
     deactivation_reason = models.CharField(
-        "Motivo desativação", max_length=120, blank=True
+        "Motivo do Desligamento", max_length=120, blank=True
     )
 
     objects = ProfessionalManager()
@@ -93,11 +101,16 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name} — {self.register_number}"
+    class Meta:
+        app_label = 'authentication'
+        verbose_name = "Profissional"
+        verbose_name_plural = "Profissionais"
 
-    # Soft delete helper
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
+
     def deactivate(self, reason: str = ""):
+        """Soft delete amigável para preservar o histórico médico passado do profissional."""
         if not self.deactivated_at:
             self.deactivated_at = timezone.now()
         if reason:
@@ -113,33 +126,39 @@ class Professional(AbstractBaseUser, PermissionsMixin):
 
 
 class DeviceSession(models.Model):
-    """Sessão de dispositivo por profissional para auditoria e controle de limite.
-
-    - device_id: um identificador persistente gerado no frontend (UUID/string curta).
-    - is_active: ativa enquanto a sessão estiver em uso; ao sair, marcar inativa e registrar terminated_at.
-    - last_seen_at: atualizado quando o dispositivo interage (pode ser via heartbeat/requests autenticadas).
     """
-
+    [SOLID - Single Responsibility Principle]
+    Audita e controla as sessões de login ativas por dispositivo físico (Mesa/Mobile).
+    Garante que tokens locais antigos possam ser invalidados remotamente.
+    """
     professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name="sessions")
-    device_id = models.CharField(max_length=64)
-    user_agent = models.CharField(max_length=255, blank=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    device_id = models.CharField("Identificador Único do Aparelho", max_length=64)
+    user_agent = models.CharField("Navegador / App", max_length=255, blank=True)
+    ip_address = models.GenericIPAddressField("Endereço IP", null=True, blank=True)
+    is_active = models.BooleanField("Sessão Válida?", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_seen_at = models.DateTimeField(auto_now=True)
     terminated_at = models.DateTimeField(null=True, blank=True)
     termination_reason = models.CharField(max_length=32, blank=True)
 
     class Meta:
-        unique_together = ("professional", "device_id")
+        app_label = 'authentication'
+        verbose_name = "Auditoria - Sessão de Dispositivo"
+        verbose_name_plural = "Auditoria - Sessões de Dispositivos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['professional', 'device_id'],
+                name='uniq_professional_device_session'
+            )
+        ]
         indexes = [
             models.Index(fields=["professional", "is_active"]),
             models.Index(fields=["professional", "device_id"]),
         ]
 
     def __str__(self):
-        status = "ativa" if self.is_active else "inativa"
-        return f"{self.professional.email} — {self.device_id} ({status})"
+        status = "Ativa" if self.is_active else "Encerrada"
+        return f"{self.professional.email} — Dispositivo: {self.device_id} ({status})"
 
     def terminate(self, reason: str = "logout"):
         self.is_active = False
@@ -149,24 +168,15 @@ class DeviceSession(models.Model):
 
 
 class ProfessionalSettings(models.Model):
-    """Configurações por profissional para a agenda e comunicação.
-
-    - work_start_hour/work_start_minute: início padrão da agenda
-    - work_end_hour/work_end_minute: fim padrão da agenda
-    - slot_minutes: duração dos slots (ex.: 15, 30, 60)
-    - default_duration_minutes: duração sugerida para novos compromissos
-    - default_visit_type: tipo sugerido para novos compromissos
-    - confirm_message_enabled: ativa envio de confirmação (futuro)
-    - confirm_message_template: template opcional da mensagem
     """
-
-    DEFAULT_VISIT_TYPE_CHOICES = (
-        ("consulta", "Consulta"),
-        ("avaliacao", "Avaliação"),
-        ("retorno", "Retorno"),
-        ("procedimento", "Procedimento"),
-        ("outro", "Outro"),
-    )
+    [SOLID - Single Responsibility Principle]
+    Armazena as parametrizações de funcionamento de agenda privada de cada profissional.
+    """
+    class DefaultVisitType(models.TextChoices):
+        """[Alinhamento com App Clinic] Sincronizado com enums limpos adotados na Agenda."""
+        CONSULTA = "consulta", "Consulta"
+        RETORNO = "retorno", "Retorno"
+        OUTRO = "outro", "Outro compromisso"
 
     professional = models.OneToOneField(
         Professional,
@@ -174,83 +184,80 @@ class ProfessionalSettings(models.Model):
         related_name="settings",
         verbose_name="Profissional",
     )
-    work_start_hour = models.PositiveSmallIntegerField(default=6)
+    work_start_hour = models.PositiveSmallIntegerField("Hora de Início da Agenda", default=6)
     work_start_minute = models.PositiveSmallIntegerField(default=0)
-    work_end_hour = models.PositiveSmallIntegerField(default=21)
+    work_end_hour = models.PositiveSmallIntegerField("Hora de Término da Agenda", default=21)
     work_end_minute = models.PositiveSmallIntegerField(default=0)
-    slot_minutes = models.PositiveSmallIntegerField(default=10)
-    default_duration_minutes = models.PositiveSmallIntegerField(default=60)
+    slot_minutes = models.PositiveSmallIntegerField("Intervalo de Grade (Minutos)", default=10)
+    default_duration_minutes = models.PositiveSmallIntegerField("Duração Sugerida de Atendimento", default=60)
+    
     default_visit_type = models.CharField(
+        "Tipo Sugerido de Atendimento",
         max_length=20,
-        choices=DEFAULT_VISIT_TYPE_CHOICES,
-        default="consulta",
+        choices=DefaultVisitType.choices,
+        default=DefaultVisitType.CONSULTA,
     )
 
-    confirm_message_enabled = models.BooleanField(default=False)
-    confirm_message_template = models.TextField(blank=True)
+    confirm_message_enabled = models.BooleanField("Disparar confirmações automáticas?", default=False)
+    confirm_message_template = models.TextField("Template da Mensagem de Alerta", blank=True)
 
-    # PIX defaults (for quick budget payments)
+    # Configurações financeiras integradas para atalhos em orçamentos
     PIX_KEY_TYPES = (
         ("telefone", "Telefone"),
         ("cpf", "CPF"),
         ("email", "E-mail"),
-        ("aleatoria", "Aleatória"),
+        ("aleatoria", "Chave Aleatória"),
     )
-    pix_key_type = models.CharField(
-        max_length=16, choices=PIX_KEY_TYPES, blank=True, default=""
-    )
+    pix_key_type = models.CharField("Tipo de Chave PIX", max_length=16, choices=PIX_KEY_TYPES, blank=True, default="")
+    pix_key_value = models.CharField("Chave PIX", max_length=128, blank=True, default="")
+    
+    # Configurações para automações do Telegram copiadas da captura do arquivo visual aberto
+    pix_key_type = models.CharField(max_length=16, choices=PIX_KEY_TYPES, blank=True, default="")
     pix_key_value = models.CharField(max_length=128, blank=True, default="")
-
-    # Professional reminder settings (Telegram)
     reminder_enabled = models.BooleanField(default=False)
     reminder_minutes_before = models.PositiveSmallIntegerField(
         default=90,
-        help_text="Quantos minutos antes do compromisso enviar o lembrete Telegram.",
+        help_text="Quantos minutos antes do compromisso enviar o lembrete Telegram."
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        app_label = 'authentication'
         verbose_name = "Configuração do Profissional"
         verbose_name_plural = "Configurações de Profissionais"
 
     def __str__(self):
         start = f"{self.work_start_hour:02d}:{self.work_start_minute:02d}"
         end = f"{self.work_end_hour:02d}:{self.work_end_minute:02d}"
-        return (
-            f"Config {self.professional.email} "
-            f"({start}-{end}/{self.slot_minutes}m/{self.default_duration_minutes}m)"
-        )
+        return f"Configurações Clínicas de {self.professional.email} ({start} - {end})"
 
 
 class WebAuthnCredential(models.Model):
-    """Credencial WebAuthn (passkey / biometria) de um profissional.
-
-    Armazena o resultado de um registro bem-sucedido feito via
-    navigator.credentials.create() no frontend.  Cada profissional pode ter
-    múltiplas credenciais (iPhone, iPad, etc.).
     """
-
+    [SOLID - Single Responsibility Principle]
+    Armazena chaves públicas WebAuthn (Passkeys / Biometria do aparelho físico).
+    Permite logins biométricos diretos sem digitação de senha tradicional no frontend.
+    """
     professional = models.ForeignKey(
         Professional,
         on_delete=models.CASCADE,
         related_name="webauthn_credentials",
+        verbose_name="Profissional Vinculado"
     )
-    # id base64url retornado pelo @simplewebauthn/browser
-    credential_id = models.TextField(unique=True)
-    # Chave pública COSE codificada em base64 (bytes brutos do py_webauthn)
-    public_key = models.TextField()
+    credential_id = models.TextField(unique=True, help_text="ID retornado pelo navegador.")
+    public_key = models.TextField(help_text="Chave pública codificada em base64.")
     sign_count = models.PositiveIntegerField(default=0)
-    # Nome amigável (user-agent resumido, e.g. "iPhone de Eduardo")
-    device_name = models.CharField(max_length=120, blank=True)
+    device_name = models.CharField("Nome do Aparelho (ex: iPhone de Eduardo)", max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        app_label = 'authentication'
         verbose_name = "Credencial WebAuthn"
         verbose_name_plural = "Credenciais WebAuthn"
 
     def __str__(self):
-        return f"{self.professional.email} — {self.device_name or self.credential_id[:12]}"
+        device = self.device_name or "Dispositivo Desconhecido"
+        return f"Passkey de {self.professional.email} — {device} | id[:12]: {self.credential_id[:12]}"
 

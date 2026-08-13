@@ -1,30 +1,12 @@
-"""
-Cria ou atualiza um admin de tenant (Clinic ou Bakery) de forma explícita.
-
-Uso:
-  # Clinic — cria profissional, tenant e membership
-  python manage.py create_tenant_admin \\
-      --email regiane@clinica.com --password Senha123 \\
-      --first-name Regiane --last-name Cristina \\
-      --ecosystem clinic --specialty Podologia \\
-      --tenant-name "Clínica Regiane" --tenant-slug clinica-regiane
-
-  # Bakery — idem, com alias de login
-  python manage.py create_tenant_admin \\
-      --email panificadora@email.com --password Senha123 \\
-      --first-name Admin --last-name Panificadora \\
-      --ecosystem bakery \\
-      --tenant-name "Padaria Basso" --tenant-slug padaria-basso \\
-      --login-alias panificadora
-"""
-
+# backend/apps/authentication/management/commands/create_tenant_admin.py
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models.register_models import Professional
+from apps.authentication.models.tenancy_models import Tenant, TenantMembership
 
-# Mapa especialidade → capabilities adicionais para Clinic
+# Mapa de especialidades clínicas para ativar módulos dinâmicos (Capabilities)
 _SPECIALTY_CAPABILITY_MAP: list[tuple[tuple[str, ...], str]] = [
     (("odonto", "dent", "ortodont"), "odonto"),
     (("podolog",), "podologia"),
@@ -33,6 +15,7 @@ _SPECIALTY_CAPABILITY_MAP: list[tuple[tuple[str, ...], str]] = [
 
 def _capabilities_for_specialty(specialty: str) -> dict[str, bool]:
     normalized = (specialty or "").strip().lower()
+    # Ativa por padrão a capacidade base de clínica
     caps: dict[str, bool] = {"clinic": True}
     for tokens, capability in _SPECIALTY_CAPABILITY_MAP:
         if any(token in normalized for token in tokens):
@@ -45,6 +28,7 @@ def _normalize_secret_token(value: str) -> str:
 
 
 def _password_uses_identity(raw_password: str, *, email: str, first_name: str, last_name: str, login_alias: str) -> bool:
+    """[Segurança] Impede senhas óbvias baseadas em dados cadastrais do próprio usuário."""
     normalized_password = _normalize_secret_token(raw_password)
     if not normalized_password:
         return False
@@ -57,6 +41,7 @@ def _password_uses_identity(raw_password: str, *, email: str, first_name: str, l
 
 
 def _has_duplicate_bakery_owner_name(first_name: str, last_name: str, current_professional_id: int | None) -> bool:
+    """Impede donos de Padarias com nomes idênticos no mesmo ecossistema."""
     queryset = TenantMembership.objects.filter(
         tenant__ecosystem=Tenant.Ecosystem.BAKERY,
         role=TenantMembership.Role.OWNER,
@@ -69,6 +54,7 @@ def _has_duplicate_bakery_owner_name(first_name: str, last_name: str, current_pr
 
 
 def _is_password_reused(raw_password: str, current_user: Professional | None = None) -> bool:
+    """[Segurança] Impede que profissionais compartilhem exatamente a mesma senha."""
     queryset = Professional.objects.all()
     if current_user and current_user.pk:
         queryset = queryset.exclude(pk=current_user.pk)
@@ -79,7 +65,7 @@ def _is_password_reused(raw_password: str, current_user: Professional | None = N
 
 
 class Command(BaseCommand):
-    help = "Cria ou atualiza um admin (owner) de tenant — Clinic ou Bakery."
+    help = "Cria ou atualiza uma conta de Administrador/Proprietário (Owner) vinculada a um Tenant."
 
     def add_arguments(self, parser):
         parser.add_argument("--email", required=True)
@@ -91,10 +77,10 @@ class Command(BaseCommand):
             required=True,
             choices=["clinic", "bakery"],
         )
-        parser.add_argument("--specialty", default="", help="Apenas para ecosystem=clinic")
+        parser.add_argument("--specialty", default="", help="Especialidade médica (Apenas para ecosystem=clinic)")
         parser.add_argument("--tenant-name", required=True, dest="tenant_name")
         parser.add_argument("--tenant-slug", default="", dest="tenant_slug")
-        parser.add_argument("--login-alias", default="", dest="login_alias", help="Alias de login no tenant (Bakery)")
+        parser.add_argument("--login-alias", default="", dest="login_alias", help="Apelido de login rápido")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -109,7 +95,7 @@ class Command(BaseCommand):
         login_alias = options["login_alias"].strip().lower()
 
         if not password:
-            raise CommandError("--password não pode estar vazio.")
+            raise CommandError("O parâmetro --password é obrigatório e não pode ser nulo.")
 
         if _password_uses_identity(
             password,
@@ -118,15 +104,16 @@ class Command(BaseCommand):
             last_name=last_name,
             login_alias=login_alias,
         ):
-            raise CommandError("A senha não pode ser igual ao nome, sobrenome, e-mail ou alias de login.")
+            raise CommandError("Segurança: A senha não pode conter seu nome, sobrenome, e-mail ou apelido.")
 
-        # Capabilities
+        # Define as capacidades do Tenant baseadas no ecossistema selecionado
         if ecosystem == "clinic":
             capabilities = _capabilities_for_specialty(specialty)
         else:
             capabilities = {"bakery": True}
 
-        # Professional
+        # 1. Criação/Recuperação do Usuário Profissional
+        # Garante que o totp_secret nasça VAZIO para pular o 2FA no ambiente local
         professional, created = Professional.objects.get_or_create(
             email=email,
             defaults={
@@ -135,27 +122,27 @@ class Command(BaseCommand):
                 "specialty": specialty,
                 "is_active": True,
                 "is_staff": False,
+                "totp_secret": "",  # Desativa explicitamente o 2FA para logins rápidos locais
             },
         )
         if not created:
-            self.stdout.write(f"  Professional já existe: {email}")
+            self.stdout.write(self.style.WARNING(f"  Profissional já existente na plataforma: {email}"))
 
         if ecosystem == "bakery" and _has_duplicate_bakery_owner_name(
             first_name,
             last_name,
             current_professional_id=professional.id,
         ):
-            raise CommandError(
-                "Já existe outro owner Bakery com o mesmo nome e sobrenome. Use um nome administrativo diferente."
-            )
+            raise CommandError("Já existe um proprietário registrado na rede de Padarias com este mesmo nome.")
 
         if _is_password_reused(password, current_user=professional):
-            raise CommandError("Esta senha já está em uso por outro profissional.")
+            raise CommandError("Esta senha já está sendo utilizada por outra conta no sistema.")
 
+        # Criptografa e atualiza a senha de acesso
         professional.set_password(password)
         professional.save(update_fields=["password"])
 
-        # Tenant
+        # 2. Criação/Recuperação da Empresa (Tenant)
         tenant, t_created = Tenant.objects.get_or_create(
             slug=tenant_slug,
             defaults={
@@ -166,13 +153,17 @@ class Command(BaseCommand):
             },
         )
         if not t_created:
-            # Atualiza capabilities caso especialidade mude
+            # Validação crucial de segurança multi-tenant
+            if tenant.ecosystem != ecosystem:
+                raise CommandError(f"Conflito de Slugs: O slug '{tenant_slug}' já pertence ao ecossistema {tenant.ecosystem}.")
+                
+            # Atualiza as capacidades dinâmicas caso a especialidade da clínica mude
             if tenant.capabilities != capabilities:
                 tenant.capabilities = capabilities
                 tenant.save(update_fields=["capabilities"])
-            self.stdout.write(f"  Tenant já existe: {tenant_slug}")
+            self.stdout.write(self.style.WARNING(f"  Empresa (Tenant) já existente no sistema: {tenant_slug}"))
 
-        # TenantMembership
+        # 3. Vinculação de Controle e Governança (TenantMembership)
         membership, m_created = TenantMembership.objects.get_or_create(
             tenant=tenant,
             professional=professional,
@@ -195,12 +186,14 @@ class Command(BaseCommand):
                 updates.append("is_active")
             if updates:
                 membership.save(update_fields=updates)
+                
+        self.stdout.write(self.style.SUCCESS(f"Sucesso: Admin Owner configurado para {email} no Tenant {tenant_slug}."))
 
-        action = "criado" if created else "atualizado"
-        self.stdout.write(self.style.SUCCESS(
-            f"\n✅ Admin {action}: {email}\n"
-            f"   Tenant: {tenant_name} ({tenant_slug}) | ecosystem={ecosystem}\n"
-            f"   Capabilities: {capabilities}\n"
-            f"   Login alias: {login_alias or '(não definido)'}\n"
-            f"   Role: owner\n"
-        ))
+        # action = "criado" if created else "atualizado"
+        # self.stdout.write(self.style.SUCCESS(
+        #     f"\n✅ Admin {action}: {email}\n"
+        #     f"   Tenant: {tenant_name} ({tenant_slug}) | ecosystem={ecosystem}\n"
+        #     f"   Capabilities: {capabilities}\n"
+        #     f"   Login alias: {login_alias or '(não definido)'}\n"
+        #     f"   Role: owner\n"
+        # ))

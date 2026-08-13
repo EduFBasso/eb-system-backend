@@ -24,3 +24,8 @@ apps/odonto/management/commands/assist_bruna_reconciliation.py
 apps/odonto/management/commands/import_bruna_arcada.py
 apps/odonto/management/commands/reset_test_data_preserve_professional.py
 scripts/seed_common_anamnesis_fields.py
+
+# Bloquear qualquer exportação ou planilha de dados confidenciais
+*.csv
+*.xlsx
+clients_export.csv

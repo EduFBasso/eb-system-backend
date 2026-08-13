@@ -1,43 +1,44 @@
+# backend/apps/authentication/management/commands/export_clients_csv.py
 import csv
 import os
 from typing import Optional
 
-from django.core.management.base import BaseCommand, CommandParser
+from django.core.management.base import BaseCommand, CommandParser, CommandError
 from django.utils import timezone
 
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models.tenancy_models import Tenant
 
 
 class Command(BaseCommand):
-    help = "Exporta clientes para CSV (por profissional opcional)."
+    help = "Exporta clientes cadastrados de uma clínica (Tenant) específica para um arquivo CSV."
 
     def add_arguments(self, parser: CommandParser) -> None:
+        parser.add_argument(
+            "--tenant-slug",
+            dest="tenant_slug",
+            required=True,
+            help="Slug identificador da clínica (Tenant) obrigatório para isolamento de dados.",
+        )
         parser.add_argument(
             "--out",
             dest="out",
             default="clients_export.csv",
-            help="Arquivo de saída CSV (use '-' para stdout)",
-        )
-        parser.add_argument(
-            "--professional",
-            dest="professional",
-            default=None,
-            help="E-mail do profissional para filtrar (opcional)",
+            help="Caminho do arquivo de saída CSV (utilize '-' para exibir direto no terminal/stdout).",
         )
 
-    def handle(self, *args, **options): # type: ignore
+    def handle(self, *args, **options):
+        tenant_slug: str = options["tenant_slug"].strip().lower()
         out: str = options["out"]
-        prof_email: Optional[str] = options.get("professional")
 
-        qs = Client.objects.all().select_related("professional")
-        if prof_email:
-            try:
-                prof = Professional.objects.get(email__iexact=prof_email)
-            except Professional.DoesNotExist:
-                self.stderr.write(self.style.ERROR(f"Profissional não encontrado: {prof_email}"))
-                return 1
-            qs = qs.filter(professional=prof)
+        # [Segurança Multi-tenant] Garante que a exportação só ocorra se a clínica for explicitamente localizada
+        try:
+            tenant = Tenant.objects.get(slug=tenant_slug)
+        except Tenant.DoesNotExist:
+            raise CommandError(f"Erro: Empresa/Clínica (Tenant) com o slug '{tenant_slug}' não foi encontrada.")
+
+        # Realiza a query filtrando estritamente pelos clientes que pertencem a este Tenant
+        qs = Client.objects.filter(tenant=tenant)
 
         fields = [
             "id",
@@ -59,7 +60,7 @@ class Command(BaseCommand):
         rows = []
         for c in qs.order_by("first_name", "last_name"):
             rows.append([
-                c.id, # type: ignore
+                c.id,
                 c.first_name or "",
                 c.last_name or "",
                 c.phone or "",
@@ -75,18 +76,21 @@ class Command(BaseCommand):
                 c.created_at.astimezone(timezone.utc).isoformat() if c.created_at else "",
             ])
 
+        # Direciona o fluxo caso o usuário queira printar direto no terminal
         if out == "-":
             writer = csv.writer(self.stdout)
             writer.writerow(fields)
             writer.writerows(rows)
             return 0
 
-        # Garante diretório
+        # Cria a pasta de destino caso ela não exista fisicamente na máquina
         os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
         with open(out, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(fields)
             writer.writerows(rows)
 
-        self.stdout.write(self.style.SUCCESS(f"Exportado {len(rows)} clientes para {out}"))
+        self.stdout.write(self.style.SUCCESS(
+            f"✅ Sucesso: Exportados {len(rows)} clientes da clínica '{tenant.name}' para o arquivo: {out}"
+        ))
         return 0
