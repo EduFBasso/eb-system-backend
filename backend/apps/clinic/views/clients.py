@@ -99,7 +99,7 @@ class ClientViewSet(ModelViewSet):
                     'anamneses_base',
                     queryset=AnamneseBase.objects.filter(
                         tenant_id=tenant.id,
-                    ).prefetch_related('podologia'),
+                    ).prefetch_related('podologia', 'odontologia'),
                 ),
                 Prefetch(
                     'anamnesis_responses',
