@@ -109,10 +109,79 @@ def test_dispatch_appointment_reminder_sends_telegram(
     assert delivery is not None
     assert delivery.status == ReminderDelivery.Status.SENT
     assert delivery.external_message_id == "77"
+    assert delivery.payload["bot_origin"] == "global"
+    assert delivery.payload["bot_token_fingerprint"].endswith("oken")
     assert "Abrir conversa no WhatsApp" in str(delivery.payload)
     assert "?text=" in str(delivery.payload)
     assert "Posso+contar+com+sua+presen%C3%A7a%3F" in str(delivery.payload)
     assert mocked_post.called
+
+
+def test_dispatch_appointment_reminder_uses_professional_private_bot_token(
+    appointment,
+    reminder_settings,
+    professional,
+    settings,
+):
+    settings.TELEGRAM_BOT_TOKEN = "global-token"
+    TelegramProfessionalLink.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
+        chat_id="123456",
+        bot_token="private-token-1234",
+        telegram_username="ana_private",
+    )
+
+    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+        mocked_post.return_value.status_code = 200
+        mocked_post.return_value.json.return_value = {
+            "ok": True,
+            "result": {"message_id": 99},
+        }
+
+        delivery = dispatch_appointment_reminder(appointment)
+
+    assert delivery is not None
+    assert delivery.status == ReminderDelivery.Status.SENT
+    assert delivery.payload["bot_origin"] == "professional"
+    assert delivery.payload["bot_token_fingerprint"] == "***1234"
+    called_url = mocked_post.call_args.args[0]
+    assert "private-token-1234" in called_url
+
+
+def test_dispatch_appointment_reminder_private_token_auth_failure_does_not_fallback(
+    appointment,
+    reminder_settings,
+    professional,
+    settings,
+):
+    settings.TELEGRAM_BOT_TOKEN = "global-fallback-token"
+    TelegramProfessionalLink.objects.create(
+        tenant=professional.tenant_memberships.first().tenant,
+        professional=professional,
+        chat_id="123456",
+        bot_token="private-token-401x",
+    )
+
+    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+        mocked_post.return_value.status_code = 401
+        mocked_post.return_value.json.return_value = {
+            "ok": False,
+            "description": "Unauthorized",
+        }
+
+        delivery = dispatch_appointment_reminder(appointment)
+
+    appointment.refresh_from_db()
+    assert appointment.reminder_sent is False
+    assert delivery is not None
+    assert delivery.status == ReminderDelivery.Status.FAILED
+    assert "Token global não foi usado como fallback" in delivery.error_message
+    assert delivery.payload["bot_origin"] == "professional"
+    assert mocked_post.call_count == 1
+    called_url = mocked_post.call_args.args[0]
+    assert "private-token-401x" in called_url
+    assert "global-fallback-token" not in called_url
 
 
 def test_build_whatsapp_prefilled_text_uses_human_friendly_confirmation_copy(

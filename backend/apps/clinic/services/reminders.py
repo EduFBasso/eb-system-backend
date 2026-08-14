@@ -36,6 +36,28 @@ class DispatchSummary:
     skipped: int = 0
 
 
+def _masked_token_fingerprint(token: str) -> str:
+    tail = (token or '').strip()[-4:]
+    return f"***{tail}" if tail else "***"
+
+
+def _resolve_bot_token(link: TelegramProfessionalLink) -> tuple[str, str]:
+    private_token = (link.bot_token or '').strip()
+    if private_token:
+        return private_token, 'professional'
+    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
+
+
+def _is_auth_error(message: str) -> bool:
+    normalized = (message or '').lower()
+    return (
+        '401' in normalized
+        or '403' in normalized
+        or 'unauthorized' in normalized
+        or 'forbidden' in normalized
+    )
+
+
 def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
     local_now = timezone.localtime(now)
     work_start = local_now.replace(
@@ -204,6 +226,7 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
             )
             .filter(appointment_filters)
             .select_related("client", "professional")
+            .prefetch_related("professional__telegram_link")
             .order_by("start_at")
             .distinct()
         )
@@ -214,7 +237,6 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
 def dispatch_appointment_reminder(
     appointment: Appointment,
     *,
-    client: TelegramBotClient | None = None,
     dry_run: bool = False,
     force: bool = False,
 ) -> ReminderDelivery | None:
@@ -229,7 +251,6 @@ def dispatch_appointment_reminder(
             payload={"reason": "feature_disabled"},
         )
 
-    client = client or TelegramBotClient()
     appointment = Appointment.objects.select_related("professional", "client").get(
         pk=appointment.pk
     )
@@ -269,9 +290,14 @@ def dispatch_appointment_reminder(
             payload={"reason": "telegram_inactive"},
         )
 
+    resolved_token, bot_origin = _resolve_bot_token(link)
+    resolved_client = TelegramBotClient(token=resolved_token)
+
     payload = {
         "text": build_telegram_text(appointment),
         "reply_markup": build_reply_markup(appointment) or {},
+        "bot_origin": bot_origin,
+        "bot_token_fingerprint": _masked_token_fingerprint(resolved_token),
     }
 
     if dry_run:
@@ -283,12 +309,13 @@ def dispatch_appointment_reminder(
         return None
 
     try:
-        send_result = client.send_message(
+        send_result = resolved_client.send_message(
             chat_id=link.chat_id,
             text=payload["text"],
             reply_markup=payload["reply_markup"] or None,
         )
     except TelegramDeliveryError as exc:
+        auth_error = _is_auth_error(str(exc))
         link.last_error = str(exc)
         link.save(update_fields=["last_error", "updated_at"])
         return ReminderDelivery.objects.create(
@@ -297,7 +324,12 @@ def dispatch_appointment_reminder(
             professional=appointment.professional,
             channel=ReminderDelivery.Channel.TELEGRAM,
             status=ReminderDelivery.Status.FAILED,
-            error_message=str(exc),
+            error_message=(
+                "Falha de autenticação no bot privado do profissional. "
+                "Token global não foi usado como fallback."
+                if bot_origin == 'professional' and auth_error
+                else str(exc)
+            ),
             payload=payload,
         )
 
@@ -331,12 +363,10 @@ def dispatch_due_reminders(
     if not settings.APPOINTMENT_REMINDERS_ENABLED:
         return summary
 
-    client = TelegramBotClient()
-
     if appointment_id is not None:
         appointments = Appointment.objects.filter(pk=appointment_id).select_related(
             "professional", "client"
-        )
+        ).prefetch_related("professional__telegram_link")
     else:
         appointments = get_due_appointments(
             now=now,
@@ -348,7 +378,6 @@ def dispatch_due_reminders(
         try:
             delivery = dispatch_appointment_reminder(
                 appointment,
-                client=client,
                 dry_run=dry_run,
                 force=appointment_id is not None,
             )
