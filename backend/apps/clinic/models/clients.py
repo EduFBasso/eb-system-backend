@@ -134,32 +134,3 @@ class Client(models.Model):
             return getattr(base, specialty)
             
         return None
-
-
-    # @property
-    # def anamnese_base(self):
-    #     cache = getattr(self, '_prefetched_objects_cache', {})
-    #     prefetched = cache.get('anamneses_base')
-    #     if prefetched is not None:
-    #         for item in prefetched:
-    #             if item.tenant_id == self.tenant_id and item.professional_id == self.professional_id:
-    #                 return item
-
-    #     return self.anamneses_base.filter(
-    #         tenant_id=self.tenant_id,
-    #         professional_id=self.professional_id,
-    #     ).order_by('-updated_at', '-created_at').first()
-
-    # @property
-    # def anamnese_podologia(self):
-    #     cache = getattr(self, '_prefetched_objects_cache', {})
-    #     prefetched = cache.get('anamneses_podologia')
-    #     if prefetched is not None:
-    #         for item in prefetched:
-    #             if item.tenant_id == self.tenant_id and item.professional_id == self.professional_id:
-    #                 return item
-
-    #     return self.anamneses_podologia.filter(
-    #         tenant_id=self.tenant_id,
-    #         professional_id=self.professional_id,
-    #     ).order_by('-updated_at', '-created_at').first()

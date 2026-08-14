@@ -258,3 +258,50 @@ class AnamnesisResponse(models.Model):
     def __str__(self):
         field_info = self.field_label_snap or (str(self.field) if self.field else 'Campo excluído')
         return f'{self.client} — {field_info}: {self.value[:40]}'
+
+
+class AnamneseOdontologia(models.Model):
+    """
+    [SOLID - Open/Closed Principle]
+    Estende a AnamneseBase para armazenar as respostas clínicas específicas da Odontologia.
+    O núcleo comum do sistema permanece fechado para alterações, permitindo o isolamento
+    técnico entre as especialidades médicas de forma limpa.
+    """
+    # Relacionamento 1 para 1 com a Base garante a extensão limpa do prontuário
+    anamnese_base = models.OneToOneField(
+        AnamneseBase,
+        on_delete=models.CASCADE,
+        related_name='odontologia',
+        verbose_name='Anamnese Base',
+    )
+    professional = models.ForeignKey(
+        'authentication.Professional',
+        on_delete=models.CASCADE,
+        related_name='anamneses_odontologia',
+        verbose_name='Dentista Responsável',
+    )
+
+    # Campos específicos da Odontologia mapeados a partir do novo formulário do Frontend
+    gum_bleeding = models.BooleanField("Gengiva sangra ao escovar?", default=False)
+    floss_usage = models.BooleanField("Usa fio dental diariamente?", default=False)
+    bruxism_clenching = models.BooleanField("Apresenta Bruxismo / Apertamento?", default=False)
+    
+    tooth_brushing_frequency = models.CharField(
+        "Frequência de Escovação", 
+        max_length=30, 
+        blank=True, 
+        default=""
+    )
+    chief_dental_complaint = models.TextField("Queixa Principal Bucal", blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'clinic'
+        ordering = ['-updated_at', '-created_at']
+        verbose_name = 'Anamnese Especialidade - Odontologia'
+        verbose_name_plural = 'Anamneses Especialidade - Odontologia'
+
+    def __str__(self):
+        return f'{self.anamnese_base.client} — Especificação Odontológica'
