@@ -85,8 +85,8 @@ class DentalAnamnesisSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Profissional não possui vínculo ativo com nenhuma clínica.")
         tenant = membership.tenant
         
-        # Professional profile resolution
-        professional = getattr(request.user, 'professional_profile', None)
+        # Professional profile resolution — request.user IS the professional in this system
+        professional = request.user
         
         client_id = validated_data.pop('client_id')
         try:

@@ -134,3 +134,13 @@ class Client(models.Model):
             return getattr(base, specialty)
             
         return None
+
+    @property
+    def anamnese_base(self):
+        """Atalho que DRF usa ao serializar o cliente — retorna a ficha geral mais recente."""
+        return self.latest_anamnesis_base
+
+    @property
+    def anamnese_odontologia(self):
+        """Atalho direto para o serializer acessar a extensão de Odontologia."""
+        return self.get_specialized_anamnesis('odontologia')

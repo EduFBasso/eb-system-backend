@@ -3,7 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timezone as dt_timezone
 from apps.clinic.models.clients import Client
-from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia, AnamnesisResponse
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia, AnamnesisResponse, AnamneseOdontologia
 from utils.cep import normalize_cep
 import unicodedata, re
 
@@ -75,6 +75,22 @@ class AnamnesePodologiaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
+class AnamneseOdontologiaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnamneseOdontologia
+        fields = [
+            'id',
+            'gum_bleeding',
+            'floss_usage',
+            'bruxism_clenching',
+            'tooth_brushing_frequency',
+            'chief_dental_complaint',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
 def _active_anamnese_tenant(context) -> object:
     tenant = context.get('tenant')
     if tenant is not None:
@@ -103,6 +119,7 @@ class ClientSerializer(serializers.ModelSerializer):
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
     anamnese_base = AnamneseBaseSerializer(required=False, allow_null=True)
     anamnese_podologia = AnamnesePodologiaSerializer(required=False, allow_null=True)
+    anamnese_odontologia = AnamneseOdontologiaSerializer(read_only=True, allow_null=True)
     anamnesis_responses = serializers.SerializerMethodField()
 
     class Meta:
@@ -133,6 +150,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'updated_at',
             'anamnese_base',
             'anamnese_podologia',
+            'anamnese_odontologia',
             'anamnesis_responses',
         ]
         read_only_fields = ['id', 'tenant', 'created_at', 'updated_at']
