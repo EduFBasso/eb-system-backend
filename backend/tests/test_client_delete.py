@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional
@@ -63,13 +63,6 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
         start_at=start_at,
         end_at=start_at + timedelta(hours=1),
     )
-    FinalizeAudit.objects.create(
-        tenant=tenant,
-        appointment=appointment,
-        professional=professional,
-        client=client_obj,
-        server_now=timezone.now(),
-    )
     encounter = Encounter.objects.create(
         tenant=tenant,
         professional=professional,
@@ -114,7 +107,6 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
     assert response.status_code == 204, response.content
     assert not Client.objects.filter(pk=client_obj.id).exists()
     assert not Appointment.objects.filter(client_id=client_obj.id).exists()
-    assert not FinalizeAudit.objects.filter(client_id=client_obj.id).exists()
     assert not Encounter.objects.filter(client_id=client_obj.id).exists()
     assert not ClinicalRecord.objects.filter(client_id=client_obj.id).exists()
     assert not Charge.objects.filter(client_id=client_obj.id).exists()

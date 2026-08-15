@@ -9,7 +9,6 @@ from django.apps import apps as django_apps
 DIRECT_MODEL_SPECS = [
     ('clients', 'Client', 'professional_id'),
     ('agenda', 'Appointment', 'professional_id'),
-    ('agenda', 'FinalizeAudit', 'professional_id'),
     ('agenda', 'Encounter', 'professional_id'),
     ('agenda', 'ClinicalRecord', 'professional_id'),
     ('agenda', 'Charge', 'professional_id'),

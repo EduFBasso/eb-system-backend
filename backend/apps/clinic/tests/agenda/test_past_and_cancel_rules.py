@@ -67,6 +67,14 @@ def test_past_appointment_cannot_be_edited(api, professional, client_obj):
     assert r.status_code in (400, 403, 422), r.content
 
 
+def test_finalize_endpoint_is_removed(api, professional, client_obj):
+    appointment = make(professional, client_obj, 2)
+
+    response = api.post(f'/agenda/appointments/{appointment.id}/finalize/')
+
+    assert response.status_code == 404, response.content
+
+
 def test_cancel_keeps_record_and_frees_slot(api, professional, client_obj):
     fut = make(professional, client_obj, 2)
     cancel = api.post(f'/agenda/appointments/{fut.id}/cancel/')

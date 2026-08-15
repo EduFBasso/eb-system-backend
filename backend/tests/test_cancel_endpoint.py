@@ -68,35 +68,6 @@ def test_cancel_idempotent(client, django_user_model):
 
 
 @pytest.mark.django_db
-def test_finalize_sets_finalized_at_once(client, django_user_model):
-    pro = django_user_model.objects.create_user(email='pf@example.com', password='x', first_name='PF', last_name='X')
-    client.force_login(pro)
-    tenant = _setup_tenant(pro)
-    c = Client.objects.create(tenant=tenant, first_name='CF', last_name='LF', phone='11900001003')
-    now = timezone.now()
-    appt = Appointment.objects.create(
-        tenant=tenant,
-        professional=pro,
-        client=c,
-        title='Consulta',
-        start_at=now - timezone.timedelta(minutes=5),
-        end_at=now + timezone.timedelta(minutes=25),
-        status=Appointment.Status.SCHEDULED,
-    )
-    r1 = client.post(f'/agenda/appointments/{appt.id}/finalize/')
-    assert r1.status_code == 200
-    appt.refresh_from_db()
-    first_finalized = appt.finalized_at
-    assert first_finalized is not None
-    assert appt.status == Appointment.Status.PENDING
-    # Segunda chamada (idempotente) não altera timestamp
-    r2 = client.post(f'/agenda/appointments/{appt.id}/finalize/')
-    assert r2.status_code == 200
-    appt.refresh_from_db()
-    assert appt.finalized_at == first_finalized
-
-
-@pytest.mark.django_db
 def test_cancel_pending_sets_canceled_at(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc3@example.com', password='x', first_name='PC3', last_name='X3')
     client.force_login(pro)

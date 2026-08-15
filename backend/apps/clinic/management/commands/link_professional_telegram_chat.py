@@ -19,9 +19,19 @@ class Command(BaseCommand):
         except Professional.DoesNotExist as exc:
             raise CommandError("Profissional não encontrado.") from exc
 
+        membership = (
+            professional.tenant_memberships.select_related("tenant")
+            .filter(is_active=True, tenant__is_active=True)
+            .order_by("created_at", "id")
+            .first()
+        )
+        if membership is None:
+            raise CommandError("Profissional sem tenant ativo.")
+
         link, created = TelegramProfessionalLink.objects.update_or_create(
             professional=professional,
             defaults={
+                "tenant": membership.tenant,
                 "chat_id": options["chat_id"],
                 "telegram_username": options["username"],
                 "is_active": not options["inactive"],

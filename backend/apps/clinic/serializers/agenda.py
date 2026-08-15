@@ -10,7 +10,6 @@ from apps.clinic.models.agenda import (
     ChargeItem,
     ClinicalRecord,
     Encounter,
-    FinalizeAudit,
 )
 from .state_utils import promote_overdue_scheduled_to_pending
 
@@ -36,13 +35,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "location",
             "notes",
             "status",
-            "finalized_at",
             "canceled_at",
             "whatsapp_confirmed",
             "created_device_id",
             "created_device_info",
-            "ended_device_id",
-            "ended_device_info",
             "created_at",
             "updated_at",
         ]
@@ -52,18 +48,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "professional",
             "created_device_id",
             "created_device_info",
-            "ended_device_id",
-            "ended_device_info",
-            "finalized_at",
             "canceled_at",
             "whatsapp_confirmed",
         ]
-
-    # Semântica de tempos:
-    # - end_at: término planejado OU real (se finalize antecipado encurta end_at = now).
-    # - finalized_at: momento em que o profissional marcou como concluído (primeira vez; imutável).
-    #   Pode ser > end_at quando a finalização ocorreu depois do horário planejado.
-    #   Duração efetiva -> (end_at - start_at); atraso de registro -> max(0, finalized_at - end_at).
 
     def get_professional_name(self, obj):
         p = obj.professional
@@ -98,12 +85,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     "detail": "Somente compromissos ativos podem ser editados."
                 })
             # Status deve ser resolvido apenas via endpoints dedicados
-            # (/finalize, /cancel, /done), nunca por PATCH generico.
+            # (/cancel, /done), nunca por PATCH genérico.
             if "status" in attrs:
                 new_status = attrs.get("status")
                 if new_status is not None and new_status != inst_status:
                     raise serializers.ValidationError({
-                        "status": "Use os endpoints dedicados para transição de status (finalize, cancel, done)."
+                        "status": "Use os endpoints dedicados para transição de status (cancel, done)."
                     })
             # Se o compromisso já está no passado, bloquear edições genéricas
             # Exceções permitidas:
@@ -200,30 +187,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Conflito de horário para o profissional.")
 
         return attrs
-
-
-class FinalizeAuditSerializer(serializers.ModelSerializer):
-    appointment_id = serializers.IntegerField(source="appointment.id", read_only=True)
-    professional_id = serializers.IntegerField(source="professional.id", read_only=True)
-    client_id = serializers.IntegerField(source="client.id", read_only=True)
-
-    class Meta:
-        model = FinalizeAudit
-        fields = [
-            "id",
-            "appointment_id",
-            "professional_id",
-            "client_id",
-            "device_id",
-            "device_info",
-            "client_now",
-            "server_now",
-            "drift_ms",
-            "adjusted_times",
-            "reason",
-            "created_at",
-        ]
-        read_only_fields = fields
 
 
 class EncounterSerializer(serializers.ModelSerializer):

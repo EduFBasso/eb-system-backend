@@ -68,6 +68,15 @@ python manage.py import_legacy_podology_json \
 python manage.py send_clinic_appointment_reminders --dry-run
 ```
 
+Para usar o token global configurado em `TELEGRAM_BOT_TOKEN`, crie um vínculo
+ativo sem token privado:
+
+```bash
+python manage.py link_professional_telegram_chat \
+  --email <email-da-profissional> \
+  --chat-id <chat-id-do-telegram>
+```
+
 ### 5) Generate admin TOTP QR code
 
 ```bash

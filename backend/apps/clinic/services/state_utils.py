@@ -1,29 +1,22 @@
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 
 
-def promote_scheduled_to_ongoing(
-    base_qs: QuerySet | None = None,
-) -> int:
-    # ONGOING status was removed from the model; this is now a no-op kept for call-site compatibility.
-    return 0
-
-
 def promote_overdue_scheduled_to_pending(
     base_qs: QuerySet | None = None,
 ) -> int:
-    """Promote overdue scheduled/ongoing appointments to pending.
+    """Promote overdue scheduled appointments to pending.
 
     This is an opportunistic promotion used until a periodic job is introduced.
     It affects appointments that have already ended (end_at < now) and are
-    still in scheduled or ongoing state.
+    still in scheduled state.
     """
     now = timezone.now()
     qs = base_qs if base_qs is not None else Appointment.objects.all()
     return qs.filter(
-        Q(status=Appointment.Status.SCHEDULED),
+        status=Appointment.Status.SCHEDULED,
         end_at__lt=now,
     ).update(
         status=Appointment.Status.PENDING,

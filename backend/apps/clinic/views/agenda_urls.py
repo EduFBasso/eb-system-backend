@@ -6,7 +6,6 @@ from .agenda import (
     ChargeViewSet,
     ClinicalRecordViewSet,
     EncounterViewSet,
-    FinalizeAuditListView,
 )
 
 router = DefaultRouter()
@@ -17,5 +16,4 @@ router.register(r'charges', ChargeViewSet, basename='charge')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('finalize-audits/', FinalizeAuditListView.as_view(), name='finalize-audits-list'),
 ]

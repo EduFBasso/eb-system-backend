@@ -1,4 +1,4 @@
-from .agenda import Appointment, Charge, ChargeItem, ClinicalRecord, Encounter, FinalizeAudit
+from .agenda import Appointment, Charge, ChargeItem, ClinicalRecord, Encounter
 from .anamnesis import AnamnesisField, AnamnesisResponse, AnamneseBase, AnamnesePodologia
 from .clients import Client
 from .inventory import Product, ProductType, Service, ServiceMaterial, StockMove, StockMoveType, Supplier
@@ -11,7 +11,6 @@ __all__ = [
 	'ChargeItem',
 	'ClinicalRecord',
 	'Encounter',
-	'FinalizeAudit',
 	'AnamnesisField',
 	'AnamnesisResponse',
 	'AnamneseBase',

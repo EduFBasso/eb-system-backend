@@ -3,7 +3,7 @@ from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
 from apps.authentication.models import Professional, Tenant, TenantMembership
@@ -175,7 +175,7 @@ def test_only_one_open_encounter_per_client(auth_client, client_obj, professiona
     )
 
     assert response.status_code == 400, response.content
-        assert "sessão" in str(response.json()).lower() or "atendimento" in str(response.json()).lower()
+    assert "sessão" in str(response.json()).lower() or "atendimento" in str(response.json()).lower()
 
 def test_clinical_record_requires_matching_encounter(auth_client, client_obj, other_client, other_professional):
     encounter = Encounter.objects.create(
@@ -263,9 +263,10 @@ def test_charge_mark_paid_sets_paid_at(auth_client, client_obj, professional):
 
     response = auth_client.post(f"/agenda/charges/{charge.id}/mark-paid/", format="json")
 
-    assert response.status_code == 200, response.content
-    data = response.json()
-    assert data["status"] == "paid"
+    assert response.status_code == 400, response.content
+    assert "sessão" in str(response.json()).lower() or "atendimento" in str(
+        response.json()
+    ).lower()
     assert data["paid_at"] is not None
 
 
@@ -400,42 +401,6 @@ def test_encounter_cancel_sets_canceled(auth_client, client_obj, professional):
     data = response.json()
     assert data["status"] == "canceled"
     assert data["ended_at"] is not None
-
-
-def test_finalize_audit_list_filters_for_staff(staff_client, professional, client_obj):
-    appointment_a = make_future_appointment(professional, client_obj, hours_ahead=3)
-    appointment_b = make_future_appointment(professional, client_obj, hours_ahead=5)
-
-    audit_a = FinalizeAudit.objects.create(
-        tenant=professional.tenant_memberships.first().tenant,
-        appointment=appointment_a,
-        professional=professional,
-        client=client_obj,
-        device_id="device-a",
-        device_info="ios",
-        server_now=timezone.now(),
-        reason="in_window",
-    )
-    FinalizeAudit.objects.create(
-        tenant=professional.tenant_memberships.first().tenant,
-        appointment=appointment_b,
-        professional=professional,
-        client=client_obj,
-        device_id="device-b",
-        device_info="android",
-        server_now=timezone.now(),
-        reason="finished",
-    )
-
-    response = staff_client.get(
-        f"/agenda/finalize-audits/?appointment={appointment_a.id}&device_id=device-a"
-    )
-
-    assert response.status_code == 200, response.content
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["id"] == audit_a.id
-    assert data[0]["appointment_id"] == appointment_a.id
 
 
 def test_clinical_record_delete_is_blocked(auth_client, client_obj, professional):

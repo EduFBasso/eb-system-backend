@@ -3,6 +3,7 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from apps.authentication.models import Tenant
 from apps.clinic.models.inventory import Supplier, Product, StockMove, Service, ServiceMaterial
 from apps.clinic.serializers.inventory import (
     SupplierSerializer,
@@ -16,14 +17,31 @@ from apps.clinic.serializers.inventory import (
 class BaseScopedViewSet(viewsets.ModelViewSet):
     authentication_classes = (JWTAuthentication, SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
+    tenant_lookup = "tenant"
+
+    def active_tenant(self):
+        return (
+            Tenant.objects.filter(
+                memberships__professional=self.request.user,
+                memberships__is_active=True,
+                is_active=True,
+            )
+            .order_by("memberships__created_at", "id")
+            .first()
+        )
 
     def get_queryset(self):
         qs = super().get_queryset()
-        user = self.request.user
-        return qs.filter(professional=user)
+        tenant = self.active_tenant()
+        if tenant is None:
+            return qs.none()
+        return qs.filter(**{self.tenant_lookup: tenant})
 
     def perform_create(self, serializer):
-        serializer.save(professional=self.request.user)
+        tenant = self.active_tenant()
+        if tenant is None:
+            raise PermissionDenied("Profissional sem clínica ativa.")
+        serializer.save(tenant=tenant)
 
 
 class SupplierViewSet(BaseScopedViewSet):
@@ -49,16 +67,17 @@ class ServiceViewSet(BaseScopedViewSet):
 class ServiceMaterialViewSet(BaseScopedViewSet):
     queryset = ServiceMaterial.objects.all()
     serializer_class = ServiceMaterialSerializer
+    tenant_lookup = "service__tenant"
 
     def get_queryset(self):
-        qs = super(BaseScopedViewSet, self).get_queryset()
-        user = self.request.user
-        # Filtra por materiais cujo serviço pertence ao profissional logado
-        return qs.filter(service__professional=user)
+        return super().get_queryset()
 
     def perform_create(self, serializer):
-        # Garante que o material está associado a um serviço do profissional logado
+        tenant = self.active_tenant()
         service = serializer.validated_data.get('service')
-        if service and service.professional_id != self.request.user.id: # type: ignore
-            raise PermissionDenied('Serviço não pertence ao profissional atual.')
+        product = serializer.validated_data.get('product')
+        if tenant is None or not service or service.tenant_id != tenant.id:
+            raise PermissionDenied('Serviço não pertence à clínica atual.')
+        if not product or product.tenant_id != tenant.id:
+            raise PermissionDenied('Produto não pertence à clínica atual.')
         serializer.save()

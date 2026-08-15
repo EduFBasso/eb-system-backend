@@ -2,21 +2,20 @@ from typing import cast
 
 from django.db.models import QuerySet
 from django.db.models import Q
-from rest_framework import viewsets, permissions, generics
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 from django.utils import timezone
 
-from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.serializers.agenda import (
     AppointmentSerializer,
     ChargeSerializer,
     ClinicalRecordSerializer,
     EncounterSerializer,
-    FinalizeAuditSerializer,
 )
-from .state_utils import promote_overdue_scheduled_to_pending, promote_scheduled_to_ongoing
+from .state_utils import promote_overdue_scheduled_to_pending
 
 
 def _get_active_tenant(user):
@@ -135,7 +134,6 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         # Promoção temporal oportunista: limitar a leituras de agenda.
         # Evita escritas implícitas desnecessárias em fluxos de update/destroy.
         if getattr(self, "action", None) in {"list", "next_for_client"}:
-            promote_scheduled_to_ongoing(qs)
             promote_overdue_scheduled_to_pending(qs)
         # filtros opcionais ?start=2025-09-01T00:00:00&end=2025-09-02T00:00:00&client=<id>
         start = self.query_param("start")
@@ -246,106 +244,6 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
             return Response({"detail": "no-upcoming"})
         return Response(self.get_serializer(obj).data)
 
-    @action(detail=True, methods=["post"], url_path="finalize")
-    def finalize(self, request, pk=None):
-        """Encerra a fase programável do compromisso, movendo-o para 'pending'.
-
-        Regras:
-        - Apenas o profissional dono pode finalizar.
-        - Permitido se o status atual for 'scheduled' ou 'ongoing'.
-        - Não permite antes do início (too_early 422).
-        - Ajusta o fim (end_at) SOMENTE se ainda em andamento (now < end_at) para refletir duração real.
-          Se o compromisso já terminou (now >= end_at) mantemos o fim planejado.
-        """
-        obj = self.get_object()
-        # Permissão explícita
-        if getattr(request.user, "id", None) != getattr(obj.professional, "id", None):
-            return Response({"detail": "forbidden"}, status=403)
-        if obj.status == obj.Status.PENDING:
-            return Response(self.get_serializer(obj).data, status=200)
-        if obj.status == obj.Status.DONE:
-            # idempotente
-            return Response(self.get_serializer(obj).data, status=200)
-        if obj.status == obj.Status.CANCELED:
-            return Response({"detail": "compromisso cancelado não pode ser concluído"}, status=400)
-
-        now = timezone.now()
-        # Capturar headers do dispositivo e horário do cliente
-        dev_id = request.headers.get("x-device-id") or request.headers.get("X-Device-Id") or None
-        dev_info = request.headers.get("x-device-info") or request.headers.get("X-Device-Info") or ""
-        client_now_iso = request.headers.get("x-client-now") or request.headers.get("X-Client-Now") or None
-        client_now_dt = None
-        if client_now_iso:
-            try:
-                from django.utils.dateparse import parse_datetime
-
-                client_now_dt = parse_datetime(client_now_iso)
-            except Exception:
-                client_now_dt = None
-        if obj.start_at and now < obj.start_at:
-            # 422 sinaliza regra de negócio
-            return Response({"detail": "compromisso ainda não iniciou", "code": "too_early"}, status=422)
-
-        # Move para pending; encurta end_at apenas se em andamento
-        obj.status = obj.Status.PENDING
-        adjusted = False
-        if obj.end_at and now < obj.end_at:
-            obj.end_at = now
-            adjusted = True
-            if obj.start_at and obj.end_at <= obj.start_at:
-                obj.end_at = obj.start_at
-        # Definir finalized_at uma única vez (idempotente)
-        if not getattr(obj, "finalized_at", None):
-            obj.finalized_at = now
-        # Gravar device que finalizou (opcional)
-        try:
-            if dev_id:
-                obj.ended_device_id = (dev_id or "")[:64]
-            if dev_info:
-                try:
-                    from urllib.parse import unquote
-
-                    dev_info = unquote(dev_info)
-                except Exception:
-                    pass
-                obj.ended_device_info = (dev_info or "")[:4000]
-            obj.save(update_fields=[
-                "status",
-                "end_at",
-                "finalized_at",
-                "ended_device_id",
-                "ended_device_info",
-                "updated_at",
-            ])
-        except Exception:
-            obj.save(update_fields=["status", "end_at", "finalized_at", "updated_at"])
-
-        # Registrar auditoria
-        try:
-            drift_ms = None
-            if client_now_dt is not None:
-                # usar timezone-aware e converter se necessário
-                if timezone.is_naive(client_now_dt):
-                    client_now_dt = timezone.make_aware(client_now_dt, timezone=timezone.utc)
-                drift_ms = int((now - client_now_dt).total_seconds() * 1000)
-            FinalizeAudit.objects.create(
-                tenant=obj.tenant,
-                appointment=obj,
-                professional=obj.professional,
-                client=obj.client,
-                device_id=dev_id[:64] if dev_id else None,
-                device_info=(dev_info or "")[:4000],
-                client_now=client_now_dt,
-                server_now=now,
-                drift_ms=drift_ms,
-                adjusted_times=adjusted,
-                reason="in_window" if adjusted else "finished",
-            )
-        except Exception:
-            pass
-
-        return Response(self.get_serializer(obj).data, status=200)
-
     @action(detail=True, methods=["post"], url_path="done")
     def done(self, request, pk=None):
         """Resolve explicitamente um compromisso pendente como concluído."""
@@ -362,8 +260,8 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         if obj.status != obj.Status.PENDING:
             return Response(
                 {
-                    "detail": "compromisso deve ser finalizado antes de ser concluído",
-                    "code": "must_finalize_first",
+                    "detail": "compromisso deve estar pendente antes de ser concluído",
+                    "code": "must_be_pending_first",
                 },
                 status=409,
             )
@@ -371,51 +269,6 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         obj.status = obj.Status.DONE
         obj.save(update_fields=["status", "updated_at"])
         return Response(self.get_serializer(obj).data, status=200)
-
-
-class IsStaffOnly(permissions.BasePermission):
-    def has_permission(self, request, view):  # pyright: ignore[reportIncompatibleMethodOverride]
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
-
-
-class FinalizeAuditListView(TypedRequestMixin, generics.ListAPIView):
-    """Admin-only list endpoint to inspect finalize audits with optional filters.
-
-    Query params:
-    - appointment: int
-    - device_id: str (exact)
-    - start: ISO datetime (created_at >=)
-    - end: ISO datetime (created_at <=)
-    """
-
-    serializer_class = FinalizeAuditSerializer
-    permission_classes = [IsStaffOnly]
-    queryset = FinalizeAudit.objects.select_related("appointment", "professional", "client")
-
-    def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
-        qs = self.base_queryset()
-        appt_id = self.query_param("appointment")
-        device_id = self.query_param("device_id")
-        start = self.query_param("start")
-        end = self.query_param("end")
-        if appt_id:
-            try:
-                qs = qs.filter(appointment_id=int(appt_id))
-            except Exception:
-                pass
-        if device_id:
-            qs = qs.filter(device_id=device_id)
-        if start:
-            try:
-                qs = qs.filter(created_at__gte=start)
-            except Exception:
-                pass
-        if end:
-            try:
-                qs = qs.filter(created_at__lte=end)
-            except Exception:
-                pass
-        return qs.order_by("-created_at")
 
 
 class EncounterViewSet(ProfessionalOwnedViewSet):

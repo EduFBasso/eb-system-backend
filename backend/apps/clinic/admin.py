@@ -12,7 +12,6 @@ from .models import (
     ClinicalRecord,
     DentalArcade,
     Encounter,
-    FinalizeAudit,
     Procedure,
     ProcedureNameSuggestion,
     Product,
@@ -72,14 +71,6 @@ class ChargeAdmin(admin.ModelAdmin):
     search_fields = ("title", "notes", "recipient_name", "client__first_name", "client__last_name")
     autocomplete_fields = ("professional", "client", "encounter", "appointment")
     inlines = [ChargeItemInline]
-
-
-@admin.register(FinalizeAudit)
-class FinalizeAuditAdmin(admin.ModelAdmin):
-    list_display = ("id", "appointment", "professional", "client", "server_now", "created_at")
-    list_filter = ("professional",)
-    search_fields = ("appointment__title", "client__first_name", "client__last_name", "reason")
-    autocomplete_fields = ("appointment", "professional", "client")
 
 
 @admin.register(AnamneseBase)

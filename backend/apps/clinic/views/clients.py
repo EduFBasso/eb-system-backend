@@ -4,7 +4,7 @@ from django.db.models import Q, OuterRef, Subquery, DateTimeField, CharField, Ca
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from apps.clinic.models.agenda import Appointment
-from apps.clinic.services.state_utils import promote_scheduled_to_ongoing, promote_overdue_scheduled_to_pending
+from apps.clinic.services.state_utils import promote_overdue_scheduled_to_pending
 from rest_framework import filters
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -355,11 +355,9 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
 
         # Promoção oportunística: garante que o banco reflita o status real antes de anotar.
         user_appts = Appointment.objects.filter(professional_id=user_id)
-        promote_scheduled_to_ongoing(base_qs=user_appts)
         promote_overdue_scheduled_to_pending(base_qs=user_appts)
 
-        # Enriquecimento: próximo compromisso (em andamento ou futuro), exclui cancelados.
-        # 'ongoing' (start_at < now) tem prioridade sobre futuros (start_at >= now).
+        # Enriquecimento: próximo compromisso futuro, exclui cancelados.
         now = timezone.now()
         appt_qs = (
             Appointment.objects.filter(

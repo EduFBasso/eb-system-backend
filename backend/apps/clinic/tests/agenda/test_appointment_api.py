@@ -219,25 +219,6 @@ def test_block_new_when_client_has_persisted_pending(auth_client, client_obj, pr
 
 
 @pytest.mark.django_db
-def test_ongoing_does_not_block_new(auth_client, client_obj, professional, tenant):
-    # Cria um agendamento em andamento (start <= now < end) diretamente no ORM
-    from apps.clinic.models.agenda import Appointment
-    now = timezone.now()
-    start = now - timezone.timedelta(minutes=5)
-    end = now + timezone.timedelta(minutes=25)
-    Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Em andamento',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=start,
-        end_at=end,
-        status=Appointment.Status.SCHEDULED,
-    )
-
-
-@pytest.mark.django_db
 def test_list_honors_ordering_and_limit(auth_client, client_obj, professional, tenant):
     base = (timezone.now() + timezone.timedelta(hours=1)).replace(
         minute=0,
@@ -427,54 +408,3 @@ def test_pending_then_cancel_allows_new(auth_client, professional, client_obj, t
     assert r_ok.status_code == 201, r_ok.content
 
 
-@pytest.mark.django_db
-def test_finalize_to_pending_then_done_allows_new(auth_client, professional, client_obj, tenant):
-    from apps.clinic.models.agenda import Appointment
-
-    base = (timezone.now() - timezone.timedelta(days=1)).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    past = Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Pendente 2',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=base,
-        end_at=base + timezone.timedelta(minutes=30),
-        status=Appointment.Status.SCHEDULED,
-    )
-    assert past.pk is not None
-
-    future_base = (timezone.now() + timezone.timedelta(hours=3)).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    payload = {
-        'client': client_obj.id,
-        'title': 'Nova Pós Conclusão',
-        'visit_type': 'consulta',
-        'start_at': future_base.isoformat(),
-        'end_at': (future_base + timezone.timedelta(minutes=30)).isoformat(),
-    }
-    r_block = auth_client.post('/agenda/appointments/', payload, format='json')
-    assert r_block.status_code in (400, 422)
-
-    r_fin = auth_client.post(f'/agenda/appointments/{past.pk}/finalize/')
-    assert r_fin.status_code == 200, r_fin.content
-    past.refresh_from_db()
-    assert past.status == Appointment.Status.PENDING
-
-    r_still_blocked = auth_client.post('/agenda/appointments/', payload, format='json')
-    assert r_still_blocked.status_code in (400, 422)
-
-    r_done = auth_client.post(f'/agenda/appointments/{past.pk}/done/')
-    assert r_done.status_code == 200, r_done.content
-    past.refresh_from_db()
-    assert past.status == Appointment.Status.DONE
-
-    r_ok = auth_client.post('/agenda/appointments/', payload, format='json')
-    assert r_ok.status_code == 201, r_ok.content
