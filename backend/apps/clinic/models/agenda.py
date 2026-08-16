@@ -610,9 +610,16 @@ class ChargeItem(models.Model):
 
     def save(self, *args, **kwargs):
         """Garante o preenchimento automático do descritivo e atualiza o total da nota."""
+        # Herda tenant da cobrança mãe quando não informado explicitamente
+        if not self.tenant_id:
+            try:
+                self.tenant = self.charge.tenant
+            except Exception:
+                pass
+
         service = getattr(self, "service", None)
         product = getattr(self, "product", None)
-        
+
         # Fallback de descrição inteligente baseado no catálogo
         if not self.description:
             if service is not None:

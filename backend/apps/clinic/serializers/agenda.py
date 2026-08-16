@@ -453,7 +453,7 @@ class ChargeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"items": "Informe ao menos um item na cobrança."})
 
         for raw_item in items:
-            item = ChargeItem(charge=instance, **raw_item)
+            item = ChargeItem(charge=instance, tenant=instance.tenant, **raw_item)
             item.clean()
 
         return attrs
@@ -466,6 +466,7 @@ class ChargeSerializer(serializers.ModelSerializer):
                 payload.setdefault("sort_order", index)
                 ChargeItem.objects.create(
                     charge=charge,
+                    tenant=charge.tenant,
                     **payload,
                 )
             charge.recalculate_total(save=True)

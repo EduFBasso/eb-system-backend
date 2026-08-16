@@ -263,10 +263,9 @@ def test_charge_mark_paid_sets_paid_at(auth_client, client_obj, professional):
 
     response = auth_client.post(f"/agenda/charges/{charge.id}/mark-paid/", format="json")
 
-    assert response.status_code == 400, response.content
-    assert "sessão" in str(response.json()).lower() or "atendimento" in str(
-        response.json()
-    ).lower()
+    assert response.status_code == 200, response.content
+    data = response.json()
+    assert data["status"] == "paid"
     assert data["paid_at"] is not None
 
 

@@ -66,6 +66,7 @@ class Product(models.Model):
         "Tipo de Item", max_length=16, choices=ProductType.choices, default=ProductType.PRODUCT
     )
     name = models.CharField("Nome do Produto", max_length=160)
+    description = models.TextField("Descrição", blank=True)
     scientific_name = models.CharField("Nome Clínico / Princípio Ativo", max_length=160, blank=True)
     sku = models.CharField("Código interno / SKU", max_length=64, blank=True)
     unit = models.CharField("Unidade de Medida (un, cx, ml)", max_length=16, default="un")
