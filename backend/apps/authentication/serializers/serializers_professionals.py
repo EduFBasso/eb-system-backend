@@ -23,10 +23,11 @@ class ProfessionalSerializer(serializers.ModelSerializer):
         model = Professional
         fields = [
             'id', 'email', 'first_name', 'last_name', 'display_name', 'register_number',
-            'specialty', 'phone', 'city', 'state',
+            'specialty', 'phone', 'city', 'state', 'address', 'number',
+            'neighborhood', 'zip_code', 'cnpj',
             'can_manage_professionals', 'is_active', 'is_staff', 'is_superuser',
             'created_at', 'deactivated_at', 'deactivation_reason',
-            'ui_theme',
+            'ui_theme', 'lock_odonto_plan_after_print',
         ]
         extra_kwargs = {
             'can_manage_professionals': {'required': False},

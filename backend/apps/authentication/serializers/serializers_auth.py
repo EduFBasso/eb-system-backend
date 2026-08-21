@@ -84,8 +84,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'first_name': user.first_name,
             'last_name': user.last_name,
             'email': user.email,
+            'display_name': user.display_name,
             'register_number': user.register_number,
             'specialty': user.specialty,
+            'ui_theme': user.ui_theme,
+            'lock_odonto_plan_after_print': user.lock_odonto_plan_after_print,
+            'phone': str(user.phone) if user.phone else '',
+            'city': user.city,
+            'state': user.state,
+            'address': user.address,
+            'number': user.number,
+            'neighborhood': user.neighborhood,
+            'zip_code': user.zip_code,
+            'cnpj': user.cnpj,
+            'capabilities': membership.tenant.capabilities,
         }
         data['tenant_id'] = membership.tenant.id
         data['ecosystem'] = 'clinic'

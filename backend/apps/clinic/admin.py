@@ -10,20 +10,17 @@ from .models import (
     ChargeItem,
     Client,
     ClinicalRecord,
-    DentalArcade,
+    DentalProcedureContext,
     Encounter,
-    Procedure,
-    ProcedureNameSuggestion,
     Product,
-    ProductCatalogItem,
     ReminderDelivery,
     Service,
     ServiceMaterial,
     StockMove,
     Supplier,
-    Surface,
     TelegramProfessionalLink,
-    Tooth,
+    TreatmentPlan,
+    TreatmentPlanItem,
 )
 
 
@@ -116,52 +113,28 @@ class AnamnesisResponseAdmin(admin.ModelAdmin):
     autocomplete_fields = ("client", "field")
 
 
-@admin.register(DentalArcade)
-class DentalArcadeAdmin(admin.ModelAdmin):
+@admin.register(TreatmentPlan)
+class TreatmentPlanAdmin(admin.ModelAdmin):
     list_display = ("id", "professional", "client", "status", "external_treatment_id", "updated_at")
     list_filter = ("professional", "status")
     search_fields = ("client__first_name", "client__last_name", "external_treatment_id")
     autocomplete_fields = ("professional", "client")
 
 
-@admin.register(Tooth)
-class ToothAdmin(admin.ModelAdmin):
-    list_display = ("id", "arcade", "sequence", "international_number", "updated_at")
-    list_filter = ("arcade__professional",)
-    search_fields = ("arcade__id", "international_number")
-    autocomplete_fields = ("arcade",)
+@admin.register(TreatmentPlanItem)
+class TreatmentPlanItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "plan", "kind", "status", "external_item_id", "is_active", "updated_at")
+    list_filter = ("plan__professional", "kind", "status", "is_active")
+    search_fields = ("custom_name", "service__name", "product__name", "external_item_id")
+    autocomplete_fields = ("plan", "service", "product", "parent_item")
 
 
-@admin.register(Surface)
-class SurfaceAdmin(admin.ModelAdmin):
-    list_display = ("id", "tooth", "code", "label", "updated_at")
-    list_filter = ("tooth__arcade__professional", "code")
-    search_fields = ("tooth__international_number",)
-    autocomplete_fields = ("tooth",)
-
-
-@admin.register(Procedure)
-class ProcedureAdmin(admin.ModelAdmin):
-    list_display = ("id", "arcade", "name", "code", "status", "external_item_id", "is_active", "updated_at")
-    list_filter = ("arcade__professional", "status", "is_active")
-    search_fields = ("name", "code", "external_item_id", "arcade__client__first_name")
-    autocomplete_fields = ("arcade", "tooth", "surface", "parent_procedure")
-
-
-@admin.register(ProcedureNameSuggestion)
-class ProcedureNameSuggestionAdmin(admin.ModelAdmin):
-    list_display = ("id", "professional", "name", "updated_at")
-    search_fields = ("name", "professional__email")
-    list_filter = ("professional",)
-    autocomplete_fields = ("professional",)
-
-
-@admin.register(ProductCatalogItem)
-class ProductCatalogItemAdmin(admin.ModelAdmin):
-    list_display = ("id", "professional", "name", "last_value", "updated_at")
-    search_fields = ("name", "professional__email")
-    list_filter = ("professional",)
-    autocomplete_fields = ("professional",)
+@admin.register(DentalProcedureContext)
+class DentalProcedureContextAdmin(admin.ModelAdmin):
+    list_display = ("id", "item", "scope", "tooth_number", "tooth_surface", "arcade_arch")
+    list_filter = ("scope", "arcade_arch")
+    search_fields = ("tooth_number", "item__custom_name")
+    autocomplete_fields = ("item",)
 
 
 @admin.register(Supplier)

@@ -151,7 +151,9 @@ class ProfessionalAdmin(UserAdmin):
                 "can_manage_professionals",
             )
         }),
-        ("Endereço", {"fields": ("city", "state")}),
+        ("Endereço e dados comerciais", {"fields": (
+            "address", "number", "neighborhood", "zip_code", "city", "state", "cnpj",
+        )}),
         ("Permissões", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Datas", {"fields": ("last_login", "created_at")}),
     )

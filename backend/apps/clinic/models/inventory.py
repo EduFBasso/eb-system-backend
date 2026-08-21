@@ -154,6 +154,12 @@ class Service(models.Model):
     )
     name = models.CharField("Nome do Serviço / Procedimento", max_length=160)
     description = models.TextField("Descrição Técnica do Procedimento", blank=True)
+    default_notes = models.TextField(
+        "Observações Padrão do Atendimento",
+        blank=True,
+        default="",
+        help_text="Observações reutilizadas ao lançar este serviço em um atendimento.",
+    )
     base_price = models.DecimalField("Preço Base Sugerido (R$)", max_digits=10, decimal_places=2, default=0)
     duration_minutes = models.PositiveIntegerField("Duração Estimada (Minutos)", default=30)
     is_active = models.BooleanField("Serviço Ativo?", default=True)

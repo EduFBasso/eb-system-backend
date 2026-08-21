@@ -84,9 +84,19 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         choices=UI_THEME_CHOICES,
         default="blue",
     )
+    lock_odonto_plan_after_print = models.BooleanField(
+        "Bloquear plano odontológico após impressão",
+        default=True,
+        help_text="Quando ativo, a impressão de um plano odontológico bloqueia novas edições.",
+    )
 
     city = models.CharField("Cidade", max_length=50, blank=True)
     state = models.CharField("Estado", max_length=2, blank=True)
+    address = models.CharField("Endereço comercial", max_length=160, blank=True)
+    number = models.CharField("Número", max_length=20, blank=True)
+    neighborhood = models.CharField("Bairro", max_length=80, blank=True)
+    zip_code = models.CharField("CEP", max_length=9, blank=True)
+    cnpj = models.CharField("CNPJ", max_length=18, blank=True)
 
     is_staff = models.BooleanField("Acesso ao Django Admin", default=False)
     is_active = models.BooleanField("Usuário Ativo no Sistema", default=True)

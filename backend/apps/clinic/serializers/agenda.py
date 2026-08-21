@@ -398,6 +398,13 @@ class ChargeSerializer(serializers.ModelSerializer):
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
+        if tenant is not None and tenant.has_capability("odonto"):
+            raise serializers.ValidationError({
+                "appointment": (
+                    "Tenants odontológicos não usam cobrança genérica da agenda. "
+                    "Registre serviços e produtos no plano odontológico."
+                )
+            })
         charge_type = attrs.get("charge_type", getattr(self.instance, "charge_type", Charge.ChargeType.CHARGE))
         # Charge.status is the canonical state; item-level paid flags remain per-consultation annotations.
         status = attrs.get("status", getattr(self.instance, "status", Charge.Status.DRAFT))

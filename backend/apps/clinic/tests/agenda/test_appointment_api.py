@@ -25,7 +25,7 @@ def tenant(db, professional):
         slug='consultorio-podologia',
         ecosystem='clinic',
         is_active=True,
-        capabilities={'clinic': True, 'podologia': True, 'odonto': True},
+        capabilities={'clinic': True, 'podologia': True},
     )
     TenantMembership.objects.create(
         tenant=t,
@@ -362,6 +362,30 @@ def test_list_promotes_overdue_scheduled_to_pending(auth_client, client_obj, pro
     assert appt.pk is not None
     ids = [item['id'] for item in r.json()]
     assert appt.pk in ids
+
+
+@pytest.mark.django_db
+def test_list_marks_overdue_odonto_appointment_as_done(auth_client, client_obj, professional, tenant):
+    tenant.capabilities = {'clinic': True, 'odonto': True}
+    tenant.save(update_fields=['capabilities'])
+    start = timezone.now() - timezone.timedelta(hours=2)
+    appt = Appointment.objects.create(
+        tenant=tenant,
+        professional=professional,
+        client=client_obj,
+        title='Odonto expirado',
+        visit_type=Appointment.VisitType.CONSULTA,
+        start_at=start,
+        end_at=start + timezone.timedelta(minutes=30),
+        status=Appointment.Status.SCHEDULED,
+    )
+
+    r = auth_client.get('/agenda/appointments/', {'status': Appointment.Status.DONE})
+
+    assert r.status_code == 200, r.content
+    appt.refresh_from_db()
+    assert appt.status == Appointment.Status.DONE
+    assert appt.id in [item['id'] for item in r.json()]
 
 
 @pytest.mark.django_db
