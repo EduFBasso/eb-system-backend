@@ -151,23 +151,3 @@ def test_appointments_same_time_different_tenants_allowed(db):
     )
 
     assert appointment_other_tenant.overlaps() is False
-
-
-def test_pending_status_persists(db, professional, client):
-    base = (timezone.now() + timezone.timedelta(hours=1)).replace(
-        second=0,
-        microsecond=0,
-    )
-    appt = Appointment.objects.create(
-        tenant=professional.tenant_memberships.first().tenant,
-        professional=professional,
-        client=client,
-        title='Pendente persistido',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=base,
-        end_at=base + timezone.timedelta(minutes=30),
-        status=Appointment.Status.PENDING,
-    )
-
-    appt.refresh_from_db()
-    assert appt.status == Appointment.Status.PENDING

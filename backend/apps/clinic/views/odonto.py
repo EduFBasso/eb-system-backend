@@ -7,7 +7,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from apps.authentication.services.permissions import HasTenantCapability
 from apps.clinic.models.odonto import TreatmentPlan, TreatmentPlanItem
 from apps.clinic.serializers.odonto import (
     TreatmentPlanDetailSerializer,
@@ -40,7 +39,7 @@ def _refresh_plan_status(plan: TreatmentPlan) -> None:
 
 
 class ProfessionalScopedMixin:
-    permission_classes = [permissions.IsAuthenticated, HasTenantCapability('odonto')]
+    permission_classes = [permissions.IsAuthenticated]
 
     def current_user(self) -> Any:
         request = cast(Any, getattr(self, 'request', None))

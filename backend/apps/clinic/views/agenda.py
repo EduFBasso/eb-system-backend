@@ -15,7 +15,7 @@ from apps.clinic.serializers.agenda import (
     ClinicalRecordSerializer,
     EncounterSerializer,
 )
-from .state_utils import promote_overdue_scheduled_to_pending
+from .state_utils import promote_overdue_scheduled_to_done
 
 
 def _get_active_tenant(user):
@@ -134,7 +134,7 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         # Promoção temporal oportunista: limitar a leituras de agenda.
         # Evita escritas implícitas desnecessárias em fluxos de update/destroy.
         if getattr(self, "action", None) in {"list", "next_for_client"}:
-            promote_overdue_scheduled_to_pending(qs)
+            promote_overdue_scheduled_to_done(qs)
         # filtros opcionais ?start=2025-09-01T00:00:00&end=2025-09-02T00:00:00&client=<id>
         start = self.query_param("start")
         end = self.query_param("end")
@@ -246,7 +246,7 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="done")
     def done(self, request, pk=None):
-        """Resolve explicitamente um compromisso pendente como concluído."""
+        """Conclui explicitamente um compromisso agendado."""
         obj = self.get_object()
         if getattr(request.user, "id", None) != getattr(obj.professional, "id", None):
             return Response({"detail": "forbidden"}, status=403)
@@ -257,11 +257,11 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
                 {"detail": "compromisso cancelado não pode ser concluído"},
                 status=400,
             )
-        if obj.status != obj.Status.PENDING:
+        if obj.status != obj.Status.SCHEDULED:
             return Response(
                 {
-                    "detail": "compromisso deve estar pendente antes de ser concluído",
-                    "code": "must_be_pending_first",
+                    "detail": "compromisso deve estar agendado antes de ser concluído",
+                    "code": "must_be_scheduled_first",
                 },
                 status=409,
             )

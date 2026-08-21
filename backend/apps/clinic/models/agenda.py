@@ -21,7 +21,6 @@ class Appointment(models.Model):
 
     class Status(models.TextChoices):
         SCHEDULED = "scheduled", "Agendado"
-        PENDING = "pending", "Pendente de Fechamento"  # Útil para a trava de auditoria automática
         DONE = "done", "Realizado"
         CANCELED = "canceled", "Cancelado"
 

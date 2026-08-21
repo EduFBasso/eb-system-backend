@@ -245,7 +245,7 @@ def test_create_charge_with_items_recalculates_total(auth_client, client_obj, se
     assert len(data["items"]) == 3
 
 
-def test_odonto_tenant_cannot_create_agenda_charge_for_appointment(
+def test_any_clinic_tenant_can_create_agenda_charge_for_appointment(
     auth_client, client_obj, professional, service
 ):
     tenant = professional.tenant_memberships.first().tenant
@@ -271,9 +271,9 @@ def test_odonto_tenant_cannot_create_agenda_charge_for_appointment(
         format="json",
     )
 
-    assert response.status_code == 400, response.content
-    assert "plano odontológico" in str(response.json()).lower()
-    assert not Charge.objects.filter(appointment=appointment).exists()
+    assert response.status_code == 201, response.content
+    assert response.json()["appointment"] == appointment.id
+    assert Charge.objects.filter(appointment=appointment).exists()
 
 
 def test_charge_mark_paid_sets_paid_at(auth_client, client_obj, professional):

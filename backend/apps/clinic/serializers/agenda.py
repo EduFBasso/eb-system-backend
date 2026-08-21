@@ -11,7 +11,7 @@ from apps.clinic.models.agenda import (
     ClinicalRecord,
     Encounter,
 )
-from .state_utils import promote_overdue_scheduled_to_pending
+from .state_utils import promote_overdue_scheduled_to_done
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -153,20 +153,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
                 )
 
-        # Regra de transição: bloquear novo agendamento se o cliente possui compromisso pendente.
-        # A regra oficial depende apenas de status persistido `pending`.
-        if self.instance is None and client is not None:
-            # Promoção oportunista para manter o estado persistido consistente no momento da criação.
-            promote_overdue_scheduled_to_pending(
+        if self.instance is None:
+            promote_overdue_scheduled_to_done(
                 Appointment.objects.filter(client=client, professional=professional)
             )
-            pending_qs = Appointment.objects.filter(client=client, professional=professional).filter(
-                status=Appointment.Status.PENDING
-            )
-            if pending_qs.exists():
-                raise serializers.ValidationError({
-                    "client": "Cliente possui compromisso pendente (não concluído/cancelado). Resolva o anterior antes de agendar um novo."
-                })
         if professional and start and end:
             # conflito simples
             inst = self.instance if getattr(self, "instance", None) else None
@@ -174,7 +164,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 Appointment.objects.filter(professional=professional)
                 .exclude(
                     status__in=[
-                        Appointment.Status.PENDING,
                         Appointment.Status.CANCELED,
                         Appointment.Status.DONE,
                     ]
@@ -398,13 +387,6 @@ class ChargeSerializer(serializers.ModelSerializer):
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
-        if tenant is not None and tenant.has_capability("odonto"):
-            raise serializers.ValidationError({
-                "appointment": (
-                    "Tenants odontológicos não usam cobrança genérica da agenda. "
-                    "Registre serviços e produtos no plano odontológico."
-                )
-            })
         charge_type = attrs.get("charge_type", getattr(self.instance, "charge_type", Charge.ChargeType.CHARGE))
         # Charge.status is the canonical state; item-level paid flags remain per-consultation annotations.
         status = attrs.get("status", getattr(self.instance, "status", Charge.Status.DRAFT))

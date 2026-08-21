@@ -45,6 +45,7 @@ urlpatterns = [
     path('inventory/', include('apps.clinic.views.inventory_urls')),
     path('anamnesis/', include('apps.clinic.views.anamnesis_urls')),
     path('odonto/', include('apps.clinic.views.odonto_urls')),
+    path('treatment/', include('apps.clinic.views.odonto_urls')),
 
     # 📱 Sessões de dispositivos (fase 1)
     path('sessions/summary', sessions_summary),

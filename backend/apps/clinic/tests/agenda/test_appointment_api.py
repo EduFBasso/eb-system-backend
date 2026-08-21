@@ -135,88 +135,6 @@ def test_multiple_same_day_allowed_if_no_overlap(auth_client, client_obj):
     assert r2.status_code == 201, r2.content
 
 
-@pytest.mark.django_db
-def test_block_new_when_client_has_pending_past(auth_client, client_obj, professional, tenant):
-    # Cria um agendamento passado com status scheduled (pendente)
-    base = (timezone.now() - timezone.timedelta(days=1)).replace(minute=0, second=0, microsecond=0)
-    past_payload = {
-        'client': client_obj.id,
-        'title': 'Pendente Antigo',
-        'visit_type': 'consulta',
-        'start_at': base.isoformat(),
-        'end_at': (base + timezone.timedelta(minutes=30)).isoformat(),
-    }
-    r1 = auth_client.post('/agenda/appointments/', past_payload, format='json')
-    # Dependendo das regras existentes, criar no passado pode falhar via API. Então criamos diretamente via ORM.
-    if r1.status_code not in (200, 201):
-        from apps.clinic.models.agenda import Appointment
-        Appointment.objects.create(
-            tenant=tenant,
-            professional=professional,
-            client=client_obj,
-            title='Pendente Antigo',
-            visit_type='consulta',
-            start_at=base,
-            end_at=base + timezone.timedelta(minutes=30),
-            status='scheduled',
-        )
-
-    # Agora tente criar um novo no futuro: deve ser bloqueado por pendência
-    future_base = (timezone.now() + timezone.timedelta(hours=2)).replace(minute=0, second=0, microsecond=0)
-    new_payload = {
-        'client': client_obj.id,
-        'title': 'Nova Consulta',
-        'visit_type': 'consulta',
-        'start_at': future_base.isoformat(),
-        'end_at': (future_base + timezone.timedelta(minutes=30)).isoformat(),
-    }
-    r2 = auth_client.post('/agenda/appointments/', new_payload, format='json')
-    assert r2.status_code in (400, 422), r2.content
-    body = r2.json()
-    text = ' '.join(str(v) for v in body.values())
-    assert 'pendente' in text.lower()
-
-
-@pytest.mark.django_db
-def test_block_new_when_client_has_persisted_pending(auth_client, client_obj, professional, tenant):
-    from apps.clinic.models.agenda import Appointment
-
-    base = (timezone.now() - timezone.timedelta(hours=1)).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Pendente Persistido',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=base,
-        end_at=base + timezone.timedelta(minutes=30),
-        status=Appointment.Status.PENDING,
-    )
-
-    future_base = (timezone.now() + timezone.timedelta(hours=2)).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    payload = {
-        'client': client_obj.id,
-        'title': 'Nova Consulta',
-        'visit_type': 'consulta',
-        'start_at': future_base.isoformat(),
-        'end_at': (future_base + timezone.timedelta(minutes=30)).isoformat(),
-    }
-
-    r = auth_client.post('/agenda/appointments/', payload, format='json')
-
-    assert r.status_code in (400, 422), r.content
-    body = r.json()
-    text = ' '.join(str(v) for v in body.values())
-    assert 'pendente' in text.lower()
-
 
 @pytest.mark.django_db
 def test_list_honors_ordering_and_limit(auth_client, client_obj, professional, tenant):
@@ -258,85 +176,7 @@ def test_list_honors_ordering_and_limit(auth_client, client_obj, professional, t
 
 
 @pytest.mark.django_db
-def test_pending_does_not_create_temporal_conflict(auth_client, client_obj, professional, tenant):
-    from apps.clinic.models.agenda import Appointment
-
-    base = (timezone.now() + timezone.timedelta(hours=2)).replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Pendente sobreposto',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=base,
-        end_at=base + timezone.timedelta(minutes=30),
-        status=Appointment.Status.PENDING,
-    )
-
-    other_client = Client.objects.create(
-        tenant=tenant,
-        first_name='Outro',
-        last_name='Cliente',
-        phone='11988887766',
-    )
-    assert other_client.pk is not None
-
-    payload = {
-        'client': other_client.pk,
-        'title': 'Novo agendamento válido',
-        'visit_type': 'consulta',
-        'start_at': (base + timezone.timedelta(minutes=10)).isoformat(),
-        'end_at': (base + timezone.timedelta(minutes=40)).isoformat(),
-    }
-
-    r = auth_client.post('/agenda/appointments/', payload, format='json')
-    assert r.status_code == 201, r.content
-
-
-@pytest.mark.django_db
-def test_status_filter_accepts_pending_value(auth_client, client_obj, professional, tenant):
-    from apps.clinic.models.agenda import Appointment
-
-    base = (timezone.now() + timezone.timedelta(hours=2)).replace(
-        second=0,
-        microsecond=0,
-    )
-
-    Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Compromisso pendente',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=base,
-        end_at=base + timezone.timedelta(minutes=30),
-        status=Appointment.Status.PENDING,
-    )
-    Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Compromisso agendado',
-        visit_type=Appointment.VisitType.RETORNO,
-        start_at=base + timezone.timedelta(hours=1),
-        end_at=base + timezone.timedelta(hours=1, minutes=30),
-        status=Appointment.Status.SCHEDULED,
-    )
-
-    r = auth_client.get('/agenda/appointments/?status=pending')
-
-    assert r.status_code == 200
-    body = r.json()
-    assert len(body) == 1
-    assert body[0]['status'] == Appointment.Status.PENDING
-
-
-@pytest.mark.django_db
-def test_list_promotes_overdue_scheduled_to_pending(auth_client, client_obj, professional, tenant):
+def test_list_marks_overdue_scheduled_to_done(auth_client, client_obj, professional, tenant):
     from apps.clinic.models.agenda import Appointment
 
     start = timezone.now() - timezone.timedelta(hours=2)
@@ -351,45 +191,18 @@ def test_list_promotes_overdue_scheduled_to_pending(auth_client, client_obj, pro
         status=Appointment.Status.SCHEDULED,
     )
 
-    r = auth_client.get(
-        '/agenda/appointments/',
-        {'status': Appointment.Status.PENDING},
-    )
+    r = auth_client.get('/agenda/appointments/', {'status': Appointment.Status.DONE})
 
     assert r.status_code == 200, r.content
     appt.refresh_from_db()
-    assert appt.status == Appointment.Status.PENDING
+    assert appt.status == Appointment.Status.DONE
     assert appt.pk is not None
     ids = [item['id'] for item in r.json()]
     assert appt.pk in ids
 
 
 @pytest.mark.django_db
-def test_list_marks_overdue_odonto_appointment_as_done(auth_client, client_obj, professional, tenant):
-    tenant.capabilities = {'clinic': True, 'odonto': True}
-    tenant.save(update_fields=['capabilities'])
-    start = timezone.now() - timezone.timedelta(hours=2)
-    appt = Appointment.objects.create(
-        tenant=tenant,
-        professional=professional,
-        client=client_obj,
-        title='Odonto expirado',
-        visit_type=Appointment.VisitType.CONSULTA,
-        start_at=start,
-        end_at=start + timezone.timedelta(minutes=30),
-        status=Appointment.Status.SCHEDULED,
-    )
-
-    r = auth_client.get('/agenda/appointments/', {'status': Appointment.Status.DONE})
-
-    assert r.status_code == 200, r.content
-    appt.refresh_from_db()
-    assert appt.status == Appointment.Status.DONE
-    assert appt.id in [item['id'] for item in r.json()]
-
-
-@pytest.mark.django_db
-def test_pending_then_cancel_allows_new(auth_client, professional, client_obj, tenant):
+def test_scheduled_done_then_new_appointment_is_allowed(auth_client, professional, client_obj, tenant):
     from apps.clinic.models.agenda import Appointment
 
     base = (timezone.now() - timezone.timedelta(hours=5)).replace(
@@ -400,7 +213,7 @@ def test_pending_then_cancel_allows_new(auth_client, professional, client_obj, t
         tenant=tenant,
         professional=professional,
         client=client_obj,
-        title='Pendente',
+        title='Concluído',
         visit_type=Appointment.VisitType.CONSULTA,
         start_at=base,
         end_at=base + timezone.timedelta(minutes=30),
@@ -420,13 +233,10 @@ def test_pending_then_cancel_allows_new(auth_client, professional, client_obj, t
         'start_at': future_base.isoformat(),
         'end_at': (future_base + timezone.timedelta(minutes=30)).isoformat(),
     }
-    r_block = auth_client.post('/agenda/appointments/', payload, format='json')
-    assert r_block.status_code in (400, 422), r_block.content
-
-    r_cancel = auth_client.post(f'/agenda/appointments/{past.pk}/cancel/')
-    assert r_cancel.status_code == 200
+    r_done = auth_client.post(f'/agenda/appointments/{past.pk}/done/')
+    assert r_done.status_code == 200
     past.refresh_from_db()
-    assert past.status == Appointment.Status.CANCELED
+    assert past.status == Appointment.Status.DONE
 
     r_ok = auth_client.post('/agenda/appointments/', payload, format='json')
     assert r_ok.status_code == 201, r_ok.content

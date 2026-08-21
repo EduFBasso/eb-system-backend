@@ -61,7 +61,7 @@ class TelegramProfessionalLink(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.professional.user.email} -> Chat: {self.chat_id} (Proprio Bot: {'Sim' if self.bot_token else 'Não'})"
+        return f"{self.professional.email} -> Chat: {self.chat_id} (Proprio Bot: {'Sim' if self.bot_token else 'Não'})"
 
 
 class ReminderDelivery(models.Model):
