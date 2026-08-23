@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.clinic.models.clients import Client
-from apps.clinic.models.odonto import TreatmentPlan
+from apps.clinic.models.odonto import TreatmentPlan, TreatmentPlanItem
 
 
 pytestmark = pytest.mark.django_db
@@ -68,3 +68,47 @@ def test_treatment_plan_list_remains_professional_scoped():
     ids = {row['id'] for row in response.json()}
     assert owner_plan.id in ids
     assert other_plan.id not in ids
+
+
+def test_treatment_plan_persists_payment_terms_and_lists_total():
+    professional, tenant = make_professional('payment-plan@example.com', 'Odontologia')
+    client = Client.objects.create(
+        tenant=tenant,
+        first_name='Paciente',
+        last_name='Financeiro',
+        phone='11999990003',
+    )
+    plan = TreatmentPlan.objects.create(
+        tenant=tenant,
+        professional=professional,
+        client=client,
+    )
+    TreatmentPlanItem.objects.create(
+        plan=plan,
+        custom_name='Procedimento',
+        patient_price='600.00',
+    )
+    api = APIClient()
+    api.force_authenticate(user=professional)
+
+    update_response = api.patch(
+        f'/treatment/plans/{plan.id}/',
+        {
+            'payment_condition': 'aprazo',
+            'installments_count': 3,
+            'first_due_date': '2026-09-10',
+            'notes': 'Entrada confirmada.',
+        },
+        format='json',
+    )
+    list_response = api.get(f'/treatment/plans/?client={client.id}')
+
+    assert update_response.status_code == 200, update_response.content
+    assert list_response.status_code == 200, list_response.content
+    plan.refresh_from_db()
+    assert plan.payment_condition == 'aprazo'
+    assert plan.installments_count == 3
+    assert str(plan.first_due_date) == '2026-09-10'
+    assert plan.notes == 'Entrada confirmada.'
+    row = next(item for item in list_response.json() if item['id'] == plan.id)
+    assert str(row['plan_total']) == '600.00'

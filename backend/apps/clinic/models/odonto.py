@@ -18,6 +18,10 @@ class TreatmentPlan(models.Model):
         ARCHIVED = 'archived', 'Arquivado'
         CANCELLED = 'cancelled', 'Cancelado'
 
+    class PaymentCondition(models.TextChoices):
+        CASH = 'avista', 'À Vista'
+        INSTALLMENTS = 'aprazo', 'A Prazo'
+
     tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     professional = models.ForeignKey(
         'authentication.Professional',
@@ -46,6 +50,21 @@ class TreatmentPlan(models.Model):
     )
     started_at = models.DateField('Data de Início', null=True, blank=True)
     completed_at = models.DateField('Data de Conclusão', null=True, blank=True)
+    payment_condition = models.CharField(
+        'Condição de Pagamento',
+        max_length=10,
+        choices=PaymentCondition.choices,
+        default=PaymentCondition.CASH,
+    )
+    installments_count = models.PositiveSmallIntegerField(
+        'Número de Parcelas',
+        default=2,
+    )
+    first_due_date = models.DateField(
+        'Vencimento da Primeira Parcela',
+        null=True,
+        blank=True,
+    )
     notes = models.TextField('Anotações Gerais do Caso', blank=True, default='')
     external_treatment_id = models.BigIntegerField(
         null=True,

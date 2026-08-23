@@ -277,6 +277,7 @@ def test_bakery_customer_can_login_with_nickname_after_approval():
     tenant = Tenant.objects.create(
         name='Bakery Tenant 5',
         slug='bakery-tenant-5',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -329,8 +330,9 @@ def test_bakery_customer_can_login_with_nickname_after_approval():
     login_response = anon_client.post(
         '/api/v1/auth/bakery/login/',
         {
-            'email': 'João',
+            'login': 'João',
             'password': 'XmXHYvp6',
+            'tenant_slug': tenant.slug,
         },
         format='json',
     )
@@ -346,6 +348,7 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
     tenant = Tenant.objects.create(
         name='Bakery Tenant 6',
         slug='bakery-tenant-6',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -387,8 +390,9 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
     login_response = anon_client.post(
         '/api/v1/auth/bakery/login/',
         {
-            'email': 'Pendente',
+            'login': 'Pendente',
             'password': 'qualquer',
+            'tenant_slug': tenant.slug,
         },
         format='json',
     )
@@ -400,6 +404,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
     tenant = Tenant.objects.create(
         name='Bakery Tenant 7',
         slug='bakery-tenant-7',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -416,14 +421,16 @@ def test_bakery_admin_can_login_with_first_name_alias():
         professional=admin,
         role=TenantMembership.Role.OWNER,
         is_active=True,
+        login_alias='Dono',
     )
 
     client = APIClient()
     login_response = client.post(
         '/api/v1/auth/bakery/login/',
         {
-            'email': 'Dono',
+            'login': 'Dono',
             'password': 'secret123',
+            'tenant_slug': tenant.slug,
         },
         format='json',
     )

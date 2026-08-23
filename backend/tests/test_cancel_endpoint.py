@@ -68,7 +68,7 @@ def test_cancel_idempotent(client, django_user_model):
 
 
 @pytest.mark.django_db
-def test_cancel_pending_sets_canceled_at(client, django_user_model):
+def test_cancel_scheduled_sets_canceled_at(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc3@example.com', password='x', first_name='PC3', last_name='X3')
     client.force_login(pro)
     tenant = _setup_tenant(pro)
@@ -80,8 +80,8 @@ def test_cancel_pending_sets_canceled_at(client, django_user_model):
         client=c,
         title='Sessão',
         start_at=now - timezone.timedelta(minutes=30),
-        end_at=now,
-        status=Appointment.Status.PENDING,
+        end_at=now + timezone.timedelta(minutes=30),
+        status=Appointment.Status.SCHEDULED,
     )
     r = client.post(f'/agenda/appointments/{appt.id}/cancel/')
     assert r.status_code == 200

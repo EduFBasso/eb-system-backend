@@ -2,8 +2,6 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.clinic.models.anamnesis import (
-    AnamnesisField,
-    AnamnesisResponse,
     AnamneseBase,
     AnamnesePodologia,
 )
@@ -116,21 +114,11 @@ class ClientAnamnesisApiTests(APITestCase):
             last_name='TenantB',
             phone='11999999992',
         )
-        field_b = AnamnesisField.objects.create(
-            professional=self.prof_b,
-            code='takes_medication',
-            sector='Histórico',
-            sector_order=0,
-            label='Toma medicação?',
-            field_type='radio',
-            options=['Sim', 'Não'],
-            order=0,
-        )
-        AnamnesisResponse.objects.create(
+        AnamneseBase.objects.create(
             client=client_b,
-            field=field_b,
-            field_label_snap='Toma medicação?',
-            value='Sim',
+            tenant=self.tenant_b,
+            professional=self.prof_b,
+            takes_medication='Sim',
         )
 
         # Profissional do Tenant A não deve acessar dados do Tenant B
@@ -142,7 +130,3 @@ class ClientAnamnesisApiTests(APITestCase):
 
         detail_response = self.client.get(f'/register/clients/{client_b.id}/')
         self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
-
-        anamnesis_response = self.client.get(f'/anamnesis/responses/?client={client_b.id}')
-        self.assertEqual(anamnesis_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(anamnesis_response.data, [])

@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
-from apps.clinic.models.anamnesis import AnamnesisField, AnamnesisResponse
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional
 from apps.authentication.models import Tenant, TenantMembership
@@ -85,21 +85,16 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
         appointment=appointment,
         title='Cobrança teste',
     )
-    field = AnamnesisField.objects.create(
-        professional=professional,
-        code='takes_medication',
-        sector='Histórico',
-        sector_order=0,
-        label='Toma medicação',
-        field_type='radio',
-        options=['Sim', 'Não'],
-        order=0,
-    )
-    AnamnesisResponse.objects.create(
+    anamnesis = AnamneseBase.objects.create(
         client=client_obj,
-        field=field,
-        field_label_snap='Toma medicação',
-        value='Sim',
+        tenant=tenant,
+        professional=professional,
+        takes_medication='Sim',
+    )
+    AnamnesePodologia.objects.create(
+        anamnese_base=anamnesis,
+        professional=professional,
+        footwear_used='Tênis',
     )
 
     response = auth_client.delete(f'/register/clients/{client_obj.id}/')
@@ -110,7 +105,10 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
     assert not Encounter.objects.filter(client_id=client_obj.id).exists()
     assert not ClinicalRecord.objects.filter(client_id=client_obj.id).exists()
     assert not Charge.objects.filter(client_id=client_obj.id).exists()
-    assert not AnamnesisResponse.objects.filter(client_id=client_obj.id).exists()
+    assert not AnamneseBase.objects.filter(client_id=client_obj.id).exists()
+    assert not AnamnesePodologia.objects.filter(
+        anamnese_base_id=anamnesis.id,
+    ).exists()
 
 
 def test_clients_basic_detail_is_read_only(auth_client, client_obj):

@@ -52,39 +52,35 @@ Regras de criação e edição:
 
 ### Status do compromisso
 
-O fluxo simplificado do `Appointment` possui quatro estados persistidos:
+O fluxo simplificado do `Appointment` possui três estados persistidos:
 
 | Status | Significado | Como ocorre |
 |---|---|---|
 | `scheduled` | Agendado e ativo | Estado inicial e único estado editável |
-| `pending` | Pendente de fechamento | Promoção automática quando o horário termina |
-| `done` | Realizado/concluído | `done`, somente depois de `pending` |
+| `done` | Realizado/concluído | Ação `done` ou promoção automática quando o horário termina |
 | `canceled` | Cancelado | `cancel`; compromisso concluído não pode ser cancelado |
 
 `ongoing` foi removido do modelo e não é uma transição válida. O frontend não
 deve criar um estado paralelo de “em andamento”: para apresentação, um
-`scheduled` cujo `end_at` já passou é exibido como pendente, até que a leitura
-da agenda persista essa promoção no backend.
+`scheduled` cujo `end_at` já passou é promovido diretamente para `done` pelo
+backend.
 
 Fluxo normal:
 
 ```text
-scheduled -> pending -> done
-scheduled ----------------> canceled
-pending -------------------> canceled
-done -----------------------> estado final
-canceled --------------------> estado final
+scheduled -> done
+scheduled -> canceled
+done ------> estado final
+canceled --> estado final
 ```
 
 O compromisso não é monitorado em um estado `ongoing` durante o intervalo
-agendado. Portanto, não há regra de negócio para exibir o botão `Finalizar`
-enquanto a consulta está em andamento. Quando `end_at` passa, o compromisso
-`scheduled` pode ser promovido para `pending` durante a leitura da agenda. A
-ação do profissional é então resolver o pendente com `done` ou `cancel`.
+agendado. Quando `end_at` passa, o compromisso `scheduled` pode ser promovido
+diretamente para `done` durante a leitura da agenda.
 
 O endpoint `POST /agenda/appointments/<id>/finalize/` e os campos de auditoria
-de finalização foram removidos. `done` é idempotente, mas só é aceito depois de
-o compromisso estar em `pending`.
+de finalização foram removidos. `done` é idempotente e aceito para compromissos
+em `scheduled`.
 
 ### Tipos e avaliação
 
@@ -109,23 +105,9 @@ ser usados para decidir o ciclo de vida da agenda.
 estar `open`, `closed` ou `canceled`. O fechamento da sessão usa
 `POST /agenda/encounters/<id>/close/` e seu cancelamento usa
 `POST /agenda/encounters/<id>/cancel/`. Esses estados não devem ser confundidos
-com os quatro estados do compromisso na agenda.
+com os três estados do compromisso na agenda.
 
 ## Reminders Telegram
-
-Comando canônico:
-
-```bash
-./.venv/bin/python manage.py send_clinic_appointment_reminders
-```
-
-Flags:
-
-```bash
-./.venv/bin/python manage.py send_clinic_appointment_reminders --dry-run
-./.venv/bin/python manage.py send_clinic_appointment_reminders --appointment-id <id>
-./.venv/bin/python manage.py send_clinic_appointment_reminders --professional-email <email>
-```
 
 Operação:
 
@@ -142,30 +124,14 @@ Telegram global:
 - sem vínculo Telegram ativo, o lembrete é ignorado;
 - nunca coloque o valor do token em documentação, commits ou logs.
 
-Preparação do vínculo para teste:
+O vínculo é criado ou atualizado no Django Admin em `Telegram professional
+links`. Para usar o token global, mantenha `bot_token` vazio.
 
-```bash
-./.venv/bin/python manage.py link_professional_telegram_chat \
-	--email <email-da-profissional> \
-	--chat-id <chat-id-do-telegram>
-```
+## Anamnese fixa por especialidade
 
-O comando cria um vínculo ativo sem `bot_token` privado, habilitando o uso de
-`TELEGRAM_BOT_TOKEN` pelo serviço de reminders.
-
-## Anamnese dinâmica
-
-Seed canônico por profissional:
-
-```bash
-./.venv/bin/python manage.py seed_anamnesis --professional-email <email> --seed <seed>
-```
-
-Normalização com desativação de campos fora do padrão:
-
-```bash
-./.venv/bin/python manage.py seed_anamnesis --professional-email <email> --seed <seed> --deactivate-missing
-```
+O prontuário usa `AnamneseBase`, única por cliente e tenant, com extensões
+OneToOne `AnamnesePodologia` e `AnamneseOdontologia`. Os campos fazem parte do
+schema Django; não existem seeds de perguntas por profissional.
 
 Documentos de referência:
 

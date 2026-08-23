@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia, AnamneseResponse
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.clinic.models.clients import Client
 from apps.authentication.models.tenancy_models import Tenant
 from apps.authentication.models.register_models import Professional

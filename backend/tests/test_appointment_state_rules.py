@@ -53,7 +53,7 @@ def test_patch_cannot_transition_status(client, django_user_model):
 
 
 @pytest.mark.django_db
-def test_create_promotes_overdue_to_pending_and_blocks_new_schedule(
+def test_create_promotes_overdue_to_done_and_allows_new_schedule(
     client,
     django_user_model,
 ):
@@ -88,13 +88,13 @@ def test_create_promotes_overdue_to_pending_and_blocks_new_schedule(
 
     resp = client.post('/agenda/appointments/', payload, content_type='application/json')
 
-    assert resp.status_code == 400
+    assert resp.status_code == 201, resp.content
     overdue.refresh_from_db()
-    assert overdue.status == Appointment.Status.PENDING
+    assert overdue.status == Appointment.Status.DONE
 
 
 @pytest.mark.django_db
-def test_expired_appointment_pending_then_done_is_idempotent(client, django_user_model):
+def test_expired_appointment_is_promoted_directly_to_done(client, django_user_model):
     pro = django_user_model.objects.create_user(
         email='state3@example.com',
         password='x',
@@ -120,18 +120,13 @@ def test_expired_appointment_pending_then_done_is_idempotent(client, django_user
         status=Appointment.Status.SCHEDULED,
     )
 
-    # A leitura da agenda aplica a promoção temporal scheduled -> pending.
+    # A leitura da agenda aplica a promoção temporal scheduled -> done.
     list_response = client.get('/agenda/appointments/')
     assert list_response.status_code == 200, list_response.content
     appointment.refresh_from_db()
-    assert appointment.status == Appointment.Status.PENDING
-
-    done_response = client.post(f'/agenda/appointments/{appointment.id}/done/')
-    assert done_response.status_code == 200, done_response.content
-    appointment.refresh_from_db()
     assert appointment.status == Appointment.Status.DONE
 
-    # Concluir novamente é idempotente.
+    # Concluir novamente permanece idempotente.
     repeated_done_response = client.post(
         f'/agenda/appointments/{appointment.id}/done/'
     )

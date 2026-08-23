@@ -28,8 +28,8 @@ def test_clinic_specialty_routes_are_exposed():
     client = APIClient()
     client.force_authenticate(user=professional)
 
-    podology_response = client.get('/clinic/podology/anamnesis/fields/')
+    podology_response = client.get('/clinic/podology/agenda/appointments/')
     assert podology_response.status_code == 200, podology_response.content
 
-    odonto_response = client.get('/clinic/odonto/arcades/')
-    assert odonto_response.status_code in {200, 403}, odonto_response.content
+    odonto_response = client.get('/clinic/odonto/anamnesis/')
+    assert odonto_response.status_code == 200, odonto_response.content

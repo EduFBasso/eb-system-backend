@@ -3,8 +3,8 @@
 Run this every 5 minutes via cron:
     */5 * * * * /path/to/.venv/bin/python manage.py send_clinic_appointment_reminders
 
-This command is kept under agenda only as a stable entrypoint. Delivery logic
-now lives in apps.reminders.
+This command is a stable entrypoint for dev.sh and production schedulers.
+Delivery logic lives in apps.clinic.services.reminders.
 """
 import logging
 

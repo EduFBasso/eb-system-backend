@@ -1,1 +1,0 @@
-from .seed_anamnesis import Command

@@ -1,9 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    AnamnesisField,
-    AnamnesisResponse,
     AnamneseBase,
+    AnamneseOdontologia,
     AnamnesePodologia,
     Appointment,
     Charge,
@@ -86,31 +85,16 @@ class AnamnesePodologiaAdmin(admin.ModelAdmin):
     autocomplete_fields = ("anamnese_base", "professional")
 
 
-@admin.register(AnamnesisField)
-class AnamnesisFieldAdmin(admin.ModelAdmin):
-    list_display = (
-        "label",
-        "code",
-        "sector",
-        "field_type",
-        "selection_mode",
-        "depends_on",
-        "order",
-        "is_active",
-        "professional",
+@admin.register(AnamneseOdontologia)
+class AnamneseOdontologiaAdmin(admin.ModelAdmin):
+    list_display = ("id", "anamnese_base", "professional", "updated_at")
+    list_filter = ("professional",)
+    search_fields = (
+        "anamnese_base__client__first_name",
+        "anamnese_base__client__last_name",
+        "chief_dental_complaint",
     )
-    list_filter = ("professional", "sector", "field_type", "selection_mode", "is_active")
-    ordering = ("professional", "sector_order", "order")
-    search_fields = ("label", "code", "sector")
-    autocomplete_fields = ("professional", "depends_on")
-
-
-@admin.register(AnamnesisResponse)
-class AnamnesisResponseAdmin(admin.ModelAdmin):
-    list_display = ("client", "field_label_snap", "value", "updated_at")
-    list_filter = ("field__professional", "field__sector")
-    search_fields = ("client__first_name", "client__last_name", "field_label_snap")
-    autocomplete_fields = ("client", "field")
+    autocomplete_fields = ("anamnese_base", "professional")
 
 
 @admin.register(TreatmentPlan)

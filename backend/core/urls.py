@@ -43,7 +43,6 @@ urlpatterns = [
     path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
     path('agenda/', include('apps.clinic.views.agenda_urls')),
     path('inventory/', include('apps.clinic.views.inventory_urls')),
-    path('anamnesis/', include('apps.clinic.views.anamnesis_urls')),
     path('odonto/', include('apps.clinic.views.odonto_urls')),
     path('treatment/', include('apps.clinic.views.odonto_urls')),
 

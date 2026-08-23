@@ -116,12 +116,21 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         return limit
 
     @action(detail=False, methods=["post"], url_path="register")
+    @transaction.atomic
     def register(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         tenant = self.get_active_tenant()
         phone = str(serializer.validated_data.get('phone') or '')
         nickname = str(serializer.validated_data.get('nickname') or 'Cliente').strip() or 'Cliente'
+        if TenantMembership.objects.filter(
+            tenant=tenant,
+            login_alias__iexact=nickname,
+        ).exists():
+            return Response(
+                {'detail': 'Já existe um cliente com este apelido neste tenant.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         customer_user, _created = Professional.objects.get_or_create(
             email=self._build_customer_email(tenant.id, phone),
@@ -139,11 +148,14 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             defaults={
                 'role': TenantMembership.Role.MEMBER,
                 'is_active': True,
+                'login_alias': nickname,
             },
         )
+        if not membership.login_alias:
+            membership.login_alias = nickname
         if not membership.is_active:
             membership.is_active = True
-            membership.save(update_fields=['is_active', 'updated_at'])
+        membership.save(update_fields=['login_alias', 'is_active', 'updated_at'])
 
         try:
             serializer.save(tenant=tenant, user=customer_user)
