@@ -89,6 +89,10 @@ class ServiceMaterialSerializer(serializers.ModelSerializer):
 
 class ServiceSerializer(serializers.ModelSerializer):
     materials = ServiceMaterialSerializer(many=True, read_only=True)
+    treatment_scopes = serializers.ListField(
+        child=serializers.ChoiceField(choices=('tooth', 'arch', 'other')),
+        required=False,
+    )
 
     class Meta:
         model = Service
@@ -123,3 +127,6 @@ class ServiceSerializer(serializers.ModelSerializer):
                 f"Já existe um serviço com o nome '{value}' cadastrado."
             )
         return value
+
+    def validate_treatment_scopes(self, value):
+        return list(dict.fromkeys(value))

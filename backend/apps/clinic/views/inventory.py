@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import viewsets, permissions
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.exceptions import PermissionDenied
@@ -53,6 +54,11 @@ class ProductViewSet(BaseScopedViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        instance.treatment_items.update(custom_name=instance.name)
+        instance.delete()
+
 
 class StockMoveViewSet(BaseScopedViewSet):
     queryset = StockMove.objects.all()
@@ -62,6 +68,11 @@ class StockMoveViewSet(BaseScopedViewSet):
 class ServiceViewSet(BaseScopedViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        instance.treatment_items.update(custom_name=instance.name)
+        instance.delete()
 
 
 class ServiceMaterialViewSet(BaseScopedViewSet):

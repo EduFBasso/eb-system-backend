@@ -104,12 +104,8 @@ class TreatmentPlanViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             raise PermissionDenied(
                 'Não é permitido alterar ou excluir dados de um plano já impresso. Crie um novo plano.'
             )
-        # Hard-delete only when the plan has no items; otherwise archive it.
-        if instance.items.exists():  # type: ignore[attr-defined]
-            instance.status = 'archived'
-            instance.save(update_fields=['status'])
-        else:
-            instance.delete()
+        # Unlocked plans can be removed permanently, including their items.
+        instance.delete()
 
     @action(detail=True, methods=['post'], url_path='mark-printed')
     def mark_printed(self, request, pk=None):

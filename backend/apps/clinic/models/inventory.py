@@ -160,6 +160,12 @@ class Service(models.Model):
         default="",
         help_text="Observações reutilizadas ao lançar este serviço em um atendimento.",
     )
+    treatment_scopes = models.JSONField(
+        "Subcategorias de Tratamento",
+        blank=True,
+        default=list,
+        help_text="Categorias permitidas no plano: tooth, arch ou other.",
+    )
     base_price = models.DecimalField("Preço Base Sugerido (R$)", max_digits=10, decimal_places=2, default=0)
     duration_minutes = models.PositiveIntegerField("Duração Estimada (Minutos)", default=30)
     is_active = models.BooleanField("Serviço Ativo?", default=True)
