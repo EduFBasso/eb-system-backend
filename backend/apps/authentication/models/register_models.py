@@ -1,5 +1,6 @@
 # backend/apps/authentication/models/register_models.py
 from phonenumber_field.modelfields import PhoneNumberField
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
@@ -88,6 +89,12 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         "Bloquear plano odontológico após impressão",
         default=True,
         help_text="Quando ativo, a impressão de um plano odontológico bloqueia novas edições.",
+    )
+    odonto_quote_validity_days = models.PositiveSmallIntegerField(
+        "Validade do orçamento odontológico (dias)",
+        default=30,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+        help_text="Prazo exibido nos orçamentos odontológicos impressos.",
     )
 
     city = models.CharField("Cidade", max_length=50, blank=True)

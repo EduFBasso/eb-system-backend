@@ -89,6 +89,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'specialty': user.specialty,
             'ui_theme': user.ui_theme,
             'lock_odonto_plan_after_print': user.lock_odonto_plan_after_print,
+            'odonto_quote_validity_days': user.odonto_quote_validity_days,
             'phone': str(user.phone) if user.phone else '',
             'city': user.city,
             'state': user.state,

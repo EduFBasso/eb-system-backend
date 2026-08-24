@@ -27,7 +27,7 @@ class ProfessionalSerializer(serializers.ModelSerializer):
             'neighborhood', 'zip_code', 'cnpj',
             'can_manage_professionals', 'is_active', 'is_staff', 'is_superuser',
             'created_at', 'deactivated_at', 'deactivation_reason',
-            'ui_theme', 'lock_odonto_plan_after_print',
+            'ui_theme', 'lock_odonto_plan_after_print', 'odonto_quote_validity_days',
         ]
         extra_kwargs = {
             'can_manage_professionals': {'required': False},

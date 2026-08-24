@@ -59,17 +59,22 @@ def make_plan(owner, client_obj, **kwargs):
     )
 
 
-def test_profile_api_persists_print_lock_preference(api_client, owner):
+def test_profile_api_persists_print_preferences(api_client, owner):
     response = api_client.patch(
         '/register/professionals/me/',
-        {'lock_odonto_plan_after_print': False},
+        {
+            'lock_odonto_plan_after_print': False,
+            'odonto_quote_validity_days': 45,
+        },
         format='json',
     )
 
     assert response.status_code == 200, response.content
     assert response.json()['lock_odonto_plan_after_print'] is False
+    assert response.json()['odonto_quote_validity_days'] == 45
     owner.refresh_from_db()
     assert owner.lock_odonto_plan_after_print is False
+    assert owner.odonto_quote_validity_days == 45
 
 
 def test_printing_without_lock_preference_keeps_plan_editable(api_client, owner, client_obj):

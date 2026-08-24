@@ -353,7 +353,7 @@ class ProfessionalViewSet(ModelViewSet):
         allowed_fields = {
             "first_name", "last_name", "display_name", "register_number", "specialty",
             "phone", "address", "number", "neighborhood", "zip_code", "city", "state",
-            "cnpj", "ui_theme", "lock_odonto_plan_after_print",
+            "cnpj", "ui_theme", "lock_odonto_plan_after_print", "odonto_quote_validity_days",
         }
         payload = {k: v for k, v in request.data.items() if k in allowed_fields}
         if not payload:
