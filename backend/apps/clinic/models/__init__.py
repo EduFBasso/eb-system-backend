@@ -1,9 +1,10 @@
 from .agenda import Appointment, Charge, ChargeItem, ClinicalRecord, Encounter
 from .anamnesis import AnamneseBase, AnamneseOdontologia, AnamnesePodologia
-from .clients import Client
 from .inventory import Product, ProductType, Service, ServiceMaterial, StockMove, StockMoveType, Supplier
 from .odonto import DentalProcedureContext, TreatmentPlan, TreatmentPlanItem
 from .reminders import ReminderDelivery, TelegramProfessionalLink
+from .podologia import PodologyProcedureContext
+from .clients import Client
 
 __all__ = [
 	'Appointment',
@@ -27,4 +28,5 @@ __all__ = [
 	'TreatmentPlanItem',
 	'ReminderDelivery',
 	'TelegramProfessionalLink',
+    'PodologyProcedureContext',
 ]
