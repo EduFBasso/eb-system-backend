@@ -43,7 +43,7 @@ def test_treatment_plans_are_available_without_specialty_capability():
     api.force_authenticate(user=professional)
 
     response = api.post(
-        '/treatment/plans/',
+        '/clinic/treatment/plans/',
         {'client': client.id, 'name': 'Plano clínico', 'status': 'pending'},
         format='json',
     )
@@ -62,7 +62,7 @@ def test_treatment_plan_list_remains_professional_scoped():
     api = APIClient()
     api.force_authenticate(user=owner)
 
-    response = api.get('/treatment/plans/')
+    response = api.get('/clinic/treatment/plans/')
 
     assert response.status_code == 200, response.content
     ids = {row['id'] for row in response.json()}
@@ -92,7 +92,7 @@ def test_treatment_plan_persists_payment_terms_and_lists_total():
     api.force_authenticate(user=professional)
 
     update_response = api.patch(
-        f'/treatment/plans/{plan.id}/',
+        f'/clinic/treatment/plans/{plan.id}/',
         {
             'payment_condition': 'aprazo',
             'installments_count': 3,
@@ -101,7 +101,7 @@ def test_treatment_plan_persists_payment_terms_and_lists_total():
         },
         format='json',
     )
-    list_response = api.get(f'/treatment/plans/?client={client.id}')
+    list_response = api.get(f'/clinic/treatment/plans/?client={client.id}')
 
     assert update_response.status_code == 200, update_response.content
     assert list_response.status_code == 200, list_response.content

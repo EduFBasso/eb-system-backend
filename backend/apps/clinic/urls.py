@@ -1,7 +1,6 @@
 from django.urls import include, path
 
 urlpatterns = [
-    path('podology/', include('apps.clinic.views.podology_urls')),
-    path('odonto/', include('apps.clinic.views.odonto_urls')),
+    # Rota canônica única para o núcleo de planos/itens de tratamento (Odonto, Podologia, ...).
     path('treatment/', include('apps.clinic.views.odonto_urls')),
 ]

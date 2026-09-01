@@ -11,6 +11,7 @@ from .models import (
     ClinicalRecord,
     DentalProcedureContext,
     Encounter,
+    PodologyProcedureContext,
     Product,
     ReminderDelivery,
     Service,
@@ -119,6 +120,14 @@ class DentalProcedureContextAdmin(admin.ModelAdmin):
     list_filter = ("scope", "arcade_arch")
     search_fields = ("tooth_number", "item__custom_name")
     autocomplete_fields = ("item",)
+
+
+@admin.register(PodologyProcedureContext)
+class PodologyProcedureContextAdmin(admin.ModelAdmin):
+    list_display = ("id", "treatment_plan_item", "scope", "location_number", "tenant")
+    list_filter = ("scope", "tenant")
+    search_fields = ("treatment_plan_item__custom_name",)
+    autocomplete_fields = ("treatment_plan_item", "tenant")
 
 
 @admin.register(Supplier)

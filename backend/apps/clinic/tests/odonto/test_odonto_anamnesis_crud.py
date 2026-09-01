@@ -46,7 +46,7 @@ def test_dental_anamnesis_creates_fixed_base_and_specialty_records():
     api.force_authenticate(user=professional)
 
     response = api.post(
-        '/odonto/anamnesis/',
+        '/clinic/treatment/anamnesis/',
         {
             'client_id': client.id,
             'gum_bleeding': True,
@@ -86,7 +86,7 @@ def test_dental_anamnesis_rejects_client_from_another_tenant():
     api.force_authenticate(user=professional)
 
     response = api.post(
-        '/odonto/anamnesis/',
+        '/clinic/treatment/anamnesis/',
         {'client_id': foreign_client.id},
         format='json',
     )

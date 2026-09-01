@@ -71,7 +71,7 @@ class OnlineMutationLockMiddleware:
             '/agenda/',
             '/inventory/',
             '/anamnesis/',
-            '/odonto/',
+            '/clinic/treatment/',
             '/sessions/',
             '/token/',
         )

@@ -82,7 +82,7 @@ def test_printing_without_lock_preference_keeps_plan_editable(api_client, owner,
     owner.save(update_fields=['lock_odonto_plan_after_print'])
     plan = make_plan(owner, client_obj)
 
-    response = api_client.post(f'/clinic/odonto/plans/{plan.id}/mark-printed/')
+    response = api_client.post(f'/clinic/treatment/plans/{plan.id}/mark-printed/')
 
     assert response.status_code == 200, response.content
     plan.refresh_from_db()
@@ -93,7 +93,7 @@ def test_printing_without_lock_preference_keeps_plan_editable(api_client, owner,
 def test_printing_with_lock_preference_locks_plan(api_client, owner, client_obj):
     plan = make_plan(owner, client_obj)
 
-    response = api_client.post(f'/clinic/odonto/plans/{plan.id}/mark-printed/')
+    response = api_client.post(f'/clinic/treatment/plans/{plan.id}/mark-printed/')
 
     assert response.status_code == 200, response.content
     plan.refresh_from_db()
@@ -107,7 +107,7 @@ def test_disabling_preference_does_not_unlock_existing_plan(api_client, owner, c
     owner.save(update_fields=['lock_odonto_plan_after_print'])
 
     response = api_client.patch(
-        f'/clinic/odonto/plans/{plan.id}/',
+        f'/clinic/treatment/plans/{plan.id}/',
         {'name': 'Tentativa de alteração'},
         format='json',
     )

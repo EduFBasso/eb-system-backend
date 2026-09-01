@@ -3,11 +3,16 @@ from rest_framework import serializers
 
 from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
 from apps.clinic.models.odonto import DentalProcedureContext
+from apps.clinic.models.podologia import PodologyProcedureContext
 from apps.clinic.serializers.odonto import DentalProcedureContextSerializer
+from apps.clinic.serializers.podologia import PodologyProcedureContextSerializer
 
 
 class TreatmentPlanItemSerializer(serializers.ModelSerializer):
+    """Serializer neutro do item de plano — cada especialidade agrega seu contexto
+    anatômico opcional (dental_context, podology_context, ...) sem duplicar esta classe."""
     dental_context = DentalProcedureContextSerializer(required=False, allow_null=True)
+    podology_context = PodologyProcedureContextSerializer(required=False, allow_null=True)
     service_name = serializers.CharField(
         source='service.name', read_only=True, allow_null=True
     )
@@ -31,24 +36,57 @@ class TreatmentPlanItemSerializer(serializers.ModelSerializer):
             'external_item_id',
             'parent_item',
             'dental_context',
+            'podology_context',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def validate(self, attrs):
+        dental_data = attrs.get('dental_context')
+        podology_data = attrs.get('podology_context')
+        if dental_data and podology_data:
+            raise serializers.ValidationError(
+                'Um item não pode ter contexto odontológico e de podologia ao mesmo tempo.'
+            )
+        plan = attrs.get('plan') or getattr(self.instance, 'plan', None)
+        tenant = plan.tenant if plan else None
+        if dental_data and tenant and not tenant.has_capability('odonto'):
+            raise serializers.ValidationError(
+                {'dental_context': 'O tenant não possui a capability "odonto" habilitada.'}
+            )
+        if podology_data and tenant and not tenant.has_capability('podologia'):
+            raise serializers.ValidationError(
+                {'podology_context': 'O tenant não possui a capability "podologia" habilitada.'}
+            )
+        return attrs
+
     def create(self, validated_data):
-        context_data = validated_data.pop('dental_context', None)
+        dental_data = validated_data.pop('dental_context', None)
+        podology_data = validated_data.pop('podology_context', None)
         item = super().create(validated_data)
-        if context_data:
-            DentalProcedureContext.objects.create(item=item, **context_data)
+        if dental_data:
+            DentalProcedureContext.objects.create(item=item, **dental_data)
+        if podology_data:
+            PodologyProcedureContext.objects.create(
+                treatment_plan_item=item,
+                tenant=item.plan.tenant,
+                **podology_data,
+            )
         return item
 
     def update(self, instance, validated_data):
-        context_data = validated_data.pop('dental_context', None)
+        dental_data = validated_data.pop('dental_context', None)
+        podology_data = validated_data.pop('podology_context', None)
         instance = super().update(instance, validated_data)
-        if context_data is not None:
+        if dental_data is not None:
             DentalProcedureContext.objects.update_or_create(
-                item=instance, defaults=context_data
+                item=instance, defaults=dental_data
+            )
+        if podology_data is not None:
+            PodologyProcedureContext.objects.update_or_create(
+                treatment_plan_item=instance,
+                defaults={'tenant': instance.plan.tenant, **podology_data},
             )
         return instance
 
@@ -57,6 +95,7 @@ class TreatmentPlanListSerializer(serializers.ModelSerializer):
     pending_items = serializers.SerializerMethodField()
     completed_items = serializers.SerializerMethodField()
     plan_total = serializers.SerializerMethodField()
+
 
     class Meta:
         model = TreatmentPlan
