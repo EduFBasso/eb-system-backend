@@ -7,8 +7,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from apps.clinic.models.odonto import TreatmentPlan, TreatmentPlanItem
-from apps.clinic.serializers.odonto import (
+from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
+from apps.clinic.serializers.treatment import (
     TreatmentPlanDetailSerializer,
     TreatmentPlanItemSerializer,
     TreatmentPlanListSerializer,

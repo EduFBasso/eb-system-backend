@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .odonto import TreatmentPlanViewSet, TreatmentPlanItemViewSet
+from .treatment import TreatmentPlanViewSet, TreatmentPlanItemViewSet
 from apps.clinic.views.anamnesis import DentalAnamnesisViewSet
 
 router = DefaultRouter()

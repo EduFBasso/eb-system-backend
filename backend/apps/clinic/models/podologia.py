@@ -1,6 +1,6 @@
 from django.db import models
 # Importamos o TreatmentPlanItem porque a Podologia vai se pendurar na mesma estrutura de orçamento
-from apps.clinic.models.odonto import TreatmentPlanItem
+from apps.clinic.models.treatment import TreatmentPlanItem
 
 class PodologyProcedureContext(models.Model):
     """

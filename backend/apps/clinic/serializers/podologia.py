@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.clinic.models.odonto import TreatmentPlanItem
+from apps.clinic.models.treatment import TreatmentPlanItem
 from apps.clinic.models.podologia import PodologyProcedureContext
 
 class PodologyProcedureContextSerializer(serializers.ModelSerializer):

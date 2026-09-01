@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.clinic.models.clients import Client
-from apps.clinic.models.odonto import TreatmentPlan, TreatmentPlanItem
+from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
 
 
 pytestmark = pytest.mark.django_db
