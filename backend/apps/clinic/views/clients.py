@@ -18,6 +18,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.clinic.models.clients import Client
 from apps.clinic.serializers.clients import ClientSerializer, ClientBasicSerializer
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
+from apps.authentication.services.permissions import get_active_tenant_membership
 
 
 ANAMNESIS_LINK_SALT = 'anamnesis-link-v1'
@@ -54,18 +55,11 @@ LINK_EXPIRED_MESSAGE = 'Link expirado'
 
 
 def _get_active_tenant(user):
-    if not user or not getattr(user, 'is_authenticated', False):
-        return None
-
-    membership = (
-        user.tenant_memberships.select_related('tenant')
-        .filter(is_active=True, tenant__is_active=True)
-        .order_by('created_at', 'id')
-        .first()
+    membership = get_active_tenant_membership(
+        user,
+        ecosystem='clinic',
     )
-    if membership:
-        return membership.tenant
-    return None
+    return membership.tenant if membership else None
 
 
 class ClientViewSet(ModelViewSet):

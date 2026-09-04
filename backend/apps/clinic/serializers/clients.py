@@ -115,6 +115,14 @@ def _active_anamnese_tenant(context) -> object:
         raise serializers.ValidationError('Nenhum tenant ativo encontrado para o usuário autenticado.')
     return membership.tenant
 
+
+def _active_specialty(tenant) -> str | None:
+    has_odonto = tenant is not None and tenant.has_capability('odonto')
+    has_podologia = tenant is not None and tenant.has_capability('podologia')
+    if has_odonto == has_podologia:
+        return None
+    return 'odonto' if has_odonto else 'podologia'
+
 class ClientSerializer(serializers.ModelSerializer):
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
     anamnese_base = AnamneseBaseSerializer(required=False, allow_null=True)
@@ -173,6 +181,28 @@ class ClientSerializer(serializers.ModelSerializer):
             "marital_status": {"required": False, "allow_null": True, "allow_blank": True},
             "nationality": {"required": False, "allow_null": True, "allow_blank": True},
         }
+
+    def get_fields(self):
+        fields = super().get_fields()
+        specialty = _active_specialty(self.context.get('tenant'))
+        if specialty != 'podologia':
+            fields.pop('anamnese_podologia', None)
+        if specialty != 'odonto':
+            fields.pop('anamnese_odontologia', None)
+        return fields
+
+    def validate(self, attrs):
+        specialty = _active_specialty(self.context.get('tenant'))
+        input_data = getattr(self, 'initial_data', {})
+        if specialty != 'podologia' and 'anamnese_podologia' in input_data:
+            raise serializers.ValidationError({
+                'anamnese_podologia': 'Especialidade não habilitada para este tenant.'
+            })
+        if specialty != 'odonto' and 'anamnese_odontologia' in input_data:
+            raise serializers.ValidationError({
+                'anamnese_odontologia': 'Especialidade não habilitada para este tenant.'
+            })
+        return super().validate(attrs)
 
     # Normalizações e validações leves
     def validate_first_name(self, value):

@@ -12,8 +12,16 @@ from apps.authentication.models import Tenant, TenantMembership
 
 class ClientAnamnesisApiTests(APITestCase):
     def setUp(self):
-        self.tenant_a = Tenant.objects.create(name='Tenant A', slug='tenant-a')
-        self.tenant_b = Tenant.objects.create(name='Tenant B', slug='tenant-b')
+        self.tenant_a = Tenant.objects.create(
+            name='Tenant A',
+            slug='tenant-a',
+            capabilities={'clinic': True, 'podologia': True},
+        )
+        self.tenant_b = Tenant.objects.create(
+            name='Tenant B',
+            slug='tenant-b',
+            capabilities={'clinic': True, 'odonto': True},
+        )
 
         self.prof_a = Professional.objects.create_user(
             email='pro.a@example.com',
@@ -130,3 +138,46 @@ class ClientAnamnesisApiTests(APITestCase):
 
         detail_response = self.client.get(f'/register/clients/{client_b.id}/')
         self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_podologia_tenant_does_not_receive_or_accept_odonto_anamnesis(self):
+        self.client.force_authenticate(user=self.prof_a)
+
+        response = self.client.post(
+            '/register/clients/',
+            {
+                'first_name': 'Cliente',
+                'last_name': 'Podologia',
+                'phone': '11999999993',
+                'anamnese_odontologia': {'gum_bleeding': True},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('anamnese_odontologia', response.data)
+
+    def test_specialty_fields_are_filtered_by_tenant_capability(self):
+        podologia_client = Client.objects.create(
+            tenant=self.tenant_a,
+            first_name='Cliente',
+            last_name='Podologia',
+            phone='11999999994',
+        )
+        odonto_client = Client.objects.create(
+            tenant=self.tenant_b,
+            first_name='Cliente',
+            last_name='Odonto',
+            phone='11999999995',
+        )
+
+        self.client.force_authenticate(user=self.prof_a)
+        podologia_response = self.client.get(
+            f'/register/clients/{podologia_client.id}/'
+        )
+        self.assertIn('anamnese_podologia', podologia_response.data)
+        self.assertNotIn('anamnese_odontologia', podologia_response.data)
+
+        self.client.force_authenticate(user=self.prof_b)
+        odonto_response = self.client.get(f'/register/clients/{odonto_client.id}/')
+        self.assertIn('anamnese_odontologia', odonto_response.data)
+        self.assertNotIn('anamnese_podologia', odonto_response.data)

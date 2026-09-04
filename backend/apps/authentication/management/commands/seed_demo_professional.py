@@ -23,6 +23,12 @@ class Command(BaseCommand):
         parser.add_argument('--first-name', default='Médica', help='Primeiro nome do profissional')
         parser.add_argument('--last-name', default='Demo', help='Sobrenome do profissional')
         parser.add_argument('--tenant-name', default='Clínica de Testes Local', dest='tenant_name', help='Nome da clínica de demonstração')
+        parser.add_argument(
+            '--specialty',
+            choices=('odonto', 'podologia'),
+            default='podologia',
+            help='Especialidade exclusiva da clínica de demonstração (padrão: podologia)',
+        )
         parser.add_argument('--clients', type=int, default=15, help='Quantidade de clientes fictícios a gerar')
         parser.add_argument('--appointments', type=int, default=10, help='Quantidade de agendamentos fictícios a gerar')
         parser.add_argument('--slot-minutes', type=int, default=45, help='Duração da janela de cada consulta (minutos)')
@@ -40,6 +46,7 @@ class Command(BaseCommand):
         slot_minutes: int = options['slot_minutes']
         start_iso: Optional[str] = options.get('start')
         dry_run: bool = options['dry_run']
+        capabilities = {"clinic": True, options['specialty']: True}
 
         # 1) Garantia Estrutural: Criação/Recuperação da Clínica (Tenant)
         tenant, t_created = Tenant.objects.get_or_create(
@@ -47,10 +54,13 @@ class Command(BaseCommand):
             defaults={
                 "name": tenant_name,
                 "ecosystem": Tenant.Ecosystem.CLINIC,
-                "capabilities": {"clinic": True, "podologia": True, "odonto": True},
+                "capabilities": capabilities,
                 "is_active": True,
             }
         )
+        if not t_created and tenant.capabilities != capabilities:
+            tenant.capabilities = capabilities
+            tenant.save(update_fields=['capabilities'])
         self.stdout.write(self.style.SUCCESS(
             f"Clínica (Tenant): {tenant.name} ({tenant.slug}) {'[CRIADA]' if t_created else '[EXISTENTE]'}"
         ))

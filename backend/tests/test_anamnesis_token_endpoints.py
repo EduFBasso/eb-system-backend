@@ -27,7 +27,7 @@ def tenant(professional):
         slug='consultorio-podologia',
         ecosystem='clinic',
         is_active=True,
-        capabilities={'clinic': True, 'podologia': True, 'odonto': True},
+        capabilities={'clinic': True, 'podologia': True},
     )
     TenantMembership.objects.create(
         tenant=t,

@@ -3,6 +3,10 @@ from __future__ import annotations
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
+from apps.authentication.services.permissions import (
+    HasTenantCapability,
+    get_active_tenant_membership,
+)
 from apps.clinic.models.anamnesis import AnamneseOdontologia
 from apps.clinic.serializers.anamnesis import DentalAnamnesisSerializer
 
@@ -13,12 +17,18 @@ class DentalAnamnesisViewSet(viewsets.ModelViewSet):
     Controlador que expõe os ganchos de API para recebimento, validação
     e armazenamento do prontuário odontológico, isolado estritamente por Tenant.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        HasTenantCapability('odonto', ecosystem='clinic'),
+    ]
     serializer_class = DentalAnamnesisSerializer
 
     def get_queryset(self):
         # [Segurança Multi-tenant] Restringe a busca apenas para dados da clínica do usuário logado
-        membership = self.request.user.tenant_memberships.filter(is_active=True).first()
+        membership = get_active_tenant_membership(
+            self.request.user,
+            ecosystem='clinic',
+        )
         if not membership:
             return AnamneseOdontologia.objects.none()
         return AnamneseOdontologia.objects.filter(anamnese_base__tenant=membership.tenant)

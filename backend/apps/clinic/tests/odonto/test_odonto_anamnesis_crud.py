@@ -93,3 +93,129 @@ def test_dental_anamnesis_rejects_client_from_another_tenant():
 
     assert response.status_code == 400, response.content
     assert not AnamneseBase.objects.filter(client=foreign_client).exists()
+
+
+def test_dental_anamnesis_rejects_tenant_without_odonto_capability():
+    professional, tenant = make_professional(
+        'podologist-anamnesis@example.com',
+        'podology-anamnesis',
+    )
+    tenant.capabilities = {'clinic': True, 'podologia': True}
+    tenant.save(update_fields=['capabilities'])
+    client = Client.objects.create(
+        tenant=tenant,
+        first_name='Paciente',
+        last_name='Podologia',
+        phone='11990000003',
+    )
+    api = APIClient()
+    api.force_authenticate(user=professional)
+
+    response = api.post(
+        '/clinic/treatment/anamnesis/',
+        {'client_id': client.id, 'gum_bleeding': True},
+        format='json',
+    )
+
+    assert response.status_code == 403, response.content
+    assert not AnamneseBase.objects.filter(client=client).exists()
+
+
+def test_dental_anamnesis_ignores_bakery_membership_when_selecting_clinic():
+    professional = Professional.objects.create_user(
+        email='clinic-after-bakery@example.com',
+        password='secret123',
+        first_name='Dentista',
+        last_name='Multisystem',
+    )
+    professional.tenant_memberships.all().delete()
+    bakery = Tenant.objects.create(
+        name='Padaria Separada',
+        slug='bakery-before-clinic',
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={'bakery': True},
+    )
+    clinic = Tenant.objects.create(
+        name='Clínica Odonto',
+        slug='clinic-after-bakery',
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={'clinic': True, 'odonto': True},
+    )
+    TenantMembership.objects.create(
+        tenant=bakery,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    TenantMembership.objects.create(
+        tenant=clinic,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    client = Client.objects.create(
+        tenant=clinic,
+        first_name='Paciente',
+        last_name='Clínica',
+        phone='11990000004',
+    )
+    api = APIClient()
+    api.force_authenticate(user=professional)
+
+    response = api.post(
+        '/clinic/treatment/anamnesis/',
+        {'client_id': client.id, 'gum_bleeding': True},
+        format='json',
+    )
+
+    assert response.status_code == 201, response.content
+    assert AnamneseBase.objects.filter(client=client, tenant=clinic).exists()
+
+
+def test_secondary_clinic_capability_does_not_authorize_active_clinic():
+    professional = Professional.objects.create_user(
+        email='two-clinics@example.com',
+        password='secret123',
+        first_name='Profissional',
+        last_name='Multiclinic',
+    )
+    professional.tenant_memberships.all().delete()
+    podologia = Tenant.objects.create(
+        name='Clínica Podologia Ativa',
+        slug='active-podology-clinic',
+        capabilities={'clinic': True, 'podologia': True},
+    )
+    odonto = Tenant.objects.create(
+        name='Clínica Odonto Secundária',
+        slug='secondary-dental-clinic',
+        capabilities={'clinic': True, 'odonto': True},
+    )
+    TenantMembership.objects.create(
+        tenant=podologia,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    TenantMembership.objects.create(
+        tenant=odonto,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    client = Client.objects.create(
+        tenant=podologia,
+        first_name='Paciente',
+        last_name='Podologia',
+        phone='11990000005',
+    )
+    api = APIClient()
+    api.force_authenticate(user=professional)
+
+    response = api.post(
+        '/clinic/treatment/anamnesis/',
+        {'client_id': client.id, 'gum_bleeding': True},
+        format='json',
+    )
+
+    assert response.status_code == 403, response.content
+    assert not AnamneseBase.objects.filter(client=client).exists()
