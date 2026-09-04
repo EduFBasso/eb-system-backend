@@ -10,7 +10,7 @@
 ---
 
 ## ⚙️ Backend (Django)
-- Estrutura modularizada em apps (`clinic/`, `bakery/`, `juridico/` etc.).  
+- Estrutura modularizada em apps (`clinic/`, `bakery/`,  etc.).  
 - Configurações divididas em arquivos específicos dentro de `settings/`:  
   - `database.py` → conexões e ORM.  
   - `auth.py` → autenticação e permissões.  
@@ -40,7 +40,8 @@
 
 ## 🤖 Perfis de IA
 - **Copilot principal** → Arquitetura, backend, chamadas de API, migrations, testes.  
-- **Luna 5.6** → Refinamento de UX, acessibilidade, copywriting e consistência visual.  
+- **Luna 5.6** → Refinamento de UX, acessibilidade, copywriting e consistência visual, duvidas.  
+- **Gemini 3.5 Flash** → Revisão refatoração de UX + lógica.
 - **Claude Sonnet 5.0** → Revisão de código e testes, garantindo legibilidade e cobertura.  
 
 ---

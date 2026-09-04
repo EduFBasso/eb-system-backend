@@ -74,6 +74,8 @@ done ------> estado final
 canceled --> estado final
 ```
 
+## ALTERAÇÕES: 
+
 O compromisso não é monitorado em um estado `ongoing` durante o intervalo
 agendado. Quando `end_at` passa, o compromisso `scheduled` pode ser promovido
 diretamente para `done` durante a leitura da agenda.
@@ -87,17 +89,6 @@ em `scheduled`.
 O fluxo de agenda foi simplificado para não usar tipo de consulta ou avaliação
 como etapas de negócio. A agenda deve tratar o registro como um compromisso,
 independentemente do motivo informado.
-
-No contrato atual ainda existe o campo legado `visit_type`, com os valores
-`consulta`, `retorno` e `outro`, enviado pelo frontend e aceito pelo backend.
-Ele é apenas informativo e não altera status, permissões, conflitos ou
-transições. Sua remoção definitiva exige uma migração coordenada do serializer,
-modelo/migrações e frontend.
-
-Da mesma forma, “avaliação” não é um status nem uma etapa do compromisso. O
-campo opcional `assessment` ainda aparece no modelo de `Encounter` e o tipo
-`assessment` ainda aparece em `ClinicalRecord`; esses campos legados não devem
-ser usados para decidir o ciclo de vida da agenda.
 
 ### Atendimento clínico
 
