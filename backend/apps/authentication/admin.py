@@ -59,7 +59,7 @@ def _is_password_reused(raw_password: str, current_user: Professional | None = N
 class ProfessionalCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = Professional
-        fields = ("email", "first_name", "last_name", "specialty")
+        fields = ("email", "first_name", "last_name", "phone", "specialty")
 
     def clean(self):
         cleaned_data = super().clean()
@@ -160,7 +160,7 @@ class ProfessionalAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("email", "first_name", "last_name", "specialty", "password1", "password2"),
+            "fields": ("email", "first_name", "last_name", "phone", "specialty", "password1", "password2"),
         }),
     )
     filter_horizontal = ("groups", "user_permissions")

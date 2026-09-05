@@ -50,7 +50,13 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         blank=True,
         help_text="Como os clientes o conhecem visualmente nas notificações: ex. 'Podóloga Regiane'.",
     )
-    phone = PhoneNumberField("Telefone Celular", region="BR", blank=True) 
+    phone = PhoneNumberField(
+        "Telefone Celular",
+        region="BR",
+        blank=False,
+        null=False,
+        help_text="Obrigatório para ativação e recebimento de notificações via Telegram. Ex: (19) 99855-2882 ou 19998552882.",
+    ) 
     email = models.EmailField("E-mail corporativo", unique=True)
 
     register_number = models.CharField(

@@ -12,12 +12,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from apps.authentication.models import Professional, TenantMembership
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
 from utils.pagination import StandardResultsSetPagination
-from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin
+from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin, get_active_tenant
 
 from .base import BakeryTenantScopedMixin
 
@@ -33,12 +33,14 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     queryset = BakeryCustomer.objects.select_related("tenant", "user")
 
     def _is_owner(self) -> bool:
+        if getattr(self.request.user, "is_staff", False):
+            return True
         membership = getattr(self, "bakery_membership", None)
         if membership:
-            return membership.role == "owner"
+            return membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN)
         from utils.permissions import _get_bakery_membership
         m = _get_bakery_membership(self.request)
-        return bool(m and m.role == "owner")
+        return bool(m and m.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN))
 
     def get_queryset(self):
         tenant = self.get_active_tenant()
@@ -82,9 +84,13 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         if membership is None:
             from utils.permissions import _get_bakery_membership
             membership = _get_bakery_membership(request)
-        if membership is None or membership.role != "owner":
+        is_management = bool(
+            (membership and membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN))
+            or getattr(request.user, "is_staff", False)
+        )
+        if not is_management:
             return Response(
-                {'detail': 'Apenas o owner pode executar esta ação.'},
+                {'detail': 'Apenas o owner ou administrador pode executar esta ação.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -115,12 +121,61 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             return None
         return limit
 
-    @action(detail=False, methods=["post"], url_path="register")
+    def _resolve_registration_tenant(self, request) -> Tenant | None:
+        if getattr(request, "user", None) and request.user.is_authenticated:
+            try:
+                tenant = get_active_tenant(request.user, self.capability_name)
+                if tenant:
+                    return tenant
+            except Exception:
+                pass
+
+        tenant_slug = (
+            request.data.get("tenant_slug")
+            or request.headers.get("X-Tenant-Slug")
+            or request.query_params.get("tenant_slug")
+        )
+        if tenant_slug:
+            tenant = (
+                Tenant.objects.filter(
+                    slug=str(tenant_slug).strip(),
+                    is_active=True,
+                )
+                .first()
+            )
+            if tenant and (
+                tenant.ecosystem == Tenant.Ecosystem.BAKERY
+                or tenant.has_capability(self.capability_name)
+            ):
+                return tenant
+
+        bakery_tenants = Tenant.objects.filter(
+            is_active=True,
+            ecosystem=Tenant.Ecosystem.BAKERY,
+        )
+        if bakery_tenants.count() == 1:
+            return bakery_tenants.first()
+
+        return None
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="register",
+        permission_classes=[AllowAny],
+    )
     @transaction.atomic
     def register(self, request):
+        tenant = self._resolve_registration_tenant(request)
+        if tenant is None:
+            return Response(
+                {'detail': 'Tenant Bakery não encontrado ou inativo.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.active_tenant = tenant
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        tenant = self.get_active_tenant()
         phone = str(serializer.validated_data.get('phone') or '')
         nickname = str(serializer.validated_data.get('nickname') or 'Cliente').strip() or 'Cliente'
         if TenantMembership.objects.filter(
@@ -158,12 +213,15 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         membership.save(update_fields=['login_alias', 'is_active', 'updated_at'])
 
         try:
-            serializer.save(tenant=tenant, user=customer_user)
+            customer = serializer.save(tenant=tenant, user=customer_user)
         except IntegrityError:
             return Response(
                 {'detail': 'Não foi possível concluir o cadastro. Verifique se este cliente já existe.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        from apps.bakery.services.notifications import notify_owner_new_customer
+        transaction.on_commit(lambda: notify_owner_new_customer(customer))
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

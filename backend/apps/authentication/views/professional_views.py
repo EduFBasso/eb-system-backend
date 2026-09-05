@@ -20,6 +20,7 @@ import hashlib
 import hmac
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import TelegramBotClient, TelegramDeliveryError
+from utils.permissions import get_active_tenant
 
 
 TELEGRAM_LINK_TOKEN_TTL_SECONDS = 15 * 60
@@ -288,15 +289,42 @@ class ProfessionalViewSet(ModelViewSet):
                 status=409,
             )
 
+        tenant = get_active_tenant(user)
+        if not tenant:
+            membership = user.tenant_memberships.filter(is_active=True).first()
+            if membership:
+                tenant = membership.tenant
+
+        defaults = {
+            "chat_id": matched_chat_id,
+            "telegram_username": matched_username,
+            "is_active": True,
+            "last_error": "",
+        }
+        if tenant:
+            defaults["tenant"] = tenant
+
         TelegramProfessionalLink.objects.update_or_create(
             professional_id=user.id,
-            defaults={
-                "chat_id": matched_chat_id,
-                "telegram_username": matched_username,
-                "is_active": True,
-                "last_error": "",
-            },
+            defaults=defaults,
         )
+
+        phone_display = str(user.phone) if getattr(user, "phone", None) else ""
+        welcome_lines = [
+            "✅ Conexão estabelecida com sucesso!",
+            "",
+            f"👤 Usuário: {user.get_full_name() or user.first_name}",
+        ]
+        if phone_display:
+            welcome_lines.append(f"📱 Telefone integrado: {phone_display}")
+        welcome_lines.extend([
+            "",
+            "Este canal está ativo para recebimento de alertas e tokens de segurança do sistema.",
+        ])
+        try:
+            client.send_message(chat_id=matched_chat_id, text="\n".join(welcome_lines))
+        except Exception:
+            pass
 
         return Response(
             {

@@ -103,3 +103,41 @@ def test_order_creation_skips_owner_without_telegram_link(django_capture_on_comm
 
     assert order.pk is not None
     mocked_post.assert_not_called()
+
+
+def test_customer_registration_notifies_linked_owner(django_capture_on_commit_callbacks):
+    from rest_framework.test import APIClient
+
+    tenant, _owner = _make_tenant_with_owner(link_telegram=True)
+
+    mocked_response = Mock(status_code=200)
+    mocked_response.json.return_value = {"ok": True, "result": {"message_id": 1}}
+
+    client = APIClient()
+    with patch(
+        "apps.notifications.services.telegram_client.requests.post",
+        return_value=mocked_response,
+    ) as mocked_post:
+        with django_capture_on_commit_callbacks(execute=True):
+            response = client.post(
+                "/api/v1/bakery/customers/register/",
+                {
+                    "nickname": "Cliente Notificacao",
+                    "customer_type": "PF",
+                    "cpf": "11122233988",
+                    "phone": "11999999977",
+                    "zip_code": "01310100",
+                    "street": "Avenida Paulista",
+                    "number": "1000",
+                    "neighborhood": "Bela Vista",
+                    "city": "São Paulo",
+                    "state": "SP",
+                    "tenant_slug": tenant.slug,
+                },
+                format="json",
+            )
+
+    assert response.status_code == 201
+    mocked_post.assert_called_once()
+    assert mocked_post.call_args.kwargs["json"]["chat_id"] == "12345"
+    assert "Cliente Notificacao" in mocked_post.call_args.kwargs["json"]["text"]

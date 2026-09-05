@@ -5,7 +5,7 @@ Uses the shared apps.notifications engine; does not know about clinic at all.
 import logging
 
 from apps.authentication.models import TenantMembership
-from apps.bakery.models import Order
+from apps.bakery.models import BakeryCustomer, Order
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import (
     TelegramDeliveryError,
@@ -31,7 +31,7 @@ def notify_owner_new_order(order: Order) -> None:
     """Best-effort notification: never raises, never blocks order creation."""
     owner_ids = TenantMembership.objects.filter(
         tenant_id=order.tenant_id,
-        role=TenantMembership.Role.OWNER,
+        role__in=[TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN],
         is_active=True,
     ).values_list("professional_id", flat=True)
 
@@ -50,5 +50,46 @@ def notify_owner_new_order(order: Order) -> None:
                 "Falha ao notificar dono (professional_id=%s) sobre pedido #%s: %s",
                 link.professional_id,
                 order.pk,
+                exc,
+            )
+
+
+def build_new_customer_text(customer: BakeryCustomer) -> str:
+    lines = [
+        "🥖 Novo cliente cadastrado no sistema!",
+        "",
+        f"Apelido: {customer.nickname}",
+        f"Tipo: {customer.customer_type}",
+        f"Telefone: {customer.phone or 'Não informado'}",
+        f"Status: {customer.status}",
+        "",
+        "Acesse o painel administrativo para aprovar o cadastro e definir o limite de crédito.",
+    ]
+    return "\n".join(lines)
+
+
+def notify_owner_new_customer(customer: BakeryCustomer) -> None:
+    """Best-effort notification: never raises, never blocks customer registration."""
+    owner_ids = TenantMembership.objects.filter(
+        tenant_id=customer.tenant_id,
+        role__in=[TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN],
+        is_active=True,
+    ).values_list("professional_id", flat=True)
+
+    links = TelegramProfessionalLink.objects.filter(
+        tenant_id=customer.tenant_id,
+        professional_id__in=list(owner_ids),
+        is_active=True,
+    )
+
+    text = build_new_customer_text(customer)
+    for link in links:
+        try:
+            send_via_link(link, text=text)
+        except TelegramDeliveryError as exc:
+            logger.warning(
+                "Falha ao notificar dono (professional_id=%s) sobre novo cliente #%s: %s",
+                link.professional_id,
+                customer.pk,
                 exc,
             )

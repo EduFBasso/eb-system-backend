@@ -73,15 +73,17 @@ class HasActiveBakeryTenant(permissions.BasePermission):
 
 
 class IsBakeryOwner(permissions.BasePermission):
-    """Exige membership role=owner no tenant Bakery do token."""
+    """Exige membership role=owner ou admin no tenant Bakery do token."""
 
-    message = "Apenas o owner pode executar esta ação."
+    message = "Apenas administradores podem executar esta ação."
 
     def has_permission(self, request, view) -> bool:
+        if getattr(request.user, "is_staff", False):
+            return True
         membership = _get_bakery_membership(request)
         if membership is None:
             return False
-        return membership.role == TenantMembership.Role.OWNER
+        return membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN)
 
 
 class IsBakeryCustomer(permissions.BasePermission):
@@ -105,14 +107,16 @@ class IsBakeryCustomer(permissions.BasePermission):
 
 
 class IsCustomerOrAdmin(permissions.BasePermission):
-    """Owner vê tudo; customer vê apenas o próprio perfil."""
+    """Owner/Admin vê tudo; customer vê apenas o próprio perfil."""
 
     def has_permission(self, request, view) -> bool:
         return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj) -> bool:
+        if getattr(request.user, "is_staff", False):
+            return True
         membership = _get_bakery_membership(request)
-        if membership and membership.role == TenantMembership.Role.OWNER:
+        if membership and membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN):
             return True
         owner = getattr(obj, "user", None)
         if owner is None and hasattr(obj, "customer"):
@@ -121,11 +125,13 @@ class IsCustomerOrAdmin(permissions.BasePermission):
 
 
 class IsRelatedCustomer(permissions.BasePermission):
-    """Owner acessa tudo; customer acessa apenas seus próprios registros."""
+    """Owner/Admin acessa tudo; customer acessa apenas seus próprios registros."""
 
     def has_object_permission(self, request, view, obj) -> bool:
+        if getattr(request.user, "is_staff", False):
+            return True
         membership = _get_bakery_membership(request)
-        if membership and membership.role == TenantMembership.Role.OWNER:
+        if membership and membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN):
             return True
         customer = getattr(obj, "customer", None)
         if customer is None:
@@ -135,13 +141,15 @@ class IsRelatedCustomer(permissions.BasePermission):
 
 
 class IsTenantStaffOrReadOnly(permissions.BasePermission):
-    """Owner edita; outros apenas lêem."""
+    """Owner/Admin edita; outros apenas lêem."""
 
     def has_permission(self, request, view) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
+        if getattr(request.user, "is_staff", False):
+            return True
         membership = _get_bakery_membership(request)
-        return bool(membership and membership.role == TenantMembership.Role.OWNER)
+        return bool(membership and membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN))
 

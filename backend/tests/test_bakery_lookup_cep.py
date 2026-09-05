@@ -505,3 +505,37 @@ def test_bakery_reveal_password_generates_new_password_when_missing():
     assert reveal_response.status_code == 200
     assert reveal_response.data['password_plain_text']
     assert 'detail' in reveal_response.data
+
+
+def test_bakery_register_customer_unauthenticated_with_tenant_slug():
+    tenant = Tenant.objects.create(
+        name='Bakery Tenant Public',
+        slug='bakery-tenant-public',
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={'bakery': True},
+        is_active=True,
+    )
+
+    anon_client = APIClient()
+    response = anon_client.post(
+        '/api/v1/bakery/customers/register/',
+        {
+            'nickname': 'Cliente Mobile',
+            'customer_type': 'PF',
+            'cpf': '11122233999',
+            'phone': '11999999999',
+            'zip_code': '01310100',
+            'street': 'Avenida Paulista',
+            'number': '1000',
+            'neighborhood': 'Bela Vista',
+            'city': 'São Paulo',
+            'state': 'SP',
+            'tenant_slug': tenant.slug,
+        },
+        format='json',
+    )
+
+    assert response.status_code == 201
+    assert response.data['nickname'] == 'Cliente Mobile'
+    assert response.data['status'] == 'PENDENTE'
+    assert response.data['tenant'] == tenant.id

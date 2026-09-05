@@ -6,12 +6,12 @@
     },
     {
       "name": "frontend-clinic",
-      "path": "frontend-clinic"
+      "path": "frontend-clinic",
     },
     {
       "name": "frontend-bakery",
-      "path": "frontend-bakery"
-    }
+      "path": "frontend-bakery",
+    },
   ],
   "settings": {
     "git.openRepositoryInParentFolders": "always",
