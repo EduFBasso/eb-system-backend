@@ -29,6 +29,7 @@ SERVE_MEDIA_FILES: bool = config("SERVE_MEDIA_FILES", default=True, cast=bool)
 INSTALLED_APPS = [
     'rest_framework',
     'apps.authentication',
+    'apps.notifications',
     'apps.clinic',
     'apps.bakery',
     'django.contrib.admin',

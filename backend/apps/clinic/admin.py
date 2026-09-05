@@ -18,7 +18,6 @@ from .models import (
     ServiceMaterial,
     StockMove,
     Supplier,
-    TelegramProfessionalLink,
     TreatmentPlan,
     TreatmentPlanItem,
 )
@@ -176,20 +175,6 @@ class ServiceAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     inlines = [ServiceMaterialInline]
     autocomplete_fields = ("tenant",)
-
-
-@admin.register(TelegramProfessionalLink)
-class TelegramProfessionalLinkAdmin(admin.ModelAdmin):
-    list_display = ("professional", "chat_id", "telegram_username", "is_active", "linked_at")
-    search_fields = (
-        "professional__email",
-        "professional__first_name",
-        "professional__last_name",
-        "chat_id",
-        "telegram_username",
-    )
-    list_filter = ("is_active", "linked_at")
-    autocomplete_fields = ("professional",)
 
 
 @admin.register(ReminderDelivery)

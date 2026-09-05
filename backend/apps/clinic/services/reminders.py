@@ -12,8 +12,14 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.authentication.models import ProfessionalSettings
-from apps.clinic.models.reminders import ReminderDelivery, TelegramProfessionalLink
-from apps.clinic.services.telegram import TelegramBotClient, TelegramDeliveryError
+from apps.clinic.models.reminders import ReminderDelivery
+from apps.notifications.models import TelegramProfessionalLink
+from apps.notifications.services.telegram_client import (
+    TelegramBotClient,
+    TelegramDeliveryError,
+    masked_token_fingerprint,
+    resolve_bot_token,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -35,17 +41,6 @@ class DispatchSummary:
     failed: int = 0
     skipped: int = 0
 
-
-def _masked_token_fingerprint(token: str) -> str:
-    tail = (token or '').strip()[-4:]
-    return f"***{tail}" if tail else "***"
-
-
-def _resolve_bot_token(link: TelegramProfessionalLink) -> tuple[str, str]:
-    private_token = (link.bot_token or '').strip()
-    if private_token:
-        return private_token, 'professional'
-    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
 
 
 def _is_auth_error(message: str) -> bool:
@@ -290,14 +285,14 @@ def dispatch_appointment_reminder(
             payload={"reason": "telegram_inactive"},
         )
 
-    resolved_token, bot_origin = _resolve_bot_token(link)
+    resolved_token, bot_origin = resolve_bot_token(link)
     resolved_client = TelegramBotClient(token=resolved_token)
 
     payload = {
         "text": build_telegram_text(appointment),
         "reply_markup": build_reply_markup(appointment) or {},
         "bot_origin": bot_origin,
-        "bot_token_fingerprint": _masked_token_fingerprint(resolved_token),
+        "bot_token_fingerprint": masked_token_fingerprint(resolved_token),
     }
 
     if dry_run:

@@ -10,6 +10,7 @@ from apps.bakery.models import (
     OrderItem,
     Product,
 )
+from apps.bakery.services.notifications import notify_owner_new_order
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -143,7 +144,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         item_payloads = validated_data.pop("items")
         tenant = validated_data["tenant"]
-        requested_customer = validated_data["customer"]
+        requested_customer = validated_data.pop("customer")
         customer = BakeryCustomer.objects.select_for_update().get(
             pk=requested_customer.pk,
             tenant=tenant,
@@ -199,6 +200,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 description=f"Credit reservation for order #{order.pk}",
                 reference_key=f"order:{order.pk}:debit",
             )
+        transaction.on_commit(lambda: notify_owner_new_order(order))
         return order
 
     def update(self, instance, validated_data):

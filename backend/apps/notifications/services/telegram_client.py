@@ -6,6 +6,8 @@ import requests
 
 from django.conf import settings
 
+from .. import models as notifications_models
+
 
 class TelegramDeliveryError(Exception):
     pass
@@ -162,3 +164,28 @@ class TelegramBotClient:
         if isinstance(result, list):
             return result
         return []
+
+
+def masked_token_fingerprint(token: str) -> str:
+    tail = (token or '').strip()[-4:]
+    return f"***{tail}" if tail else "***"
+
+
+def resolve_bot_token(link: "notifications_models.TelegramProfessionalLink") -> tuple[str, str]:
+    """Returns (token, origin) where origin is 'professional' or 'global'."""
+    private_token = (link.bot_token or '').strip()
+    if private_token:
+        return private_token, 'professional'
+    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
+
+
+def send_via_link(
+    link: "notifications_models.TelegramProfessionalLink",
+    *,
+    text: str,
+    reply_markup: dict | None = None,
+) -> TelegramSendResult:
+    """Resolves the right bot token for a link (own bot or global fallback) and sends a message."""
+    token, _origin = resolve_bot_token(link)
+    client = TelegramBotClient(token=token)
+    return client.send_message(chat_id=link.chat_id, text=text, reply_markup=reply_markup)

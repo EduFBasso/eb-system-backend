@@ -8,7 +8,8 @@ from django.utils import timezone
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional, ProfessionalSettings, Tenant, TenantMembership
-from apps.clinic.models.reminders import ReminderDelivery, TelegramProfessionalLink
+from apps.clinic.models.reminders import ReminderDelivery
+from apps.notifications.models import TelegramProfessionalLink
 from apps.clinic.services.reminders import (
     build_whatsapp_prefilled_text,
     dispatch_appointment_reminder,
@@ -95,7 +96,7 @@ def test_dispatch_appointment_reminder_sends_telegram(
         telegram_username="ana_silva",
     )
 
-    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+    with patch("apps.notifications.services.telegram_client.requests.post") as mocked_post:
         mocked_post.return_value.status_code = 200
         mocked_post.return_value.json.return_value = {
             "ok": True,
@@ -132,7 +133,7 @@ def test_dispatch_appointment_reminder_uses_professional_private_bot_token(
         telegram_username="ana_private",
     )
 
-    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+    with patch("apps.notifications.services.telegram_client.requests.post") as mocked_post:
         mocked_post.return_value.status_code = 200
         mocked_post.return_value.json.return_value = {
             "ok": True,
@@ -163,7 +164,7 @@ def test_dispatch_appointment_reminder_private_token_auth_failure_does_not_fallb
         bot_token="private-token-401x",
     )
 
-    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+    with patch("apps.notifications.services.telegram_client.requests.post") as mocked_post:
         mocked_post.return_value.status_code = 401
         mocked_post.return_value.json.return_value = {
             "ok": False,
@@ -227,7 +228,7 @@ def test_send_reminders_command_can_force_specific_appointment(
         chat_id="123456",
     )
 
-    with patch("apps.clinic.services.telegram.requests.post") as mocked_post:
+    with patch("apps.notifications.services.telegram_client.requests.post") as mocked_post:
         mocked_post.return_value.status_code = 200
         mocked_post.return_value.json.return_value = {
             "ok": True,

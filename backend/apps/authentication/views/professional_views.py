@@ -18,8 +18,8 @@ from datetime import timedelta
 import secrets
 import hashlib
 import hmac
-from apps.clinic.models.reminders import TelegramProfessionalLink
-from apps.clinic.services.telegram import TelegramBotClient, TelegramDeliveryError
+from apps.notifications.models import TelegramProfessionalLink
+from apps.notifications.services.telegram_client import TelegramBotClient, TelegramDeliveryError
 
 
 TELEGRAM_LINK_TOKEN_TTL_SECONDS = 15 * 60

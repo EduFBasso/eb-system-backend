@@ -3,7 +3,7 @@ from .anamnesis import AnamneseBase, AnamneseOdontologia, AnamnesePodologia
 from .inventory import Product, ProductType, Service, ServiceMaterial, StockMove, StockMoveType, Supplier
 from .treatment import TreatmentPlan, TreatmentPlanItem
 from .odonto import DentalProcedureContext
-from .reminders import ReminderDelivery, TelegramProfessionalLink
+from .reminders import ReminderDelivery
 from .podologia import PodologyProcedureContext
 from .clients import Client
 
@@ -28,6 +28,5 @@ __all__ = [
 	'TreatmentPlan',
 	'TreatmentPlanItem',
 	'ReminderDelivery',
-	'TelegramProfessionalLink',
     'PodologyProcedureContext',
 ]
