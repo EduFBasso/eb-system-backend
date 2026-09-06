@@ -216,19 +216,7 @@ class ProfessionalSettings(models.Model):
     confirm_message_enabled = models.BooleanField("Disparar confirmações automáticas?", default=False)
     confirm_message_template = models.TextField("Template da Mensagem de Alerta", blank=True)
 
-    # Configurações financeiras integradas para atalhos em orçamentos
-    PIX_KEY_TYPES = (
-        ("telefone", "Telefone"),
-        ("cpf", "CPF"),
-        ("email", "E-mail"),
-        ("aleatoria", "Chave Aleatória"),
-    )
-    pix_key_type = models.CharField("Tipo de Chave PIX", max_length=16, choices=PIX_KEY_TYPES, blank=True, default="")
-    pix_key_value = models.CharField("Chave PIX", max_length=128, blank=True, default="")
-    
-    # Configurações para automações do Telegram copiadas da captura do arquivo visual aberto
-    pix_key_type = models.CharField(max_length=16, choices=PIX_KEY_TYPES, blank=True, default="")
-    pix_key_value = models.CharField(max_length=128, blank=True, default="")
+    # Configurações para automações do Telegram.
     reminder_enabled = models.BooleanField(default=False)
     reminder_minutes_before = models.PositiveSmallIntegerField(
         default=90,

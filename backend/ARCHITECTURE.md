@@ -125,12 +125,14 @@ Encapsula toda a lógica de atendimento clínico.
 - **Agendamentos (`agenda.py`)**: Compromissos médicos, intervalos e controle de estados (`scheduled`, `done`, `canceled`).
 - **Prontuários e Anamneses (`treatment.py`, `clients.py`)**: Ficha cadastral e registros clínicos estruturados.
 - **Especialidades com Isolamento**: Submódulos para Podologia (dedos e regiões plantares) e Odontologia (dentição decídua/permanente e faces anatômicas na notação FDI).
+- **Orçamentos sem PIX**: O Clinic compartilha orçamentos por WhatsApp com itens, total e observações, sem armazenar chaves PIX ou gerar payload de pagamento.
 
 ### 3.4 `apps/bakery/` — Domínio de Panificação e Distribuição B2B
 Transforma fluxos de venda e distribuição comercial em processos digitais rápidos:
 - **Clientes B2B (`customer.py`)**: Mercados e padarias atendidos, operando com limite de compra a prazo.
 - **Controle de Limite Rotativo (`ledger.py`)**: Extrato de débitos (novos pedidos) e créditos (pagamentos efetuados), calculando saldo em tempo real.
 - **Gestão de Pedidos (`order.py`, `product.py`)**: Entrada ágil de pedidos de pães e produtos embalados, com validação automática de crédito disponível.
+- **Pagamentos Cíclicos**: O status de pagamento e a recomposição do limite de crédito pertencem exclusivamente ao `CreditLedgerEntry` da Bakery; não são compartilhados com o Clinic.
 
 ### 3.5 `apps/notifications/` — Mensageria Centralizada (Telegram)
 Módulo agnóstico e compartilhado para comunicação externa:

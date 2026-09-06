@@ -219,8 +219,6 @@ class TenantMembershipAdmin(admin.ModelAdmin):
 class ProfessionalSettingsAdmin(admin.ModelAdmin):
     list_display = (
         "professional",
-        "pix_key_type",
-        "pix_key_value",
         "work_start_hour",
         "work_start_minute",
         "work_end_hour",
@@ -230,8 +228,7 @@ class ProfessionalSettingsAdmin(admin.ModelAdmin):
         "default_visit_type",
         "updated_at",
     )
-    search_fields = ("professional__email", "pix_key_value")
-    list_filter = ("pix_key_type",)
+    search_fields = ("professional__email",)
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
         ("Profissional", {"fields": ("professional",)}),
@@ -252,10 +249,6 @@ class ProfessionalSettingsAdmin(admin.ModelAdmin):
         (
             "Mensageria",
             {"fields": ("confirm_message_enabled", "confirm_message_template")},
-        ),
-        (
-            "PIX",
-            {"fields": ("pix_key_type", "pix_key_value")},
         ),
         ("Datas", {"fields": ("created_at", "updated_at")}),
     )

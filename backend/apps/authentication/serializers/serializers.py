@@ -91,8 +91,6 @@ class ProfessionalSettingsSerializer(serializers.ModelSerializer):
             "default_visit_type",
             "confirm_message_enabled",
             "confirm_message_template",
-            "pix_key_type",
-            "pix_key_value",
             "reminder_enabled",
             "reminder_minutes_before",
         ]
