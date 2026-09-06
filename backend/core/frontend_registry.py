@@ -12,4 +12,3 @@ class FrontendApplication:
     origin: str
     rp_id: str
     rp_name: str
-    totp_issuer: str

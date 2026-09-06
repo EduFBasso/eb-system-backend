@@ -173,7 +173,7 @@ class ProfessionalAdmin(UserAdmin):
             return "—"
         if obj.has_usable_password():
             return format_html('<span style="color:green">✅ Senha definida</span>')
-        return format_html('<span style="color:red">⚠️ Sem senha (somente OTP/TOTP)</span>')
+        return format_html('<span style="color:red">⚠️ Sem senha definida</span>')
 
     password_status.short_description = "Status da senha"
 

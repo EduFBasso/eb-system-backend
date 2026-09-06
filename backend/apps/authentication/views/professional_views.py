@@ -1,5 +1,5 @@
 # backend\apps\register\views_professionals.py
-from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission, IsAdminUser
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.authentication.models import Professional, ProfessionalSettings
 from apps.authentication.serializers.serializers import (
@@ -7,7 +7,7 @@ from apps.authentication.serializers.serializers import (
     ProfessionalBasicSerializer,
     ProfessionalSettingsSerializer,
 )
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
@@ -45,6 +45,49 @@ class CanManageProfessionalDirectory(BasePermission):
             getattr(request.user, "is_superuser", False)
             or getattr(request.user, "can_manage_professionals", False)
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def professional_create(request):
+    """Cria um profissional com senha para o administrador da plataforma.
+
+    POST /register/auth/professional-create/
+    """
+    email = (request.data.get("email") or "").strip().lower()
+    first_name = (request.data.get("first_name") or "").strip()
+    last_name = (request.data.get("last_name") or "").strip()
+    password = request.data.get("password") or ""
+
+    if not email or not first_name or not last_name or not password:
+        return Response(
+            {"message": "email, first_name, last_name e password são obrigatórios."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if Professional.objects.filter(email__iexact=email).exists():
+        return Response(
+            {"message": "Já existe um profissional com este e-mail."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    professional = Professional.objects.create_user(
+        email=email,
+        password=password,
+        first_name=first_name,
+        last_name=last_name,
+        display_name=(request.data.get("display_name") or "").strip(),
+        specialty=(request.data.get("specialty") or "").strip(),
+        register_number=(request.data.get("register_number") or "").strip() or None,
+        phone=(request.data.get("phone") or "").strip(),
+        city=(request.data.get("city") or "").strip(),
+        state=(request.data.get("state") or "").strip()[:2].upper(),
+    )
+
+    return Response(
+        {"professional": ProfessionalSerializer(professional).data},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 def _to_base36(value: int) -> str:

@@ -49,7 +49,7 @@ backend/
 │   │   ├── models/
 │   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession, WebAuthn
 │   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
-│   │   ├── views/                     # Autenticação JWT, sessões ativas, TOTP/2FA, perfil
+│   │   ├── views/                     # Autenticação JWT, sessões ativas, passkeys e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
 │   │   ├── services/                  # Lógica de emissão de tokens JWT e verificação WebAuthn
 │   │   └── urls.py                    # Rotas sob o prefixo /register/ e /token/
@@ -91,7 +91,6 @@ backend/
 ├── scripts/                           # Automações e Operações em Banco de Dados
 │   ├── data-audit/                    # Scripts de verificação de integridade de dados legados
 │   ├── data-fix/                      # Scripts para ajustes e normalização de registros
-│   └── create_admin_totp_qrcode.sh    # Script auxiliar para pareamento de autenticador 2FA
 │
 ├── docs/                              # Documentação Técnica e Operacional
 │   ├── reset_database_loc.md          # Passo a passo de reset e bootstrap local do banco
@@ -191,7 +190,7 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
-| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) + WebAuthn/TOTP |
+| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) + WebAuthn |
 | **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.

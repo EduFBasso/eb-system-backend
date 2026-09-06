@@ -39,7 +39,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(f"Tenant pronto: {tenant.name} ({tenant.slug})"))
 
-        # 2) Criação do Usuário de Desenvolvimento sem segredo TOTP ativo
+        # 2) Criação do Usuário de Desenvolvimento
         prof, created = Professional.objects.get_or_create(
             email=email,
             defaults={
@@ -48,7 +48,6 @@ class Command(BaseCommand):
                 'register_number': 'DEV-000',
                 'specialty': 'Podologia',
                 'is_active': True,
-                'totp_secret': '',  # Desativa explicitamente o segundo fator localmente
             }
         )
         

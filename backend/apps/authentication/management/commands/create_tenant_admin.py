@@ -113,7 +113,6 @@ class Command(BaseCommand):
             capabilities = {"bakery": True}
 
         # 1. Criação/Recuperação do Usuário Profissional
-        # Garante que o totp_secret nasça VAZIO para pular o 2FA no ambiente local
         professional, created = Professional.objects.get_or_create(
             email=email,
             defaults={
@@ -122,7 +121,6 @@ class Command(BaseCommand):
                 "specialty": specialty,
                 "is_active": True,
                 "is_staff": False,
-                "totp_secret": "",  # Desativa explicitamente o 2FA para logins rápidos locais
             },
         )
         if not created:

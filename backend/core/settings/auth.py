@@ -1,6 +1,4 @@
-"""
-Autenticação e autorização: DRF, JWT, OTP, sessões de dispositivo, TOTP e WebAuthn.
-"""
+"""Autenticação e autorização: DRF, JWT, sessões de dispositivo e WebAuthn."""
 from datetime import timedelta
 
 from decouple import config
@@ -33,24 +31,11 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# === OTP e Sessões de Dispositivo ===
-
-ALLOW_OTP_FALLBACK: bool = config("ALLOW_OTP_FALLBACK", default=False, cast=bool)
-OTP_FALLBACK_CODE: str = config("OTP_FALLBACK_CODE", default="")
+# === Sessões de Dispositivo ===
 
 MAX_ACTIVE_DEVICE_SESSIONS: int = config(
     "MAX_ACTIVE_DEVICE_SESSIONS", default=2, cast=int
 )
-
-# === TOTP ===
-
-TOTP_ISSUER: str = config("TOTP_ISSUER", default="ClinicSystem")
-# valid_window=4 → accepts codes ±120s from server time.
-# Needed on mobile (iOS): user opens authenticator app, memorises code,
-# switches back to browser and types — easily 20-40s of elapsed time.
-# With a code near the end of its 30s window this can exceed ±60s (window=2).
-# 4 windows (±120s) is the safe mobile standard; still rejects replays outside that range.
-TOTP_VALID_WINDOW: int = config("TOTP_VALID_WINDOW", default=4, cast=int)
 
 # === WebAuthn / Passkeys ===
 

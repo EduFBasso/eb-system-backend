@@ -7,13 +7,12 @@ Endpoints:
     POST /register/auth/webauthn/login-complete/    — AllowAny
 
 Flow:
-    1. After successful TOTP login the frontend calls register-begin, receives
+     1. Após autenticação por senha/JWT, o frontend chama register-begin, recebe
        PublicKeyCredentialCreationOptions, prompts the user for biometrics and
        sends the attestation to register-complete.
     2. On subsequent logins the frontend calls login-begin with the email,
        receives PublicKeyCredentialRequestOptions, prompts the user for
-       biometrics and sends the assertion to login-complete which returns a
-       JWT just like totp_verify does.
+         biometrics and sends the assertion to login-complete, que retorna um JWT.
 """
 
 import base64
@@ -48,7 +47,7 @@ from .serializers_professionals import ProfessionalSerializer
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Registration (caller must already have a valid JWT from TOTP login)
+# Cadastro exige JWT válido obtido pelo login por senha.
 # ---------------------------------------------------------------------------
 
 
@@ -270,7 +269,7 @@ def webauthn_login_complete(request):
     stored_cred.last_used_at = timezone.now()
     stored_cred.save(update_fields=["sign_count", "last_used_at"])
 
-    # Register / update device session (same logic as totp_verify)
+    # Registra ou atualiza a sessão do dispositivo.
     if not device_id:
         device_id = f"wa-{professional.pk}"
     ua = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]

@@ -65,7 +65,7 @@ class Command(BaseCommand):
             f"Clínica (Tenant): {tenant.name} ({tenant.slug}) {'[CRIADA]' if t_created else '[EXISTENTE]'}"
         ))
 
-        # 2) Criação/Recuperação da Identidade do Profissional (Desativa TOTP por padrão no seed)
+        # 2) Criação/Recuperação da Identidade do Profissional
         prof = Professional.objects.filter(email=email).first()
         created_prof = False
         if not prof:
@@ -74,7 +74,6 @@ class Command(BaseCommand):
                 password=password,
                 first_name=options['first_name'],
                 last_name=options['last_name'],
-                totp_secret=""  # Garante login rápido local sem barreira de 2FA
             )
             created_prof = True
 

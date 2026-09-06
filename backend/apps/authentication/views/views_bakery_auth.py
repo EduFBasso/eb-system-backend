@@ -4,9 +4,6 @@ from apps.authentication.serializers.bakery_auth import BakeryTokenObtainPairSer
 
 
 class BakeryTokenObtainPairView(TokenObtainPairView):
-    """Endpoint JWT do Bakery sem TOTP/2FA.
-
-    Mantido isolado do fluxo clinico para evitar acoplamento de regras de MFA.
-    """
+    """Endpoint JWT do Bakery."""
 
     serializer_class = BakeryTokenObtainPairSerializer

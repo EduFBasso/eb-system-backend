@@ -104,8 +104,6 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 SERVE_MEDIA_FILES = config('SERVE_MEDIA_FILES', default=False, cast=bool)
-ALLOW_OTP_FALLBACK = False
-OTP_FALLBACK_CODE = ''
 
 # Passkeys/Face ID must use the public frontend origin in production.
 WEBAUTHN_ORIGINS = _csv('WEBAUTHN_ORIGINS', '') or CORS_ALLOWED_ORIGINS

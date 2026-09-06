@@ -9,7 +9,7 @@ from django.utils import timezone
 class ProfessionalManager(BaseUserManager):
     """
     Gerenciador customizado para a criação de instâncias de Profissionais/Usuários.
-    Garante o fluxo correto de senhas utilizáveis vs. códigos OTP rápidos de autenticação.
+    Garante o fluxo correto de criação de usuários com senha utilizável.
     """
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -72,14 +72,6 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         verbose_name="Pode gerenciar profissionais / Admin global"
     )
     
-    # Campo chave do segundo fator (2FA)
-    totp_secret = models.CharField(
-        "Segredo TOTP (2FA)",
-        max_length=64,
-        blank=True,
-        help_text="Chave Base32 para Google Authenticator. Se vazio, o 2FA local fica totalmente desativado.",
-    )
-
     UI_THEME_CHOICES = (
         ("blue", "Azul"),
         ("green", "Verde"),

@@ -10,7 +10,6 @@ PyJWT==2.10.1
 
 # Auth / sessions
 django-cors-headers==4.7.0
-pyotp==2.9.0
 webauthn==2.7.1
 
 # Phone numbers
@@ -22,7 +21,6 @@ psycopg[binary]==3.2.10
 
 # Media/images
 Pillow==10.4.0
-qrcode[pil]==8.2
 
 # Config
 python-decouple==3.8
