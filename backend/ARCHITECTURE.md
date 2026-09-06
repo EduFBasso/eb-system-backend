@@ -1,60 +1,209 @@
-# Arquitetura do Projeto
+# Arquitetura do Backend — EB System (Multi-Tenant & Multi-Ecosystem)
 
-## 📐 Diretrizes Gerais
-- Limite máximo de **700 linhas por arquivo**.  
-- Se ultrapassar, aplicar **modularização** para manter leveza e facilitar edição.  
-- Seguir princípios **SOLID** e **DDD** sempre que possível.  
-- Separar responsabilidades entre backend, frontend e testes.  
-- Documentar decisões arquiteturais neste arquivo para referência futura.
+Este documento descreve a estrutura organizacional, as responsabilidades de cada diretório e os princípios arquiteturais que regem o backend do **EB System**.
 
 ---
 
-## ⚙️ Backend (Django)
-- Estrutura modularizada em apps (`clinic/`, `bakery/`,  etc.).  
-- Configurações divididas em arquivos específicos dentro de `settings/`:  
-  - `database.py` → conexões e ORM.  
-  - `auth.py` → autenticação e permissões.  
-  - `tenants.py` → multi-tenant e capacities.  
-- **Capacities**:  
-  - Usar flags booleanas (`odonto: true`) para especialidades.  
-  - Evoluir para JSON declarativo se necessário (ex.: permissões, regras específicas).  
-- Migrations sempre acompanhadas de atualização de testes.  
+## 1. Visão Geral da Arquitetura
+
+O sistema é estruturado como um **Modular Monolith (Monólito Modular)** desenvolvido em Python/Django REST Framework, projetado com a arquitetura:
+> **1 Backend Centralizado ➡️ N Ecossistemas e Frontends Especializados**
+
+### Princípios Fundamentais:
+1. **Multi-Tenancy Lógico Estrito:** Todos os dados clínicos, comerciais e operacionais pertencem a um `Tenant` (empresa/consultório). O isolamento é garantido por `tenant_id` em nível de banco de dados e filtros de queryset.
+2. **Separação de Domínios por Ecossistema:** Cada nicho de negócio possui seu próprio aplicativo (`apps/clinic/`, `apps/bakery/`), com regras e modelos de dados 100% isolados.
+3. **Regra de Ouro de Desacoplamento:** Módulos de nicho **nunca importam código uns dos outros** (`clinic` não conhece `bakery`, e `bakery` não conhece `clinic`). Toda comunicação compartilhada ocorre exclusivamente através do núcleo global (`authentication`, `notifications`, `utils` e `core`).
 
 ---
 
-## 🎨 Frontend (React/Next)
-- Estrutura em `src/components/` com **PascalCase**:  
-  - `NomeComponente.tsx` → export direto (`export function NomeComponente() {}`).
-  - `NomeComponente.module.css` → escopo local, sem `default`.  
-- Estrutura em `pages/` pode usar **camelCase** para fluxos diferentes, mas sempre com CSS escopado local.  
-- UX refinado com foco em acessibilidade e consistência visual.  
+## 2. Árvore de Diretórios do Backend
+
+```text
+backend/
+├── manage.py                          # Ponto de entrada de comandos administrativos do Django
+├── dev.sh                             # Script local para subir servidor Django + loop de background
+├── requirements.txt                   # Dependências Python do projeto
+├── pytest.ini                         # Configurações do executor de testes automatizados
+│
+├── core/                              # Configuração Central e Infraestrutura do Django
+│   ├── settings/                      # Configurações modulares (12-Factor App)
+│   │   ├── _helpers.py                # Helpers para parsing de variáveis de ambiente
+│   │   ├── base.py                    # Configuração base comum (apps instalados, i18n)
+│   │   ├── database.py                # Configuração do banco PostgreSQL
+│   │   ├── auth.py                    # Configuração de JWT, senhas e modelos de usuário
+│   │   ├── cors.py                    # Políticas de CORS e hosts permitidos por frontend
+│   │   ├── security.py                # Headers HTTP, HTTPS redirect, cookies seguros
+│   │   ├── services.py                # Integrações externas (Telegram, ViaCEP)
+│   │   ├── email.py                   # Configurações de envio SMTP
+│   │   ├── logging.py                 # Formatação de logs estruturados
+│   │   └── production.py              # Overrides para o ambiente em nuvem (Render)
+│   ├── middleware.py                  # Middlewares customizados (timing, versão, lock de mutação)
+│   ├── frontend_registry.py           # Registro de aplicações frontend confiáveis e WebAuthn RPs
+│   ├── urls.py                        # Roteador central que distribui requisições para cada app
+│   ├── asgi.py                        # Ponto de entrada ASGI (assíncrono)
+│   └── wsgi.py                        # Ponto de entrada WSGI (síncrono/produção)
+│
+├── apps/                              # Módulos de Aplicação do Sistema
+│   │
+│   ├── authentication/                # [GLOBAL] Identidade, Permissões e Multi-Tenancy
+│   │   ├── models/
+│   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession, WebAuthn
+│   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
+│   │   ├── views/                     # Autenticação JWT, sessões ativas, TOTP/2FA, perfil
+│   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
+│   │   ├── services/                  # Lógica de emissão de tokens JWT e verificação WebAuthn
+│   │   └── urls.py                    # Rotas sob o prefixo /register/ e /token/
+│   │
+│   ├── notifications/                 # [GLOBAL] Motor Central de Mensageria e Alertas
+│   │   ├── models.py                  # TelegramProfessionalLink (vínculo de bot/chat_id por tenant)
+│   │   ├── admin.py                   # Gestão dos links do Telegram no Django Admin
+│   │   └── services/
+│   │       └── telegram_client.py     # Cliente HTTP para API do Telegram (mensagens, verificação de bot)
+│   │
+│   ├── clinic/                        # [ECOSSISTEMA 1] Gestão de Saúde, Consultórios e Procedimentos
+│   │   ├── models/
+│   │   │   ├── clients.py             # Pacientes/Clientes com isolamento por Tenant
+│   │   │   ├── agenda.py              # Agendamentos, lembretes e cobranças vinculadas
+│   │   │   ├── inventory.py           # Catálogo de Serviços, Materiais e Produtos clínicos
+│   │   │   ├── treatment.py           # Planos de Tratamento e Sessões de Atendimento
+│   │   │   ├── podologia.py           # Contexto e procedimentos específicos de Podologia (dedo/região)
+│   │   │   └── odonto.py              # Procedimentos Odontológicos e Notação Dentária FDI
+│   │   ├── views/                     # APIs para agenda, prontuário, catálogo e anamnese pública
+│   │   ├── serializers/               # Serializadores para cada especialidade clínica
+│   │   └── urls.py                    # Rotas clínicas (/agenda/, /clinic/, /inventory/)
+│   │
+│   └── bakery/                        # [ECOSSISTEMA 2] Gestão de Panificação, Vendas B2B e Crédito
+│       ├── models/
+│       │   ├── customer.py            # Clientes/Compradores B2B, status (PENDING/APPROVED/BLOCKED)
+│       │   ├── product.py             # Produtos embalados (hot-dog, hambúrguer, pães)
+│       │   ├── order.py               # Pedidos de compra e itens do pedido
+│       │   ├── ledger.py              # CreditLedgerEntry: extrato financeiro e limite rotativo
+│       │   └── audit.py               # Log de auditoria para alterações cadastrais e de crédito
+│       ├── views/                     # APIs para clientes, pedidos, catálogo e aprovação
+│       ├── serializers/               # Serializadores de validação de limite e pedidos
+│       └── urls.py                    # Rotas comerciais sob /api/v1/bakery/
+│
+├── utils/                             # Utilitários Globais Compartilhados
+│   ├── cep_lookup.py                  # Integração e consulta de endereço via ViaCEP com cache
+│   ├── permissions.py                 # Permissões REST (HasTenantCapability, IsTenantMember)
+│   └── pagination.py                  # Classes de paginação customizada para listas
+│
+├── scripts/                           # Automações e Operações em Banco de Dados
+│   ├── data-audit/                    # Scripts de verificação de integridade de dados legados
+│   ├── data-fix/                      # Scripts para ajustes e normalização de registros
+│   └── create_admin_totp_qrcode.sh    # Script auxiliar para pareamento de autenticador 2FA
+│
+├── docs/                              # Documentação Técnica e Operacional
+│   ├── reset_database_loc.md          # Passo a passo de reset e bootstrap local do banco
+│   ├── architecture-and-app-routing.md # Diretrizes de roteamento entre frontends e backend
+│   └── anamnesis-field-maintenance-guide.md # Guia de campos e formulários de anamnese
+│
+└── tests/                             # Suíte de Testes Automatizados de Integração
+    ├── test_appointment_state_rules.py # Validações de máquina de estados de agendamentos
+    ├── test_bakery_lookup_cep.py      # Testes de consulta de CEP e preenchimento no Bakery
+    └── test_anamnesis_token_endpoints.py # Testes dos links de anamnese pública
+```
 
 ---
 
-## 🧪 Testes
-- Cobertura mínima obrigatória para cada módulo.  
-- Testes devem ser atualizados junto com migrations e refatorações.  
-- Revisão periódica com agente de testes (Claude Sonnet 5.0).  
+## 3. Descrição Detalhada das Pastas
+
+### 3.1 `core/` — O Motor de Infraestrutura
+Centraliza a orquestração do Django. Todas as configurações foram extraídas de um arquivo único para o subdiretório `core/settings/`, separando concerns de banco de dados, CORS, autenticação e ambiente de produção.
+- **`middleware.py`**: Intercepta as requisições para monitorar latência (`QueryTimingMiddleware`), anexar metadados de versão (`VersionHeaderMiddleware`) e aplicar bloqueio seletivo de mutações em staging (`OnlineMutationLockMiddleware`).
+- **`urls.py`**: Ponto único de roteamento do servidor, delegando os caminhos para as APIs corretas de cada ecossistema.
+
+### 3.2 `apps/authentication/` — Identidade e Multi-Tenancy Unificado
+Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
+- **`Professional`**: Modelo de usuário unificado herdado de `AbstractBaseUser`. Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
+- **`Tenant`**: Entidade central de multi-tenancy. Representa a clínica ou a empresa. Possui atributos `slug` (identificador na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
+- **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário (`owner`, `admin`, `member`, `guest`) e seu apelido de login rápido (`login_alias`).
+
+### 3.3 `apps/clinic/` — Domínio de Saúde (Clínica)
+Encapsula toda a lógica de atendimento clínico.
+- **Agendamentos (`agenda.py`)**: Compromissos médicos, intervalos e controle de estados (`scheduled`, `done`, `canceled`).
+- **Prontuários e Anamneses (`treatment.py`, `clients.py`)**: Ficha cadastral e registros clínicos estruturados.
+- **Especialidades com Isolamento**: Submódulos para Podologia (dedos e regiões plantares) e Odontologia (dentição decídua/permanente e faces anatômicas na notação FDI).
+
+### 3.4 `apps/bakery/` — Domínio de Panificação e Distribuição B2B
+Transforma fluxos de venda e distribuição comercial em processos digitais rápidos:
+- **Clientes B2B (`customer.py`)**: Mercados e padarias atendidos, operando com limite de compra a prazo.
+- **Controle de Limite Rotativo (`ledger.py`)**: Extrato de débitos (novos pedidos) e créditos (pagamentos efetuados), calculando saldo em tempo real.
+- **Gestão de Pedidos (`order.py`, `product.py`)**: Entrada ágil de pedidos de pães e produtos embalados, com validação automática de crédito disponível.
+
+### 3.5 `apps/notifications/` — Mensageria Centralizada (Telegram)
+Módulo agnóstico e compartilhado para comunicação externa:
+- Permite que qualquer profissional conecte seu próprio Bot do Telegram através de um handshake seguro via token assinado HMAC.
+- Dispara notificações de compromissos para clínicas e confirmações de pedidos para padarias.
 
 ---
 
-## 🤖 Perfis de IA
-- **Copilot principal** → Arquitetura, backend, chamadas de API, migrations, testes.  
-- **Luna 5.6** → Refinamento de UX, acessibilidade, copywriting e consistência visual, duvidas.  
-- **Gemini 3.5 Flash** → Revisão refatoração de UX + lógica.
-- **Claude Sonnet 5.0** → Revisão de código e testes, garantindo legibilidade e cobertura.  
+## 4. Comportamento do Sistema e Modelo de Domínios / Ecossistemas
+
+O sistema utiliza o padrão **Single Database / Multi-Tenant com Particionamento Lógico**:
+
+```mermaid
+graph TD
+    subgraph "Camada de Identidade Global"
+        P[Professional: Usuário Unificado]
+        TM[TenantMembership: Papel & Login Alias]
+        P --> TM
+    end
+
+    subgraph "Camada de Tenancy"
+        T_Podo["Tenant: Consultório Podologia<br>(ecosystem: clinic, cap: podologia)"]
+        T_Odonto["Tenant: Consultório Odontologia<br>(ecosystem: clinic, cap: odonto)"]
+        T_Bakery["Tenant: Admin Panificadora<br>(ecosystem: bakery, cap: bakery)"]
+        TM --> T_Podo
+        TM --> T_Odonto
+        TM --> T_Bakery
+    end
+
+    subgraph "Ecossistema Clinic"
+        T_Podo --> C_Podo[Clientes & Consultas de Podologia]
+        T_Odonto --> C_Odonto[Clientes & Odontogramas Odonto]
+    end
+
+    subgraph "Ecossistema Bakery"
+        T_Bakery --> B_Cust[Clientes B2B & Ledger de Crédito]
+        T_Bakery --> B_Ord[Pedidos de Pães & Produtos]
+    end
+```
+
+### 4.1 Comportamento do Ecossistema `clinic`
+- **Tenants Distintos por Especialidade:** Podologia e Odontologia são clínicas conceitualmente e legalmente diferentes. Cada uma opera em seu próprio `Tenant` (`consultorio-podologia` e `consultorio-odontologia`).
+- **Isolamento de Clientes:** A restrição de duplicidade de telefone (`uniq_client_tenant_phone`) é restrita ao `Tenant`. Um mesmo paciente pode existir na Podologia e na Odontologia com prontuários completamente separados.
+- **Capacidades Ativas (`capabilities`):** A interface e os endpoints adaptam os formulários de acordo com o JSON de capacidades:
+  - `{"clinic": true, "podologia": true}` ➡️ Exibe contexto podológico e seleção de dedos no SVG.
+  - `{"clinic": true, "odonto": true}` ➡️ Exibe odontograma com mapeamento FDI e cálculo de orçamentos.
+
+### 4.2 Comportamento do Ecossistema `bakery`
+- **Público Alvo B2B:** Os compradores são padarias, minimercados e lanchonetes.
+- **Autenticação Direta:** Utiliza o endpoint `/api/v1/auth/bakery/login/`, desacoplado do fluxo de 2FA/WebAuthn da clínica, recebendo `login`, `password` e `tenant_slug`.
+- **Motor de Crédito (Ledger):** Ao emitir um pedido, o sistema valida se `saldo_atual + valor_pedido <= limite_de_credito`. A cada pagamento recebido pelo administrador, um lançamento positivo no `CreditLedgerEntry` restaura a capacidade de compra do cliente.
 
 ---
 
-## 📂 Organização do Workspace
-- Frontend e backend como **irmãos** dentro da mesma pasta.  
-- Ecosistemas não utilizados devem permanecer **comentados** no workspace para evitar ruído.  
-- Cada agente só enxerga o que está ativo no momento.  
+## 5. Roteamento de Portas e Comunicação com Frontends
 
----
+Em ambiente local de desenvolvimento, os frontends e o backend operam simultaneamente sem conflito:
 
-## 📌 Fluxo de Trabalho
-1. **Planejamento** → definir arquitetura e atualizar `ARCHITECTURE.md`.  
-2. **Execução** → Copilot gera backend modularizado.  
-3. **Refinamento** → Luna melhora UX e interface.  
-4. **Validação** → Sonnet revisa testes e consistência.  
+| Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
+| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) + WebAuthn/TOTP |
+| **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/`) |
+
+Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.
+
+
+## 🔍 Revisão (pré-deploy)
+
+- Validar que todos os modelos possuem `tenant_id`.
+- Garantir que middlewares aplicam `tenant_id` em todas as requisições.
+- Verificar se cada domínio (`clinic`, `bakery`) mantém isolamento completo.
+- Confirmar que APIs de mensagens incluem `tenant_id` no payload.
+- Sugerir otimizações de performance em queries e endpoints.
+- Revisar se o `core` está livre de dependências cruzadas entre apps.
+- Checar se o `authentication` mantém consistência entre `Professional`, `Tenant` e `TenantMembership`.
+- Garantir que o roteamento e autenticação dos frontends seguem as regras de CORS e segurança.

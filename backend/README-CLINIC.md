@@ -1,130 +1,158 @@
 # Clinic System Backend
 
-Este documento descreve regras e operação do domínio clínico.
+Este documento descreve as regras de negócio e operação do domínio clínico (saúde e procedimentos médicos).
 
-## Escopo funcional
+---
 
-- cadastro de profissionais e clientes
-- agenda e ciclo de vida dos compromissos
-- anamnese geral e anamnese dinâmica por profissional
-- lembretes de consulta via Telegram
-- histórico financeiro vinculado ao atendimento finalizado (serviços e produtos)
+## Escopo Funcional
 
-Não é controle de estoque.
+- **Gestão de Clientes/Pacientes**: Cadastro de pacientes com isolamento por `Tenant` (clínica/especialidade).
+- **Agendamento de Compromissos**: Marcação, confirmação, cancelamento e rastreamento de consultas e procedimentos.
+- **Prontuários e Anamneses**: Formulários médicos estruturados por especialidade (Podologia, Odontologia).
+- **Catálogo de Serviços e Produtos**: Lista de procedimentos, tratamentos e materiais clínicos disponíveis.
+- **Planos de Tratamento**: Definição de múltiplas sessões com orçamento e acompanhamento de progresso.
+- **Cobrança e Faturamento**: Criação de cobranças vinculadas a agendamentos e acompanhamento de status de pagamento.
 
-## Regras de negócio principais
+Foco principal: gestão integrada de atendimentos clínicos com rastreamento de procedimentos e controle de receita.
 
-- cada profissional opera no seu escopo de tenant/membership
-- compromissos pertencem ao tenant ativo, ao profissional autenticado e a um cliente da mesma clínica
-- a agenda não usa o estado `ongoing`; o estado persistido é resolvido por um fluxo curto e explícito
-- lembretes são enviados apenas quando habilitados por flag
-- anamnese dinâmica deve seguir seed canônico por especialidade
+---
 
-## Agenda e compromissos
+## Regras de Negócio Principais
 
-### Conceito
+### Multi-Tenancy Estrito por Especialidade
+- **Podologia** e **Odontologia** são clínicas independentes (Tenants separados).
+- Dados de pacientes, agendamentos e prontuários ficam **100% isolados por Tenant**.
+- Um mesmo paciente pode existir em ambas as clínicas com prontuários completamente distintos (isolamento garantido por `tenant_id`).
 
-`Appointment` representa a reserva de um horário na agenda. Ele controla o
-profissional, o cliente, o intervalo de tempo, o local, as observações e o
-estado operacional do compromisso. O compromisso é isolado pelo tenant ativo e
-não pode ser criado para cliente de outra clínica.
+### Máquina de Estados de Agendamentos
+Os estados válidos de um agendamento são:
+- `scheduled`: Agendado e pendente de realização.
+- `done`: Concluído e salvo no prontuário.
+- `canceled`: Cancelado (e não pode ser revertido para `scheduled`).
 
-Rotas principais:
+### Validações de Anamnese
+- Anamneses são estruturadas por especialidade (`AnamneseBase`, `AnamnesePodologia`, `AnamneseOdontologia`).
+- Links públicos para preenchimento de anamnese via WhatsApp são gerados e validados com tokens assinados.
+- Uma anamnese é única por cliente e tenant.
 
-- `GET/POST /agenda/appointments/`
-- `GET/PATCH /agenda/appointments/<id>/`
-- `POST /agenda/appointments/<id>/done/`
-- `POST /agenda/appointments/<id>/cancel/`
-- `GET /agenda/appointments/next/`
+### Procedimentos Específicos por Especialidade
+- **Podologia**: Contextos de procedimento associados a dedos ou regiões de pés (localização numérica: 1–5).
+- **Odontologia**: Procedimentos com notação dentária **FDI/ISO 3950** (dentes permanentes 11–48, decíduos 51–85), faces anatômicas (O, M, D, V, L, I) e cálculo de orçamentos estruturados.
 
-Regras de criação e edição:
+### Controle de Lembretes e Notificações
+- Lembretes de agendamento podem ser disparados via **Telegram** (se vinculado pelo profissional).
+- Cada profissional gerencia seu próprio Bot de Telegram através de um handshake seguro.
+- Clientes recebem confirmações via **WhatsApp** ou links de anamnese pública.
 
-- não é permitido criar ou reagendar um compromisso para o passado;
-- `end_at` deve ser posterior a `start_at`;
-- não pode haver sobreposição de horários ativos para o mesmo profissional e
-  tenant;
-- compromissos cancelados liberam o horário e não participam do conflito;
-- o cliente não pode ser trocado depois da criação;
-- a exclusão física é bloqueada para preservar o histórico; use `cancel`;
-- somente compromissos em `scheduled` podem ser editados genericamente;
-- mudanças de status não são feitas por `PATCH` genérico, mas pelas ações
-	dedicadas.
+---
 
-### Status do compromisso
+## Módulo Backend
 
-O fluxo simplificado do `Appointment` possui três estados persistidos:
+Domínio no app:
 
-| Status | Significado | Como ocorre |
-|---|---|---|
-| `scheduled` | Agendado e ativo | Estado inicial e único estado editável |
-| `done` | Realizado/concluído | Ação `done` ou promoção automática quando o horário termina |
-| `canceled` | Cancelado | `cancel`; compromisso concluído não pode ser cancelado |
+- `apps.clinic`
 
-`ongoing` foi removido do modelo e não é uma transição válida. O frontend não
-deve criar um estado paralelo de “em andamento”: para apresentação, um
-`scheduled` cujo `end_at` já passou é promovido diretamente para `done` pelo
-backend.
+Submódulos principais:
+- `apps.clinic.models.clients` — Pacientes e dados de contato.
+- `apps.clinic.models.agenda` — Agendamentos e estado das consultas.
+- `apps.clinic.models.inventory` — Serviços, produtos e materiais clínicos.
+- `apps.clinic.models.treatment` — Planos de tratamento e sessões.
+- `apps.clinic.models.podologia` — Contextos de procedimentos podológicos.
+- `apps.clinic.models.odonto` — Contextos de procedimentos odontológicos e notação FDI.
 
-Fluxo normal:
+Base compartilhada com o restante da plataforma:
 
-```text
-scheduled -> done
-scheduled -> canceled
-done ------> estado final
-canceled --> estado final
+- Autenticação: `apps.authentication`
+- Mensageria: `apps.notifications` (Telegram)
+- Infraestrutura: `core`
+
+---
+
+## Frontend Correspondente
+
+O frontend separado deste domínio fica em:
+
+- `../frontend-clinic`
+
+Componentes principais:
+- **Agenda**: Calendário de agendamentos, criação e edição de compromissos.
+- **Clientes**: Cadastro, busca e gestão de pacientes (com filtro por Tenant/especialidade).
+- **Catálogo**: Gestão de serviços, produtos e materiais clínicos.
+- **Prontuários**: Visualização e preenchimento de anamneses estruturadas.
+- **Configurações**: Perfil do profissional, vínculo de Telegram, ajustes de lembretes.
+
+### Ambientes e Rotas
+Em desenvolvimento local:
+- **Porta**: `5173`
+- **URL**: `http://localhost:5173`
+- **Prefixo de API**: `/register/`, `/agenda/`, `/clinic/`, `/inventory/`
+
+---
+
+## Deploy Recomendado
+
+- **Frontend**: Projeto dedicado na Vercel, separado do frontend-bakery.
+  - Domínio próprio por ambiente (ex: `clinic.yourdomain.com` para produção).
+  - Variáveis de ambiente:
+    - `VITE_API_BASE`: URL do backend em produção (ex: `https://api.yourdomain.com`).
+    - `VITE_PUBLIC_ANAMNESIS_BASE_URL`: URL pública para links de anamnese via WhatsApp.
+
+- **Backend**: Compartilhado na Render com suporte a ambos os ecossistemas.
+  - Variáveis de ambiente necessárias:
+    - `CORS_ALLOWED_ORIGINS`: Incluir a URL do frontend clinic (`https://clinic.yourdomain.com`).
+    - `CSRF_TRUSTED_ORIGINS`: Incluir a mesma URL para proteção CSRF.
+    - `TELEGRAM_BOT_TOKEN`: Token do Bot de Telegram para notificações (opcional em staging).
+
+---
+
+## Validação Local
+
+```bash
+# Verificar integridade do Django
+./.venv/bin/python manage.py check
+
+# Executar testes de integração
+./.venv/bin/python -m pytest -q
+
+# Subir o servidor local
+./.venv/bin/python manage.py runserver 0.0.0.0:8000
+
+# Subir o frontend clinic em outra aba/terminal
+cd ../frontend-clinic
+npm run dev
 ```
 
-## ALTERAÇÕES: 
+---
 
-O compromisso não é monitorado em um estado `ongoing` durante o intervalo
-agendado. Quando `end_at` passa, o compromisso `scheduled` pode ser promovido
-diretamente para `done` durante a leitura da agenda.
+## Fluxo de Testes Manuais Recomendados
 
-O endpoint `POST /agenda/appointments/<id>/finalize/` e os campos de auditoria
-de finalização foram removidos. `done` é idempotente e aceito para compromissos
-em `scheduled`.
+1. **Login e Acesso Multi-Tenant**:
+   - Fazer login com Podologia (`rezinha.bas@icloud.com`).
+   - Verificar que vê apenas dados da clínica Podologia.
+   - Fazer logout e login com Odontologia (`odontologia@consultorio.local`).
+   - Verificar que vê apenas dados da clínica Odontologia.
 
-### Tipos e avaliação
+2. **Cadastro de Pacientes**:
+   - Cadastrar um paciente em Podologia com telefone `(19) 99855-2882`.
+   - Fazer logout e login em Odontologia.
+   - Cadastrar o **mesmo paciente** com o mesmo telefone.
+   - Verificar que não há conflito (isolamento funciona).
 
-O fluxo de agenda foi simplificado para não usar tipo de consulta ou avaliação
-como etapas de negócio. A agenda deve tratar o registro como um compromisso,
-independentemente do motivo informado.
+3. **Agendamento e Fluxo de Anamnese**:
+   - Criar um agendamento para o paciente em Podologia.
+   - Verificar que o link de anamnese público funciona via WhatsApp/celular.
+   - Preencher a anamnese e confirmar que o profissional recebe os dados.
 
-### Atendimento clínico
+4. **Notificações Telegram** (se configurado):
+   - Vincular um Bot de Telegram pessoal no painel de Configurações.
+   - Enviar um teste de mensagem.
+   - Verificar que a mensagem chegou no Telegram do profissional.
 
-`Encounter` é separado de `Appointment`: representa a sessão clínica e pode
-estar `open`, `closed` ou `canceled`. O fechamento da sessão usa
-`POST /agenda/encounters/<id>/close/` e seu cancelamento usa
-`POST /agenda/encounters/<id>/cancel/`. Esses estados não devem ser confundidos
-com os três estados do compromisso na agenda.
+---
 
-## Reminders Telegram
+## Referências
 
-Operação:
-
-- local: `bash dev.sh` sobe o Django e o loop de lembretes em paralelo; o intervalo padrão é 60 segundos
-- online (Render): monitoramento em janela de 5 em 5 minutos
-- feature flag: APPOINTMENT_REMINDERS_ENABLED=true|false
-
-Telegram global:
-
-- `TELEGRAM_BOT_TOKEN` é lido do ambiente pelo backend;
-- o envio usa o token privado da profissional quando preenchido;
-- para usar o token global, deve existir um vínculo Telegram ativo para a
-	profissional com `bot_token` vazio;
-- sem vínculo Telegram ativo, o lembrete é ignorado;
-- nunca coloque o valor do token em documentação, commits ou logs.
-
-O vínculo é criado ou atualizado no Django Admin em `Telegram professional
-links`. Para usar o token global, mantenha `bot_token` vazio.
-
-## Anamnese fixa por especialidade
-
-O prontuário usa `AnamneseBase`, única por cliente e tenant, com extensões
-OneToOne `AnamnesePodologia` e `AnamneseOdontologia`. Os campos fazem parte do
-schema Django; não existem seeds de perguntas por profissional.
-
-Documentos de referência:
-
-- docs/runbook-regiane-professional-setup.md
-- docs/anamnesis-field-maintenance-guide.md
+- [Documentação de Reset e Bootstrap Local](docs/reset_database_loc.md)
+- [Arquitetura e Roteamento Multitenant](docs/architecture-and-app-routing.md)
+- [Guia de Manutenção de Campos de Anamnese](docs/anamnesis-field-maintenance-guide.md)
+- [Arquitetura Completa do Backend](ARCHITECTURE.md)
