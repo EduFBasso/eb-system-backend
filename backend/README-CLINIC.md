@@ -153,6 +153,5 @@ npm run dev
 ## Referências
 
 - [Documentação de Reset e Bootstrap Local](docs/reset_database_loc.md)
-- [Arquitetura e Roteamento Multitenant](docs/architecture-and-app-routing.md)
 - [Guia de Manutenção de Campos de Anamnese](docs/anamnesis-field-maintenance-guide.md)
 - [Arquitetura Completa do Backend](ARCHITECTURE.md)

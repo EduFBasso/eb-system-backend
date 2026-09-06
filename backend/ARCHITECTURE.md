@@ -93,7 +93,6 @@ backend/
 │
 ├── docs/                              # Documentação Técnica e Operacional
 │   ├── reset_database_loc.md          # Passo a passo de reset e bootstrap local do banco
-│   ├── architecture-and-app-routing.md # Diretrizes de roteamento entre frontends e backend
 │   └── anamnesis-field-maintenance-guide.md # Guia de campos e formulários de anamnese
 │
 └── tests/                             # Suíte de Testes Automatizados de Integração

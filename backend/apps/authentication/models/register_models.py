@@ -42,6 +42,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     Representa a identidade de qualquer profissional ou administrador na plataforma.
     O controle de quais clínicas este usuário gerencia ocorre via TenantMembership.
     """
+    # Identidade global compartilhada pelos ecossistemas Clinic e Bakery.
     first_name = models.CharField("Nome", max_length=50)
     last_name = models.CharField("Sobrenome", max_length=70)
     display_name = models.CharField(
@@ -59,6 +60,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     ) 
     email = models.EmailField("E-mail corporativo", unique=True)
 
+    # Dados profissionais exibidos e utilizados no ecossistema Clinic.
     register_number = models.CharField(
         "Registro Profissional (CRM/CRBM)", 
         max_length=30, 
@@ -67,6 +69,9 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         null=True
     )
     specialty = models.CharField("Especialidade Atendida", max_length=100, blank=True)
+
+    # Administração global: o superuser define profissionais, tenants e memberships.
+    # Capabilities de Odonto, Podologia e Bakery pertencem ao Tenant, não ao Professional.
     can_manage_professionals = models.BooleanField(
         default=False,
         verbose_name="Pode gerenciar profissionais / Admin global"
@@ -83,6 +88,8 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         choices=UI_THEME_CHOICES,
         default="blue",
     )
+
+    # Preferências exclusivas do Clinic para profissionais em tenant com capability Odonto.
     lock_odonto_plan_after_print = models.BooleanField(
         "Bloquear plano odontológico após impressão",
         default=True,
@@ -95,6 +102,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         help_text="Prazo exibido nos orçamentos odontológicos impressos.",
     )
 
+    # Dados comerciais compartilhados, administrados pelo superuser no Django Admin.
     city = models.CharField("Cidade", max_length=50, blank=True)
     state = models.CharField("Estado", max_length=2, blank=True)
     address = models.CharField("Endereço comercial", max_length=160, blank=True)
@@ -103,6 +111,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     zip_code = models.CharField("CEP", max_length=9, blank=True)
     cnpj = models.CharField("CNPJ", max_length=18, blank=True)
 
+    # Estado global da conta e acesso ao Django Admin.
     is_staff = models.BooleanField("Acesso ao Django Admin", default=False)
     is_active = models.BooleanField("Usuário Ativo no Sistema", default=True)
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
@@ -185,7 +194,9 @@ class DeviceSession(models.Model):
 class ProfessionalSettings(models.Model):
     """
     [SOLID - Single Responsibility Principle]
-    Armazena as parametrizações de funcionamento de agenda privada de cada profissional.
+    Armazena parametrizações exclusivas da agenda do ecossistema Clinic.
+    Atende profissionais vinculados a tenants com capability Odonto ou Podologia.
+    Não é utilizado pelo fluxo administrativo ou financeiro da Bakery.
     """
     class DefaultVisitType(models.TextChoices):
         """[Alinhamento com App Clinic] Sincronizado com enums limpos adotados na Agenda."""
@@ -199,6 +210,8 @@ class ProfessionalSettings(models.Model):
         related_name="settings",
         verbose_name="Profissional",
     )
+
+    # Agenda Clinic compartilhada por Odonto e Podologia.
     work_start_hour = models.PositiveSmallIntegerField("Hora de Início da Agenda", default=6)
     work_start_minute = models.PositiveSmallIntegerField(default=0)
     work_end_hour = models.PositiveSmallIntegerField("Hora de Término da Agenda", default=21)
@@ -213,6 +226,7 @@ class ProfessionalSettings(models.Model):
         default=DefaultVisitType.CONSULTA,
     )
 
+    # Comunicação e lembretes Clinic via Telegram.
     confirm_message_enabled = models.BooleanField("Disparar confirmações automáticas?", default=False)
     confirm_message_template = models.TextField("Template da Mensagem de Alerta", blank=True)
 
