@@ -38,7 +38,6 @@ backend/
 │   │   ├── logging.py                 # Formatação de logs estruturados
 │   │   └── production.py              # Overrides para o ambiente em nuvem (Render)
 │   ├── middleware.py                  # Middlewares customizados (timing, versão, lock de mutação)
-│   ├── frontend_registry.py           # Registro de aplicações frontend confiáveis e WebAuthn RPs
 │   ├── urls.py                        # Roteador central que distribui requisições para cada app
 │   ├── asgi.py                        # Ponto de entrada ASGI (assíncrono)
 │   └── wsgi.py                        # Ponto de entrada WSGI (síncrono/produção)
@@ -47,11 +46,11 @@ backend/
 │   │
 │   ├── authentication/                # [GLOBAL] Identidade, Permissões e Multi-Tenancy
 │   │   ├── models/
-│   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession, WebAuthn
+│   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession
 │   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
-│   │   ├── views/                     # Autenticação JWT, sessões ativas, passkeys e perfil
+│   │   ├── views/                     # Autenticação JWT, sessões ativas e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
-│   │   ├── services/                  # Lógica de emissão de tokens JWT e verificação WebAuthn
+│   │   ├── services/                  # Lógica de emissão de tokens JWT
 │   │   └── urls.py                    # Rotas sob o prefixo /register/ e /token/
 │   │
 │   ├── notifications/                 # [GLOBAL] Motor Central de Mensageria e Alertas
@@ -115,6 +114,9 @@ Centraliza a orquestração do Django. Todas as configurações foram extraídas
 ### 3.2 `apps/authentication/` — Identidade e Multi-Tenancy Unificado
 Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
 - **`Professional`**: Modelo de usuário unificado herdado de `AbstractBaseUser`. Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
+- **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser. TOTP e WebAuthn/Face ID foram removidos para evitar atritos de sincronismo e complexidade de infraestrutura; o preenchimento biométrico fica a cargo do gerenciador nativo de senhas de cada navegador/sistema operacional.
+- **Governança Estrita de Acesso**: Nenhum `Tenant` ou `TenantMembership` é provisionado automaticamente. O provisionamento é 100% manual via Django Admin ou comando de setup, garantindo controle total dos profissionais e empresas cadastradas.
+- **Sessões e Dispositivos (`DeviceSession`)**: Rastreamento de sessões ativas por dispositivo físico, com limite configurável de conexões simultâneas para mitigar compartilhamento indevido de contas.
 - **`Tenant`**: Entidade central de multi-tenancy. Representa a clínica ou a empresa. Possui atributos `slug` (identificador na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
 - **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário (`owner`, `admin`, `member`, `guest`) e seu apelido de login rápido (`login_alias`).
 
@@ -133,7 +135,9 @@ Transforma fluxos de venda e distribuição comercial em processos digitais ráp
 ### 3.5 `apps/notifications/` — Mensageria Centralizada (Telegram)
 Módulo agnóstico e compartilhado para comunicação externa:
 - Permite que qualquer profissional conecte seu próprio Bot do Telegram através de um handshake seguro via token assinado HMAC.
-- Dispara notificações de compromissos para clínicas e confirmações de pedidos para padarias.
+- O registro `TelegramProfessionalLink` vincula o chat do profissional diretamente ao seu `tenant_id`, assegurando isolamento multi-tenant das mensagens.
+- Na primeira conexão bem-sucedida, o bot envia uma mensagem de confirmação exibindo o telefone celular cadastrado no perfil do profissional.
+- Dispara notificações de compromissos para clínicas e notificações em tempo real para padarias (novos pedidos e novos clientes pendentes de aprovação).
 
 ---
 
@@ -175,10 +179,13 @@ graph TD
 - **Capacidades Ativas (`capabilities`):** A interface e os endpoints adaptam os formulários de acordo com o JSON de capacidades:
   - `{"clinic": true, "podologia": true}` ➡️ Exibe contexto podológico e seleção de dedos no SVG.
   - `{"clinic": true, "odonto": true}` ➡️ Exibe odontograma com mapeamento FDI e cálculo de orçamentos.
+- **Proteção de PII no Logout:** O frontend centraliza a limpeza de estado local (`clearStoredAuth` / `clearStaleLocalStorageKeys`). No encerramento da sessão (manual ou expiração), todas as chaves de nomes de clientes (`client.name.*`) e resquícios legados são expurgados do `localStorage`, prevenindo vazamento de dados em terminais compartilhados.
 
 ### 4.2 Comportamento do Ecossistema `bakery`
 - **Público Alvo B2B:** Os compradores são padarias, minimercados e lanchonetes.
-- **Autenticação Direta:** Utiliza o endpoint `/api/v1/auth/bakery/login/`, desacoplado do fluxo de 2FA/WebAuthn da clínica, recebendo `login`, `password` e `tenant_slug`.
+- **Auto-Cadastro Público com Tenant:** O endpoint `/api/v1/bakery/customers/register/` opera com permissão pública (`AllowAny`), recebendo dados cadastrais e `tenant_slug`. O cliente é registrado com status inicial `PENDENTE`.
+- **Aprovação Segura pelo Administrador:** A ativação do cliente exige confirmação da senha do administrador (`admin_password`) e atribuição obrigatória de limite de crédito rotativo.
+- **Autenticação Direta:** Utiliza o endpoint `/api/v1/auth/bakery/login/`, recebendo `login` (e-mail ou alias), `password` e `tenant_slug`.
 - **Motor de Crédito (Ledger):** Ao emitir um pedido, o sistema valida se `saldo_atual + valor_pedido <= limite_de_credito`. A cada pagamento recebido pelo administrador, um lançamento positivo no `CreditLedgerEntry` restaura a capacidade de compra do cliente.
 
 ---
@@ -190,7 +197,7 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
-| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) + WebAuthn |
+| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
 | **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.

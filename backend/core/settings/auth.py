@@ -1,9 +1,9 @@
-"""Autenticação e autorização: DRF, JWT, sessões de dispositivo e WebAuthn."""
+"""Autenticação e autorização: DRF, JWT e sessões de dispositivo."""
 from datetime import timedelta
 
 from decouple import config
 
-from ._helpers import DEBUG, _csv
+from ._helpers import DEBUG
 
 # === Django REST Framework ===
 
@@ -36,11 +36,3 @@ SIMPLE_JWT = {
 MAX_ACTIVE_DEVICE_SESSIONS: int = config(
     "MAX_ACTIVE_DEVICE_SESSIONS", default=2, cast=int
 )
-
-# === WebAuthn / Passkeys ===
-
-# rpId: domínio sem esquema/porta. localhost para dev; domínio real em produção.
-WEBAUTHN_RP_ID: str = config("WEBAUTHN_RP_ID", default="localhost")
-WEBAUTHN_RP_NAME: str = config("WEBAUTHN_RP_NAME", default="ClinicSystem")
-# Origens aceitas separadas por vírgula (incluir http em dev, https em produção)
-WEBAUTHN_ORIGINS: list[str] = _csv("WEBAUTHN_ORIGINS", "http://localhost:5173")

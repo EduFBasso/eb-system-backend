@@ -247,32 +247,3 @@ class ProfessionalSettings(models.Model):
         end = f"{self.work_end_hour:02d}:{self.work_end_minute:02d}"
         return f"Configurações Clínicas de {self.professional.email} ({start} - {end})"
 
-
-class WebAuthnCredential(models.Model):
-    """
-    [SOLID - Single Responsibility Principle]
-    Armazena chaves públicas WebAuthn (Passkeys / Biometria do aparelho físico).
-    Permite logins biométricos diretos sem digitação de senha tradicional no frontend.
-    """
-    professional = models.ForeignKey(
-        Professional,
-        on_delete=models.CASCADE,
-        related_name="webauthn_credentials",
-        verbose_name="Profissional Vinculado"
-    )
-    credential_id = models.TextField(unique=True, help_text="ID retornado pelo navegador.")
-    public_key = models.TextField(help_text="Chave pública codificada em base64.")
-    sign_count = models.PositiveIntegerField(default=0)
-    device_name = models.CharField("Nome do Aparelho (ex: iPhone de Eduardo)", max_length=120, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_used_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        app_label = 'authentication'
-        verbose_name = "Credencial WebAuthn"
-        verbose_name_plural = "Credenciais WebAuthn"
-
-    def __str__(self):
-        device = self.device_name or "Dispositivo Desconhecido"
-        return f"Passkey de {self.professional.email} — {device} | id[:12]: {self.credential_id[:12]}"
-

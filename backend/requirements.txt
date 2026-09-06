@@ -10,7 +10,6 @@ PyJWT==2.10.1
 
 # Auth / sessions
 django-cors-headers==4.7.0
-webauthn==2.7.1
 
 # Phone numbers
 django-phonenumber-field==8.1.0
