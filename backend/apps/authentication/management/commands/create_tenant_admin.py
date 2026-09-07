@@ -79,6 +79,7 @@ class Command(BaseCommand):
         )
         parser.add_argument("--specialty", default="", help="Especialidade médica (Apenas para ecosystem=clinic)")
         parser.add_argument("--tenant-name", required=True, dest="tenant_name")
+        parser.add_argument("--trade-name", default="", dest="trade_name")
         parser.add_argument("--tenant-slug", default="", dest="tenant_slug")
         parser.add_argument("--login-alias", default="", dest="login_alias", help="Apelido de login rápido")
 
@@ -91,6 +92,7 @@ class Command(BaseCommand):
         ecosystem = options["ecosystem"]
         specialty = options["specialty"].strip()
         tenant_name = options["tenant_name"].strip()
+        trade_name = options["trade_name"].strip() or tenant_name
         tenant_slug = options["tenant_slug"].strip() or slugify(tenant_name)
         login_alias = options["login_alias"].strip().lower()
 
@@ -145,6 +147,7 @@ class Command(BaseCommand):
             slug=tenant_slug,
             defaults={
                 "name": tenant_name,
+                "trade_name": trade_name,
                 "ecosystem": ecosystem,
                 "capabilities": capabilities,
                 "is_active": True,
@@ -159,6 +162,9 @@ class Command(BaseCommand):
             if tenant.capabilities != capabilities:
                 tenant.capabilities = capabilities
                 tenant.save(update_fields=["capabilities"])
+            if not tenant.trade_name:
+                tenant.trade_name = trade_name
+                tenant.save(update_fields=["trade_name"])
             self.stdout.write(self.style.WARNING(f"  Empresa (Tenant) já existente no sistema: {tenant_slug}"))
 
         # 3. Vinculação de Controle e Governança (TenantMembership)

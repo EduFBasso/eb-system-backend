@@ -48,6 +48,16 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return None
 
+    def get_token(self, user):
+        token = super().get_token(user)
+        tenant = getattr(self, "_login_tenant", None)
+        membership = getattr(self, "_login_membership", None)
+        if tenant is not None and membership is not None:
+            token["tenant_id"] = tenant.id
+            token["ecosystem"] = "bakery"
+            token["role"] = membership.role
+        return token
+
     def validate(self, attrs):
         login = attrs.get("login", "").strip()
         password = attrs.get("password", "")
@@ -84,6 +94,9 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
             )
         except TenantMembership.DoesNotExist:
             raise serializers.ValidationError(_("Usuário não possui acesso a este tenant Bakery."))
+
+        self._login_tenant = tenant
+        self._login_membership = membership
 
         # Verifica se é customer e aplica regras de status
         customer: BakeryCustomer | None = (

@@ -116,7 +116,9 @@ Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"
 - **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser. TOTP e WebAuthn/Face ID foram removidos para evitar atritos de sincronismo e complexidade de infraestrutura; o preenchimento biométrico fica a cargo do gerenciador nativo de senhas de cada navegador/sistema operacional.
 - **Governança Estrita de Acesso**: Nenhum `Tenant` ou `TenantMembership` é provisionado automaticamente. O provisionamento é 100% manual via Django Admin ou comando de setup, garantindo controle total dos profissionais e empresas cadastradas.
 - **Sessões e Dispositivos (`DeviceSession`)**: Rastreamento de sessões ativas por dispositivo físico, com limite configurável de conexões simultâneas para mitigar compartilhamento indevido de contas.
-- **`Tenant`**: Entidade central de multi-tenancy. Representa a clínica ou a empresa. Possui atributos `slug` (identificador na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
+- **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
+- **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `Professional`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
+- **Identificação e isolamento de filiais**: o `slug` é único e identifica tecnicamente o tenant. Nome fantasia, nome do administrador ou URL pública não concedem autorização; toda leitura e mutação deve continuar vinculada ao `tenant_id` resolvido pela autenticação e pela `TenantMembership`.
 - **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário (`owner`, `admin`, `member`, `guest`) e seu apelido de login rápido (`login_alias`).
 
 ### 3.3 `apps/clinic/` — Domínio de Saúde (Clínica)
@@ -213,4 +215,17 @@ Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `htt
 - Sugerir otimizações de performance em queries e endpoints.
 - Revisar se o `core` está livre de dependências cruzadas entre apps.
 - Checar se o `authentication` mantém consistência entre `Professional`, `Tenant` e `TenantMembership`.
+- Confirmar que o `trade_name` está preenchido para tenants existentes e que as migrations de tenancy foram aplicadas no ambiente de destino.
+- Testar duas filiais com o mesmo `trade_name`, garantindo slugs, memberships e dados operacionais totalmente separados.
 - Garantir que o roteamento e autenticação dos frontends seguem as regras de CORS e segurança.
+
+### Estratégia de primeiro deploy na nuvem
+
+Como o modelo local desta nova arquitetura ainda é substancialmente diferente do modelo atualmente online, o primeiro deploy será tratado como a implantação de um sistema novo:
+
+- remover a estrutura de migrations/base antiga do ambiente de nuvem conforme o procedimento operacional definido;
+- recriar a base a partir do modelo atual e aplicar as migrations atuais;
+- repopular os tenants, profissionais, memberships e demais dados necessários por um processo controlado;
+- validar o isolamento entre tenants antes de liberar o sistema para uso.
+
+Essa estratégia vale somente para a transição inicial. Depois que o novo sistema entrar em operação, migrations deverão ser preservadas e aplicadas incrementalmente; a base de produção não deverá ser apagada para acomodar alterações futuras.

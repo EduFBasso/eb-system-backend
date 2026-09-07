@@ -13,6 +13,11 @@ class Tenant(models.Model):
         BAKERY = 'bakery', 'Unidade Padaria (Alimentação/Varejo)'
 
     name = models.CharField("Nome da Empresa / Unidade", max_length=120)
+    trade_name = models.CharField(
+        "Nome Fantasia",
+        max_length=120,
+        help_text="Nome público exibido nos painéis, documentos e comunicações.",
+    )
     slug = models.SlugField(
         "Identificador na URL (Slug)", 
         max_length=140, 
@@ -48,9 +53,20 @@ class Tenant(models.Model):
             models.Index(fields=['is_active']),
             models.Index(fields=['ecosystem', 'is_active']),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(trade_name=""),
+                name="tenant_trade_name_not_empty",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} [{self.get_ecosystem_display()}]"
+
+    def save(self, *args, **kwargs):
+        if not self.trade_name:
+            self.trade_name = self.name
+        super().save(*args, **kwargs)
 
     def has_capability(self, capability_name: str) -> bool:
         """

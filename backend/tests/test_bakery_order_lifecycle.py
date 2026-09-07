@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, CreditLedgerEntry, Order, OrderItem, Product
@@ -96,7 +97,10 @@ def test_customer_cancel_is_idempotent_and_reverses_credit_once(
         with django_capture_on_commit_callbacks(execute=True):
             response = client.post(
                 f"/api/v1/bakery/orders/{order.pk}/cancel/",
-                {"reason": "Pedido feito em duplicidade"},
+                {
+                    "reason": "Pedido feito em duplicidade",
+                    "customer_password": "client-pass",
+                },
                 format="json",
             )
 
@@ -115,7 +119,10 @@ def test_customer_cancel_is_idempotent_and_reverses_credit_once(
 
     second_response = client.post(
         f"/api/v1/bakery/orders/{order.pk}/cancel/",
-        {"reason": "Pedido feito em duplicidade"},
+        {
+            "reason": "Pedido feito em duplicidade",
+            "customer_password": "client-pass",
+        },
         format="json",
     )
     assert second_response.status_code == 200
@@ -123,6 +130,52 @@ def test_customer_cancel_is_idempotent_and_reverses_credit_once(
         order=order,
         entry_type=CreditLedgerEntry.EntryType.CREDIT,
     ).count() == 1
+
+
+def test_customer_cancel_requires_customer_password():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    order = make_order(tenant, customer, payment_method=Order.PaymentMethod.CASH)
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    missing = client.post(
+        f"/api/v1/bakery/orders/{order.pk}/cancel/",
+        {"reason": "Pedido feito em duplicidade"},
+        format="json",
+    )
+    incorrect = client.post(
+        f"/api/v1/bakery/orders/{order.pk}/cancel/",
+        {"reason": "Pedido feito em duplicidade", "customer_password": "errada"},
+        format="json",
+    )
+
+    assert missing.status_code == 400
+    assert missing.json()["detail"] == "customer_password é obrigatória."
+    assert incorrect.status_code == 401
+    assert incorrect.json()["detail"] == "Senha do cliente incorreta."
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING
+
+
+def test_bakery_login_embeds_tenant_context_in_jwt(client):
+    tenant = make_tenant()
+    user, _customer = make_customer(tenant)
+
+    response = client.post(
+        "/api/v1/auth/bakery/login/",
+        {
+            "login": user.email,
+            "password": "client-pass",
+            "tenant_slug": tenant.slug,
+        },
+    )
+
+    assert response.status_code == 200
+    token = AccessToken(response.json()["access"])
+    assert token["tenant_id"] == tenant.id
+    assert token["ecosystem"] == "bakery"
+    assert token["role"] == TenantMembership.Role.MEMBER
 
 
 def test_order_generic_mutations_are_blocked():

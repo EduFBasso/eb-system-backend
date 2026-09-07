@@ -198,7 +198,7 @@ class TenantMembershipInline(admin.TabularInline):
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'ecosystem', 'is_active', 'updated_at']
+    list_display = ['name', 'trade_name', 'slug', 'ecosystem', 'is_active', 'updated_at']
     list_filter = ['ecosystem', 'is_active']
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ['name']}

@@ -37,11 +37,17 @@ def _get_bakery_membership(request) -> TenantMembership | None:
     """Retorna a membership Bakery do usuário extraindo tenant_id do token JWT."""
     tenant_id = getattr(request, "_bakery_tenant_id", None)
     if tenant_id is None:
-        # Fallback: first active Bakery tenant (usado antes do JWT fixar tenant_id)
-        tenant = get_active_tenant(request.user, "bakery")
-        if tenant is None:
-            return None
-        tenant_id = tenant.id
+        auth_token = getattr(request, "auth", None)
+        if auth_token is not None:
+            tenant_id = auth_token.get("tenant_id")
+            if tenant_id is None:
+                return None
+        else:
+            # Compatibilidade com SessionAuthentication e testes sem JWT.
+            tenant = get_active_tenant(request.user, "bakery")
+            if tenant is None:
+                return None
+            tenant_id = tenant.id
 
     try:
         return (

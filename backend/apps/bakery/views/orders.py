@@ -114,13 +114,34 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             )
         return None
 
+    def _validate_customer_password(self, password: str | None) -> Response | None:
+        if not password:
+            return Response(
+                {"detail": "customer_password é obrigatória."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not self.request.user.check_password(password):
+            return Response(
+                {"detail": "Senha do cliente incorreta."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return None
+
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
         command = CancelOrderSerializer(data=request.data)
         command.is_valid(raise_exception=True)
         order = self.get_object()
-        is_management = self._is_management()
-        if is_management:
+        is_customer_owner = order.customer.user_id == request.user.id and not getattr(
+            request.user, "is_staff", False
+        )
+        if is_customer_owner:
+            denied = self._validate_customer_password(
+                command.validated_data.get("customer_password")
+            )
+            if denied:
+                return denied
+        elif self._is_management():
             denied = self._validate_admin_password(command.validated_data.get("admin_password"))
             if denied:
                 return denied
