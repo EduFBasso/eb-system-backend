@@ -65,6 +65,18 @@ class OrderItemInputSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
 
 
+class CancelOrderSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
+    admin_password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+
+
+class UpdateOrderStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=(Order.Status.CONFIRMED, Order.Status.DELIVERED),
+    )
+    admin_password = serializers.CharField(write_only=True, allow_blank=False)
+
+
 class OrderSerializer(serializers.ModelSerializer):
     order_number = serializers.SerializerMethodField()
     customer_id = serializers.PrimaryKeyRelatedField(

@@ -71,6 +71,9 @@ class BakeryCustomerSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "tenant",
+            "user",
+            "status",
+            "credit_limit",
             "approved_at",
             "approved_by",
             "blocked_at",
@@ -79,7 +82,6 @@ class BakeryCustomerSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         extra_kwargs = {
-            "user": {"required": False},
             "cpf": {"required": False, "allow_blank": True},
             "cnpj": {"required": False, "allow_blank": True},
         }

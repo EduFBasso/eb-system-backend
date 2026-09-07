@@ -6,8 +6,9 @@ import pytest
 from django.utils import timezone
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
-from apps.bakery.models import BakeryCustomer, Product
+from apps.bakery.models import BakeryCustomer, Order, Product
 from apps.bakery.serializers.orders import OrderSerializer
+from apps.bakery.services.notifications import notify_owner_order_cancelled
 from apps.notifications.models import TelegramProfessionalLink
 
 
@@ -103,6 +104,31 @@ def test_order_creation_skips_owner_without_telegram_link(django_capture_on_comm
 
     assert order.pk is not None
     mocked_post.assert_not_called()
+
+
+def test_order_cancellation_notification_contains_order_details():
+    tenant, _owner = _make_tenant_with_owner(link_telegram=True)
+    customer = _make_customer(tenant)
+    order = _create_order(tenant, customer)
+    order.status = Order.Status.CANCELLED
+    order.cancellation_reason = "Pedido duplicado"
+    order.cancelled_at = timezone.now()
+    order.save(update_fields=("status", "cancellation_reason", "cancelled_at", "updated_at"))
+    mocked_response = Mock(status_code=200)
+    mocked_response.json.return_value = {"ok": True, "result": {"message_id": 2}}
+
+    with patch(
+        "apps.notifications.services.telegram_client.requests.post",
+        return_value=mocked_response,
+    ) as mocked_post:
+        notify_owner_order_cancelled(order, actor="Cliente Ciclo")
+
+    text = mocked_post.call_args.kwargs["json"]["text"]
+    assert f"Pedido: #{order.pk}" in text
+    assert "10x Pao Frances" in text
+    assert "Pedido duplicado" in text
+    assert "Av. Paulista, 100" in text
+    assert "Cancelado por: Cliente Ciclo" in text
 
 
 def test_customer_registration_notifies_linked_owner(django_capture_on_commit_callbacks):
