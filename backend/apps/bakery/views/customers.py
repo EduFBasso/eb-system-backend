@@ -6,6 +6,8 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.db import transaction
 from django.db import IntegrityError
+from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, Greatest
 from django.db.models.deletion import ProtectedError
 from rest_framework import filters, viewsets, status
 from rest_framework.decorators import action
@@ -13,7 +15,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
-from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog
+from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog, CreditLedgerEntry
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
 from utils.pagination import StandardResultsSetPagination
@@ -51,7 +53,66 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         status_value = self.request.query_params.get("status")
         if status_value:
             queryset = queryset.filter(status=status_value)
+
+        if self.request.query_params.get("has_open_balance") == "true":
+            queryset = self._with_open_balance(queryset).filter(open_balance__gt=0)
         return queryset
+
+    @staticmethod
+    def _with_open_balance(queryset):
+        money_field = DecimalField(max_digits=12, decimal_places=2)
+        ledger_entries = CreditLedgerEntry.objects.filter(customer_id=OuterRef("pk"))
+        debit_total = ledger_entries.filter(entry_type="DEBIT").values("customer_id").annotate(
+            total=Sum("amount")
+        ).values("total")[:1]
+        credit_total = ledger_entries.filter(entry_type="CREDIT").values("customer_id").annotate(
+            total=Sum("amount")
+        ).values("total")[:1]
+        open_balance = Greatest(
+            Coalesce(
+                Subquery(debit_total, output_field=money_field),
+                Value(Decimal("0.00"), output_field=money_field),
+                output_field=money_field,
+            )
+            - Coalesce(
+                Subquery(credit_total, output_field=money_field),
+                Value(Decimal("0.00"), output_field=money_field),
+                output_field=money_field,
+            ),
+            Value(Decimal("0.00"), output_field=money_field),
+            output_field=money_field,
+        )
+        return queryset.annotate(
+            open_balance=open_balance,
+        )
+
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request):
+        queryset = self._with_open_balance(self.get_queryset())
+        open_balance = queryset.query.annotations["open_balance"]
+        totals = queryset.aggregate(
+            active_customers=Count("id", filter=Q(status=BakeryCustomer.ApprovalStatus.APPROVED)),
+            pending_customers=Count("id", filter=Q(status=BakeryCustomer.ApprovalStatus.PENDING)),
+            blocked_customers=Count("id", filter=Q(status=BakeryCustomer.ApprovalStatus.BLOCKED)),
+            active_open_balance=Coalesce(
+                Sum(open_balance, filter=Q(status=BakeryCustomer.ApprovalStatus.APPROVED)),
+                Value(Decimal("0.00"), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            ),
+            blocked_open_balance=Coalesce(
+                Sum(open_balance, filter=Q(status=BakeryCustomer.ApprovalStatus.BLOCKED)),
+                Value(Decimal("0.00"), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            ),
+        )
+        return Response(
+            {
+                "active_customers": totals["active_customers"],
+                "pending_customers": totals["pending_customers"],
+                "blocked_customers": totals["blocked_customers"],
+                "active_open_balance": f'{totals["active_open_balance"] or 0:.2f}',
+                "blocked_open_balance": f'{totals["blocked_open_balance"] or 0:.2f}',
+                "currency": "BRL",
+            }
+        )
 
     def perform_create(self, serializer):
         tenant = self.get_active_tenant()
