@@ -117,6 +117,19 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
         data["tenant_id"] = tenant.id
         data["ecosystem"] = "bakery"
         data["role"] = membership.role
+        data["tenant"] = {
+            "slug": tenant.slug,
+            "trade_name": tenant.trade_name,
+            "address": {
+                "zip_code": tenant.zip_code,
+                "street": tenant.street,
+                "number": tenant.number,
+                "neighborhood": tenant.neighborhood,
+                "city": tenant.city,
+                "state": tenant.state,
+                "complement": tenant.complement,
+            },
+        }
 
         if customer is not None:
             data["customer"] = {

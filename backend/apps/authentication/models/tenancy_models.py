@@ -18,6 +18,13 @@ class Tenant(models.Model):
         max_length=120,
         help_text="Nome público exibido nos painéis, documentos e comunicações.",
     )
+    zip_code = models.CharField("CEP", max_length=9, blank=True, default="")
+    street = models.CharField("Rua / Avenida", max_length=160, blank=True, default="")
+    number = models.CharField("Número", max_length=20, blank=True, default="")
+    neighborhood = models.CharField("Bairro", max_length=120, blank=True, default="")
+    city = models.CharField("Cidade", max_length=120, blank=True, default="")
+    state = models.CharField("Estado", max_length=2, blank=True, default="")
+    complement = models.CharField("Complemento", max_length=120, blank=True, default="")
     slug = models.SlugField(
         "Identificador na URL (Slug)", 
         max_length=140, 
@@ -93,9 +100,9 @@ class TenantMembership(models.Model):
     Define o vínculo de controle, dadas as permissões de um Profissional dentro de um Tenant específico.
     """
     class Role(models.TextChoices):
-        OWNER = 'owner', 'Proprietário / Sócio Diretor'
+        OWNER = 'owner', 'Dono da Empresa'
         ADMIN = 'admin', 'Administrador da Unidade'
-        MEMBER = 'member', 'Membro Operacional / Profissional de Saúde'
+        MEMBER = 'member', 'Membro / Profissional de Saúde'
 
     tenant = models.ForeignKey(
         Tenant,

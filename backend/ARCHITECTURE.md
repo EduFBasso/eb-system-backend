@@ -119,7 +119,7 @@ Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"
 - **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
 - **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `Professional`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
 - **Identificação e isolamento de filiais**: o `slug` é único e identifica tecnicamente o tenant. Nome fantasia, nome do administrador ou URL pública não concedem autorização; toda leitura e mutação deve continuar vinculada ao `tenant_id` resolvido pela autenticação e pela `TenantMembership`.
-- **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário (`owner`, `admin`, `member`, `guest`) e seu apelido de login rápido (`login_alias`).
+- **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário: `owner` (Dono da Empresa), `admin` (Administrador da Unidade) ou `member` (Membro / Profissional de Saúde), além do apelido de login rápido (`login_alias`).
 
 ### 3.3 `apps/clinic/` — Domínio de Saúde (Clínica)
 Encapsula toda a lógica de atendimento clínico.
@@ -229,3 +229,99 @@ Como o modelo local desta nova arquitetura ainda é substancialmente diferente d
 - validar o isolamento entre tenants antes de liberar o sistema para uso.
 
 Essa estratégia vale somente para a transição inicial. Depois que o novo sistema entrar em operação, migrations deverão ser preservadas e aplicadas incrementalmente; a base de produção não deverá ser apagada para acomodar alterações futuras.
+
+- ClientCard ainda usa Professional.specialty para decidir algumas ações. Arquiteturalmente, essa decisão deveria usar as capacidades do tenant, pois dois profissionais da mesma empresa podem ter especialidades diferentes sem misturar os clientes ou alterar os módulos da empresa.
+
+## 6. Isolamento por domínio e deploy multi-tenant na Vercel
+
+O `Tenant.slug` é um identificador público, único e estável da organização. Cada tenant Bakery pode ser publicado em um subdomínio próprio, apontando para o mesmo projeto frontend na Vercel:
+
+```text
+admin-panificadora.exemplo.com
+admin2-panificadora2.exemplo.com
+```
+
+### 6.1 Resolução do tenant no frontend
+
+O frontend deve extrair o primeiro componente do hostname e utilizá-lo como `tenant_slug` nas chamadas de autenticação e cadastro:
+
+```text
+admin-panificadora.exemplo.com  -> tenant_slug=admin-panificadora
+admin2-panificadora2.exemplo.com -> tenant_slug=admin2-panificadora2
+```
+
+Em desenvolvimento local, o mesmo comportamento pode ser testado com:
+
+```text
+http://admin-panificadora.localhost:5174
+http://admin2-panificadora2.localhost:5174
+```
+
+O fallback por `VITE_BAKERY_TENANT_SLUG` deve ser reservado para acesso direto por `localhost`, previews sem subdomínio e recuperação operacional. Ele não deve ser usado para representar vários tenants simultaneamente no mesmo build da Vercel.
+
+### 6.2 Exibição do nome fantasia
+
+O `trade_name` pertence ao `Tenant`, não ao usuário. Para exibi-lo na tela raiz, no login do cliente e no login do administrador:
+
+1. Resolver o slug pelo hostname.
+2. Consultar um endpoint público e somente de leitura do tenant, por exemplo `GET /api/v1/auth/tenants/by-slug/{slug}/`.
+3. Retornar somente dados públicos, como `slug`, `trade_name` e `ecosystem`.
+4. Renderizar o `trade_name` no cabeçalho da Home e nas telas de autenticação.
+5. Continuar enviando `tenant_slug` no corpo do login; o nome exibido nunca substitui a validação de `TenantMembership`.
+
+O endpoint público deve rejeitar tenants inativos, limitar o conjunto de campos retornados e não expor profissionais, memberships, clientes ou dados comerciais. Como alternativa temporária, os logins podem retornar `tenant` com `slug` e `trade_name` após a autenticação.
+
+### 6.3 Configuração da Vercel
+
+O frontend Bakery é um único projeto Vercel. Os dois domínios devem ser associados ao mesmo projeto, sem criar um build ou uma variável `VITE_BAKERY_TENANT_SLUG` diferente para cada tenant. A variável comum pode conter apenas o domínio-base:
+
+```env
+VITE_BAKERY_ROOT_DOMAIN=exemplo.com
+```
+
+O DNS de cada subdomínio deve apontar para a Vercel conforme instrução do painel:
+
+```text
+admin-panificadora.exemplo.com
+admin2-panificadora2.exemplo.com
+```
+
+O `vercel.json` deve manter o proxy das rotas para a Render, preservando o contrato existente:
+
+```json
+{
+    "rewrites": [
+        {
+            "source": "/api/:path*",
+            "destination": "https://BACKEND.onrender.com/api/:path*"
+        },
+        {
+            "source": "/register/:path*",
+            "destination": "https://BACKEND.onrender.com/register/:path*"
+        }
+    ]
+}
+```
+
+Assim, o navegador continua chamando `/api/v1/...` no domínio da Vercel, enquanto a Render recebe as mesmas rotas e o mesmo payload, incluindo `tenant_slug`.
+
+### 6.4 Variáveis de segurança na Render
+
+Após associar os domínios, configurar no serviço Django:
+
+```env
+DJANGO_ALLOWED_HOSTS=BACKEND.onrender.com
+CSRF_TRUSTED_ORIGINS=https://admin-panificadora.exemplo.com,https://admin2-panificadora2.exemplo.com
+CORS_ALLOWED_ORIGINS=https://admin-panificadora.exemplo.com,https://admin2-panificadora2.exemplo.com
+```
+
+O backend permanece a autoridade final do isolamento: o hostname seleciona o tenant solicitado, mas somente a existência de tenant Bakery ativo, credenciais válidas e `TenantMembership.is_active=True` permite o acesso.
+
+### 6.5 Checklist de validação antes do deploy
+
+- Abrir cada subdomínio em uma aba separada e confirmar o `trade_name` exibido.
+- Confirmar que cada login envia o slug correspondente ao hostname.
+- Criar ou aprovar um cliente em um tenant e verificar que ele não aparece no outro.
+- Validar que pedidos, produtos, crédito e notificações permanecem filtrados pelo tenant do token.
+- Testar acesso direto à Render e acesso via proxy da Vercel.
+- Confirmar que tenants inativos não são resolvidos nem exibidos como disponíveis.

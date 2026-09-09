@@ -56,7 +56,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         region="BR",
         blank=False,
         null=False,
-        help_text="Obrigatório para ativação e recebimento de notificações via Telegram. Ex: (19) 99855-2882 ou 19998552882.",
+        help_text="Obrigatório para ativação e recebimento de notificações via Telegram. Ex: (19) 99876-5432 ou 19998765432.",
     ) 
     email = models.EmailField("E-mail corporativo", unique=True)
 

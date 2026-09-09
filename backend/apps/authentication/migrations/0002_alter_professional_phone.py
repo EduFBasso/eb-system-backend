@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='professional',
             name='phone',
-            field=phonenumber_field.modelfields.PhoneNumberField(help_text='Obrigatório para ativação e recebimento de notificações via Telegram. Ex: (19) 99855-2882 ou 19998552882.', max_length=128, region='BR', verbose_name='Telefone Celular'),
+            field=phonenumber_field.modelfields.PhoneNumberField(help_text='Obrigatório para ativação e recebimento de notificações via Telegram. Ex: (19) 99876-5432 ou 19998765432.', max_length=128, region='BR', verbose_name='Telefone Celular'),
         ),
     ]

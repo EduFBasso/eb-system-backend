@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.bakery.views import (
@@ -5,6 +6,7 @@ from apps.bakery.views import (
     CreditLedgerEntryViewSet,
     OrderViewSet,
     ProductViewSet,
+    BakeryTenantProfileView,
 )
 
 app_name = "bakery"
@@ -15,4 +17,7 @@ router.register("products", ProductViewSet, basename="product")
 router.register("orders", OrderViewSet, basename="order")
 router.register("ledger-entries", CreditLedgerEntryViewSet, basename="ledger-entry")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("tenant/profile/", BakeryTenantProfileView.as_view(), name="tenant-profile"),
+    *router.urls,
+]

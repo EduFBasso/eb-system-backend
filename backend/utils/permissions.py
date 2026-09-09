@@ -58,6 +58,7 @@ def _get_bakery_membership(request) -> TenantMembership | None:
                 tenant_id=tenant_id,
                 is_active=True,
                 tenant__is_active=True,
+                tenant__ecosystem=Tenant.Ecosystem.BAKERY,
             )
         )
     except TenantMembership.DoesNotExist:
