@@ -58,6 +58,7 @@ def test_bakery_register_customer_uses_admin_token_and_creates_pending_customer(
     tenant = Tenant.objects.create(
         name='Bakery Tenant',
         slug='bakery-tenant',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -106,6 +107,7 @@ def test_bakery_register_customer_allows_multiple_customers_for_same_admin_tenan
     tenant = Tenant.objects.create(
         name='Bakery Tenant 2',
         slug='bakery-tenant-2',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -165,6 +167,7 @@ def test_bakery_approve_customer_returns_json_and_updates_status():
     tenant = Tenant.objects.create(
         name='Bakery Tenant 3',
         slug='bakery-tenant-3',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -222,6 +225,7 @@ def test_bakery_approve_customer_rejects_invalid_admin_password_with_json_error(
     tenant = Tenant.objects.create(
         name='Bakery Tenant 4',
         slug='bakery-tenant-4',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -444,6 +448,7 @@ def test_bakery_reveal_password_generates_new_password_when_missing():
     tenant = Tenant.objects.create(
         name='Bakery Tenant 8',
         slug='bakery-tenant-8',
+        ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={'bakery': True},
         is_active=True,
     )
@@ -539,3 +544,83 @@ def test_bakery_register_customer_unauthenticated_with_tenant_slug():
     assert response.data['nickname'] == 'Cliente Mobile'
     assert response.data['status'] == 'PENDENTE'
     assert response.data['tenant'] == tenant.id
+
+
+def test_bakery_block_and_unblock_require_owner_password():
+    tenant = Tenant.objects.create(
+        name='Bakery Tenant Security',
+        slug='bakery-tenant-security',
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={'bakery': True},
+        is_active=True,
+    )
+    admin = Professional.objects.create_user(
+        email='admin-security@bakery.test',
+        password='secret123',
+        first_name='Admin',
+        last_name='Bakery',
+        is_staff=True,
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin)
+    register_response = client.post(
+        '/api/v1/bakery/customers/register/',
+        {
+            'nickname': 'Cliente Segurança',
+            'customer_type': 'PF',
+            'cpf': '11122233555',
+            'phone': '11999999912',
+            'zip_code': '01310100',
+            'street': 'Avenida Paulista',
+            'number': '1000',
+            'neighborhood': 'Bela Vista',
+            'city': 'São Paulo',
+            'state': 'SP',
+        },
+        format='json',
+    )
+    customer_id = register_response.data['id']
+
+    approve_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/approve/',
+        {'credit_limit': '1000.00', 'admin_password': 'secret123'},
+        format='json',
+    )
+    assert approve_response.status_code == 200
+
+    wrong_block_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/block/',
+        {'admin_password': 'senha-errada'},
+        format='json',
+    )
+    assert wrong_block_response.status_code == 401
+
+    block_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/block/',
+        {'admin_password': 'secret123'},
+        format='json',
+    )
+    assert block_response.status_code == 200
+    assert block_response.data['status'] == 'BLOQUEADO'
+
+    wrong_unblock_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/unblock/',
+        {'admin_password': 'senha-errada'},
+        format='json',
+    )
+    assert wrong_unblock_response.status_code == 401
+
+    unblock_response = client.post(
+        f'/api/v1/bakery/customers/{customer_id}/unblock/',
+        {'admin_password': 'secret123'},
+        format='json',
+    )
+    assert unblock_response.status_code == 200
+    assert unblock_response.data['status'] == 'APROVADO'
