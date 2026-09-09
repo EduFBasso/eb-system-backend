@@ -1,7 +1,7 @@
 from .customers import BakeryCustomerViewSet
 from .ledger import CreditLedgerEntryViewSet
 from .orders import OrderItemViewSet, OrderViewSet, ProductViewSet
-from .tenant_profile import BakeryTenantProfileView
+from .tenant_profile import BakeryTenantIdentityView, BakeryTenantProfileView
 
 __all__ = [
 	"BakeryCustomerViewSet",
@@ -10,4 +10,5 @@ __all__ = [
 	"OrderViewSet",
 	"ProductViewSet",
 	"BakeryTenantProfileView",
+	"BakeryTenantIdentityView",
 ]

@@ -109,3 +109,44 @@ def test_non_bakery_membership_cannot_use_bakery_tenant_profile():
     response = client.get("/api/v1/bakery/tenant/profile/")
 
     assert response.status_code == 403
+
+
+def test_public_tenant_identity_returns_safe_fields_without_authentication():
+    tenant = make_tenant("padaria-identidade-publica")
+    client = APIClient()
+
+    response = client.get(
+        "/api/v1/bakery/tenant/identity/",
+        {"tenant_slug": tenant.slug},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "trade_name": tenant.trade_name,
+        "slug": tenant.slug,
+        "ecosystem": Tenant.Ecosystem.BAKERY,
+        "zip_code": "",
+        "street": "",
+        "number": "",
+        "neighborhood": "",
+        "city": "",
+        "state": "",
+        "complement": "",
+    }
+
+
+def test_public_tenant_identity_does_not_return_clinic_tenant():
+    Tenant.objects.create(
+        name="Clinica Identidade",
+        trade_name="Clinica Identidade",
+        slug="clinica-identidade-publica",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+    )
+    client = APIClient()
+
+    response = client.get(
+        "/api/v1/bakery/tenant/identity/",
+        {"tenant_slug": "clinica-identidade-publica"},
+    )
+
+    assert response.status_code == 404

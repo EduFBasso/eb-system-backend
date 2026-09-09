@@ -1,7 +1,7 @@
 from .customers import BakeryCustomerSerializer
 from .ledger import CreditLedgerEntrySerializer
 from .orders import OrderItemSerializer, OrderSerializer, ProductSerializer
-from .tenant_profile import BakeryTenantProfileSerializer
+from .tenant_profile import BakeryTenantIdentitySerializer, BakeryTenantProfileSerializer
 
 __all__ = [
 	"BakeryCustomerSerializer",
@@ -10,4 +10,5 @@ __all__ = [
 	"OrderSerializer",
 	"ProductSerializer",
 	"BakeryTenantProfileSerializer",
+	"BakeryTenantIdentitySerializer",
 ]

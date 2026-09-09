@@ -7,6 +7,7 @@ from apps.bakery.views import (
     OrderViewSet,
     ProductViewSet,
     BakeryTenantProfileView,
+    BakeryTenantIdentityView,
 )
 
 app_name = "bakery"
@@ -18,6 +19,7 @@ router.register("orders", OrderViewSet, basename="order")
 router.register("ledger-entries", CreditLedgerEntryViewSet, basename="ledger-entry")
 
 urlpatterns = [
+    path("tenant/identity/", BakeryTenantIdentityView.as_view(), name="tenant-identity"),
     path("tenant/profile/", BakeryTenantProfileView.as_view(), name="tenant-profile"),
     *router.urls,
 ]

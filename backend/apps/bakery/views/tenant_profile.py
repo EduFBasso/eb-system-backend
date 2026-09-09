@@ -1,10 +1,40 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.bakery.serializers.tenant_profile import BakeryTenantProfileSerializer
+from apps.authentication.models import Tenant
+from apps.bakery.serializers.tenant_profile import (
+    BakeryTenantIdentitySerializer,
+    BakeryTenantProfileSerializer,
+)
 from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, _get_bakery_membership
+
+
+class BakeryTenantIdentityView(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        slug = request.query_params.get("tenant_slug", "").strip()
+        if not slug:
+            return Response(
+                {"detail": "Informe o tenant_slug."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            tenant = Tenant.objects.get(
+                slug=slug,
+                ecosystem=Tenant.Ecosystem.BAKERY,
+                is_active=True,
+            )
+        except Tenant.DoesNotExist:
+            return Response(
+                {"detail": "Tenant Bakery não encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(BakeryTenantIdentitySerializer(tenant).data)
 
 
 class BakeryTenantProfileView(APIView):

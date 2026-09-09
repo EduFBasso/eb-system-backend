@@ -3,6 +3,23 @@ from rest_framework import serializers
 from apps.authentication.models import Tenant
 
 
+class BakeryTenantIdentitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tenant
+        fields = (
+            "trade_name",
+            "slug",
+            "ecosystem",
+            "zip_code",
+            "street",
+            "number",
+            "neighborhood",
+            "city",
+            "state",
+            "complement",
+        )
+
+
 class BakeryTenantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
