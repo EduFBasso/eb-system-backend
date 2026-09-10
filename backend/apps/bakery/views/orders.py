@@ -70,6 +70,9 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         customer_nickname = self.request.query_params.get("customer_nickname")
         if customer_nickname:
             queryset = queryset.filter(customer__nickname__icontains=customer_nickname)
+        customer_id = self.request.query_params.get("customer_id")
+        if customer_id:
+            queryset = queryset.filter(customer_id=customer_id)
         return queryset
 
     def perform_create(self, serializer):
