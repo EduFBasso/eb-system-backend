@@ -107,6 +107,10 @@ class BakeryCustomer(models.Model):
                 condition=~Q(cnpj=""),
                 name="uq_bakery_customer_tenant_cnpj",
             ),
+            models.UniqueConstraint(
+                fields=["tenant", "phone"],
+                name="uq_bakery_customer_tenant_phone",
+            ),
             models.CheckConstraint(
                 condition=Q(credit_limit__gte=ZERO),
                 name="ck_bakery_customer_credit_limit_nonnegative",

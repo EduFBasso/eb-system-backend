@@ -239,6 +239,12 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         phone = str(serializer.validated_data.get('phone') or '')
         nickname = str(serializer.validated_data.get('nickname') or 'Cliente').strip() or 'Cliente'
+        if BakeryCustomer.objects.filter(tenant=tenant, phone=phone).exists():
+            return Response(
+                {'detail': 'Telefone já existe no cadastro.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if TenantMembership.objects.filter(
             tenant=tenant,
             login_alias__iexact=nickname,
