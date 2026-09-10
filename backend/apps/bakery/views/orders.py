@@ -73,6 +73,8 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         customer_id = self.request.query_params.get("customer_id")
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
+        if self.request.query_params.get("open_only", "").lower() == "true":
+            queryset = queryset.filter(paid_at__isnull=True, cancelled_at__isnull=True)
         return queryset
 
     def perform_create(self, serializer):
