@@ -281,3 +281,43 @@ def test_admin_status_transition_requires_password():
         entry_type=CreditLedgerEntry.EntryType.CREDIT,
         reference_key=f"order:{order.pk}:payment-credit",
     ).count() == 1
+
+
+def test_admin_cannot_cancel_confirmed_order():
+    tenant = make_tenant()
+    _customer_user, customer = make_customer(tenant)
+    order = make_order(tenant, customer, payment_method=Order.PaymentMethod.CREDIT)
+    order.status = Order.Status.CONFIRMED
+    order.paid_at = timezone.now()
+    order.save(update_fields=("status", "paid_at", "updated_at"))
+    admin = Professional.objects.create_user(
+        email="admin-cancel-confirmed@bakery.test",
+        password="admin-pass",
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.ADMIN,
+        is_active=True,
+    )
+    client = APIClient()
+    client.force_authenticate(user=admin)
+
+    response = client.post(
+        f"/api/v1/bakery/orders/{order.pk}/cancel/",
+        {
+            "reason": "Tentativa indevida",
+            "refund_method": "CREDIT",
+            "admin_password": "admin-pass",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert response.data["detail"] == "Apenas pedidos pendentes podem ser cancelados."
+    order.refresh_from_db()
+    assert order.status == Order.Status.CONFIRMED
+    assert CreditLedgerEntry.objects.filter(
+        order=order,
+        reference_key=f"order:{order.pk}:cancel-credit",
+    ).count() == 0
