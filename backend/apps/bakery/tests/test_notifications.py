@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, Order, Product
@@ -73,6 +74,35 @@ def _create_order(tenant: Tenant, customer: BakeryCustomer):
     )
     serializer.is_valid(raise_exception=True)
     return serializer.save(tenant=tenant)
+
+
+def test_order_creation_rejects_credit_total_above_available_limit():
+    tenant, _owner = _make_tenant_with_owner(link_telegram=False)
+    customer = _make_customer(tenant)
+    customer.credit_limit = Decimal("10.00")
+    customer.save(update_fields=["credit_limit"])
+    product = Product.objects.create(tenant=tenant, name="Pao com Limite", price=Decimal("5.00"))
+    serializer = OrderSerializer(
+        data={
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "shipping_zip_code": customer.zip_code,
+            "shipping_street": customer.street,
+            "shipping_number": customer.number,
+            "shipping_neighborhood": customer.neighborhood,
+            "shipping_city": customer.city,
+            "shipping_state": customer.state,
+            "payment_method": "CREDIT",
+            "items": [{"product_id": product.pk, "quantity": 3}],
+        },
+        context={"tenant": tenant},
+    )
+
+    serializer.is_valid(raise_exception=True)
+    with pytest.raises(ValidationError, match="Order total exceeds the available credit"):
+        serializer.save(tenant=tenant)
+
+    assert not Order.objects.filter(customer=customer).exists()
 
 
 def test_order_creation_notifies_linked_owner(django_capture_on_commit_callbacks):
