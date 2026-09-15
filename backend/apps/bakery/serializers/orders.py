@@ -35,6 +35,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         queryset=Product.objects.all(),
     )
     product_name = serializers.CharField(source="product.name", read_only=True)
+    product_description = serializers.CharField(source="product.description", read_only=True)
 
     class Meta:
         model = OrderItem
@@ -44,6 +45,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "order",
             "product_id",
             "product_name",
+            "product_description",
             "quantity",
             "unit_price",
             "subtotal",

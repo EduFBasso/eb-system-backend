@@ -418,6 +418,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
         first_name='Dono',
         last_name='Bakery',
         display_name='Admin Panificadora',
+        phone='+5519987654321',
         is_staff=True,
     )
     TenantMembership.objects.create(
@@ -441,6 +442,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
 
     assert login_response.status_code == 200
     assert login_response.data['professional']['email'] == 'admin7@bakery.test'
+    assert login_response.data['professional']['phone'] == '+5519987654321'
     assert 'access' in login_response.data
 
 

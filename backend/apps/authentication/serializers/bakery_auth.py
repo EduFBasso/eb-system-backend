@@ -146,6 +146,7 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
+                "phone": str(user.phone) if user.phone else "",
             }
 
         return data
