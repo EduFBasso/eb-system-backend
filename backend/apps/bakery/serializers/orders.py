@@ -109,6 +109,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "shipping_neighborhood",
             "shipping_city",
             "shipping_state",
+            "original_address_text",
+            "delivery_address_text",
             "payment_method",
             "paid_at",
             "notes",
@@ -120,6 +122,18 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+        extra_kwargs = {
+            field: {"required": False}
+            for field in (
+                "shipping_zip_code",
+                "shipping_street",
+                "shipping_number",
+                "shipping_complement",
+                "shipping_neighborhood",
+                "shipping_city",
+                "shipping_state",
+            )
+        }
         read_only_fields = (
             "tenant",
             "status",
@@ -127,6 +141,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "total_value",
             "cancellation_reason",
             "cancelled_at",
+            "original_address_text",
             "created_at",
             "updated_at",
         )
@@ -164,6 +179,15 @@ class OrderSerializer(serializers.ModelSerializer):
             pk=requested_customer.pk,
             tenant=tenant,
         )
+        original_address_text = self._format_customer_address(customer)
+        delivery_address_text = validated_data.pop("delivery_address_text", "").strip()
+        validated_data.setdefault("shipping_zip_code", customer.zip_code)
+        validated_data.setdefault("shipping_street", customer.street)
+        validated_data.setdefault("shipping_number", customer.number)
+        validated_data.setdefault("shipping_complement", customer.complement)
+        validated_data.setdefault("shipping_neighborhood", customer.neighborhood)
+        validated_data.setdefault("shipping_city", customer.city)
+        validated_data.setdefault("shipping_state", customer.state)
 
         product_ids = [item["product_id"] for item in item_payloads]
         products = {
@@ -195,7 +219,12 @@ class OrderSerializer(serializers.ModelSerializer):
                 {"items": "Order total exceeds the available credit."}
             )
 
-        order = Order.objects.create(customer=customer, **validated_data)
+        order = Order.objects.create(
+            customer=customer,
+            original_address_text=original_address_text,
+            delivery_address_text=delivery_address_text or original_address_text,
+            **validated_data,
+        )
         for item in item_payloads:
             OrderItem.objects.create(
                 tenant=tenant,
@@ -217,6 +246,25 @@ class OrderSerializer(serializers.ModelSerializer):
             )
         transaction.on_commit(lambda: notify_owner_new_order(order))
         return order
+
+    @staticmethod
+    def _format_customer_address(customer: BakeryCustomer) -> str:
+        address = ", ".join(
+            part
+            for part in (
+                customer.street,
+                customer.number,
+                customer.complement,
+            )
+            if part
+        )
+        locality = " - ".join(
+            part
+            for part in (customer.neighborhood, customer.city, customer.state)
+            if part
+        )
+        cep = f"CEP {customer.zip_code[:5]}-{customer.zip_code[5:]}"
+        return " ".join(part for part in (address, locality, cep) if part)
 
     def update(self, instance, validated_data):
         if "items" in validated_data:

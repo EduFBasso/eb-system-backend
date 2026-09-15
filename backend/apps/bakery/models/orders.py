@@ -76,6 +76,8 @@ class Order(models.Model):
     shipping_neighborhood = models.CharField(max_length=100)
     shipping_city = models.CharField(max_length=100)
     shipping_state = models.CharField(max_length=2)
+    original_address_text = models.TextField(blank=True)
+    delivery_address_text = models.TextField(blank=True)
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
     paid_at = models.DateTimeField(blank=True, null=True)
     notes = models.TextField(blank=True)

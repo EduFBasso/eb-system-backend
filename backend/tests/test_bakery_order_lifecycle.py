@@ -131,6 +131,31 @@ def test_customer_cancel_is_idempotent_and_reverses_credit_once(
         entry_type=CreditLedgerEntry.EntryType.CREDIT,
     ).count() == 1
 
+def test_customer_can_create_order_with_free_form_delivery_address():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    product = Product.objects.create(tenant=tenant, name="Pao Livre", price=Decimal("5.00"))
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "delivery_address_text": "Entregar na casa azul, entrada pelos fundos",
+            "items": [{"product_id": product.pk, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    order = Order.objects.get(pk=response.data["id"])
+    assert order.delivery_address_text == "Entregar na casa azul, entrada pelos fundos"
+    assert order.original_address_text.startswith("Rua Teste, 10")
+    assert order.shipping_street == customer.street
+
 
 def test_customer_cancel_requires_customer_password():
     tenant = make_tenant()

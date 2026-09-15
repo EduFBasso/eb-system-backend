@@ -15,6 +15,16 @@ from apps.notifications.services.telegram_client import (
 logger = logging.getLogger(__name__)
 
 
+def _order_address(order: Order) -> str:
+    if order.delivery_address_text:
+        return order.delivery_address_text
+    return (
+        f"{order.shipping_street}, {order.shipping_number}, "
+        f"{order.shipping_neighborhood}, {order.shipping_city}/{order.shipping_state}, "
+        f"CEP {order.shipping_zip_code}"
+    )
+
+
 def build_new_order_text(order: Order) -> str:
     lines = [
         "Novo pedido recebido",
@@ -32,12 +42,7 @@ def build_new_order_text(order: Order) -> str:
     ]
     if order.delivery_date:
         lines.append(f"Entrega: {order.delivery_date.strftime('%d/%m/%Y')}")
-    lines.append(
-        "Endereço: "
-        f"{order.shipping_street}, {order.shipping_number}, "
-        f"{order.shipping_neighborhood}, {order.shipping_city}/{order.shipping_state}, "
-        f"CEP {order.shipping_zip_code}"
-    )
+    lines.append(f"Endereço: {_order_address(order)}")
     return "\n".join(lines)
 
 
@@ -83,10 +88,7 @@ def build_cancelled_order_text(order: Order, *, actor: str) -> str:
         f"Total: R$ {order.total_value}",
         f"Pagamento: {order.get_payment_method_display()}",
         f"Entrega: {order.delivery_date.strftime('%d/%m/%Y')}",
-        "Endereço: "
-        f"{order.shipping_street}, {order.shipping_number}, "
-        f"{order.shipping_neighborhood}, {order.shipping_city}/{order.shipping_state}, "
-        f"CEP {order.shipping_zip_code}",
+            f"Endereço: {_order_address(order)}",
         f"Motivo: {order.cancellation_reason}",
         f"Cancelado por: {actor}",
         f"Horário: {order.cancelled_at.strftime('%d/%m/%Y %H:%M')}",
