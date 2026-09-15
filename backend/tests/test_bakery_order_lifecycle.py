@@ -50,8 +50,14 @@ def make_customer(tenant: Tenant) -> tuple[Professional, BakeryCustomer]:
     return user, customer
 
 
-def make_order(tenant: Tenant, customer: BakeryCustomer, *, payment_method: str) -> Order:
-    product = Product.objects.create(tenant=tenant, name="Pao de Teste", price=Decimal("5.00"))
+def make_order(
+    tenant: Tenant,
+    customer: BakeryCustomer,
+    *,
+    payment_method: str,
+    product_name: str = "Pao de Teste",
+) -> Order:
+    product = Product.objects.create(tenant=tenant, name=product_name, price=Decimal("5.00"))
     order = Order.objects.create(
         tenant=tenant,
         customer=customer,
@@ -220,6 +226,39 @@ def test_order_generic_mutations_are_blocked():
     assert patch_response.status_code == 405
     assert delete_response.status_code == 405
     assert Order.objects.filter(pk=order.pk).exists()
+
+
+def test_order_date_filters_include_both_boundary_days():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    first_order = make_order(
+        tenant, customer, payment_method=Order.PaymentMethod.CASH, product_name="Pao Antigo"
+    )
+    boundary_order = make_order(
+        tenant, customer, payment_method=Order.PaymentMethod.CASH, product_name="Pao Limite Inicial"
+    )
+    last_order = make_order(
+        tenant, customer, payment_method=Order.PaymentMethod.CASH, product_name="Pao Limite Final"
+    )
+    Order.objects.filter(pk=first_order.pk).update(
+        created_at=timezone.make_aware(timezone.datetime(2026, 9, 11, 12))
+    )
+    Order.objects.filter(pk=boundary_order.pk).update(
+        created_at=timezone.make_aware(timezone.datetime(2026, 9, 12, 12))
+    )
+    Order.objects.filter(pk=last_order.pk).update(
+        created_at=timezone.make_aware(timezone.datetime(2026, 9, 13, 12))
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    response = client.get(
+        "/api/v1/bakery/orders/?date_from=2026-09-12&date_to=2026-09-13"
+    )
+
+    assert response.status_code == 200
+    returned_ids = {result["id"] for result in response.data["results"]}
+    assert returned_ids == {boundary_order.pk, last_order.pk}
 
 
 def test_customer_can_update_profile_but_not_governance_fields():

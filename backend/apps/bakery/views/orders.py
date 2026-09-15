@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -73,6 +74,18 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         customer_id = self.request.query_params.get("customer_id")
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            parsed_date_from = parse_date(date_from)
+            if parsed_date_from is None:
+                return queryset.none()
+            queryset = queryset.filter(created_at__date__gte=parsed_date_from)
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            parsed_date_to = parse_date(date_to)
+            if parsed_date_to is None:
+                return queryset.none()
+            queryset = queryset.filter(created_at__date__lte=parsed_date_to)
         if self.request.query_params.get("open_only", "").lower() == "true":
             queryset = queryset.filter(paid_at__isnull=True, cancelled_at__isnull=True)
         return queryset
