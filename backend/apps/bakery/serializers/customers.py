@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models.functions import Lower, Trim
 
 from apps.bakery.models import BakeryCustomer
 
@@ -87,6 +88,32 @@ class BakeryCustomerSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
+        nickname = attrs.get("nickname")
+        if nickname is not None:
+            nickname = nickname.strip()
+            attrs["nickname"] = nickname
+            if not nickname:
+                raise serializers.ValidationError({"nickname": "Informe um nome ou apelido para o cliente."})
+
+            if self.instance and self.instance.status != BakeryCustomer.ApprovalStatus.PENDING:
+                current_nickname = self.instance.nickname.strip()
+                if nickname.casefold() != current_nickname.casefold():
+                    raise serializers.ValidationError(
+                        {"nickname": "O cliente aprovado ou bloqueado não pode alterar o nome ou apelido."}
+                    )
+
+            tenant = getattr(self.instance, "tenant", None) or self.context.get("tenant")
+            if tenant is not None:
+                duplicate = BakeryCustomer.objects.filter(tenant=tenant).annotate(
+                    normalized_nickname=Lower(Trim("nickname")),
+                ).filter(normalized_nickname=nickname.lower())
+                if self.instance:
+                    duplicate = duplicate.exclude(pk=self.instance.pk)
+                if duplicate.exists():
+                    raise serializers.ValidationError(
+                        {"nickname": "Esse nome ou apelido já está em uso. Escolha outro identificador."}
+                    )
+
         customer_type = attrs.get(
             "customer_type",
             getattr(self.instance, "customer_type", BakeryCustomer.CustomerType.COMPANY),

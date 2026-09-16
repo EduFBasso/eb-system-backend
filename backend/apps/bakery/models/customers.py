@@ -5,6 +5,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
+from django.db.models.functions import Lower, Trim
 
 
 ZERO = Decimal("0.00")
@@ -110,6 +111,11 @@ class BakeryCustomer(models.Model):
             models.UniqueConstraint(
                 fields=["tenant", "phone"],
                 name="uq_bakery_customer_tenant_phone",
+            ),
+            models.UniqueConstraint(
+                Lower(Trim("nickname")),
+                "tenant",
+                name="uq_bakery_customer_tenant_nickname_ci",
             ),
             models.CheckConstraint(
                 condition=Q(credit_limit__gte=ZERO),

@@ -87,6 +87,7 @@ class OrderSerializer(serializers.ModelSerializer):
         queryset=BakeryCustomer.objects.all(),
     )
     customer_nickname = serializers.CharField(source="customer.nickname", read_only=True)
+    customer_phone = serializers.CharField(source="customer.phone", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     items = OrderItemInputSerializer(many=True, write_only=True, required=False)
     order_items = OrderItemSerializer(source="items", many=True, read_only=True)
@@ -99,6 +100,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "tenant",
             "customer_id",
             "customer_nickname",
+            "customer_phone",
             "status",
             "status_display",
             "delivery_date",

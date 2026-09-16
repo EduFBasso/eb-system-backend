@@ -34,6 +34,11 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     ordering = ("nickname",)
     queryset = BakeryCustomer.objects.select_related("tenant", "user")
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["tenant"] = getattr(self, "active_tenant", None) or self.get_active_tenant()
+        return context
+
     def _is_owner(self) -> bool:
         if getattr(self.request.user, "is_staff", False):
             return True
