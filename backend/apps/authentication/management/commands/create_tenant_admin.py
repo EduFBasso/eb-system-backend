@@ -5,6 +5,7 @@ from django.utils.text import slugify
 
 from apps.authentication.models.register_models import Professional
 from apps.authentication.models.tenancy_models import Tenant, TenantMembership
+from apps.bakery.validators import has_duplicate_bakery_owner_name
 
 # Mapa de especialidades clínicas para ativar módulos dinâmicos (Capabilities)
 _SPECIALTY_CAPABILITY_MAP: list[tuple[tuple[str, ...], str]] = [
@@ -40,19 +41,6 @@ def _password_uses_identity(raw_password: str, *, email: str, first_name: str, l
     return normalized_password in normalized_candidates
 
 
-def _has_duplicate_bakery_owner_name(first_name: str, last_name: str, current_professional_id: int | None) -> bool:
-    """Impede donos de Padarias com nomes idênticos no mesmo ecossistema."""
-    queryset = TenantMembership.objects.filter(
-        tenant__ecosystem=Tenant.Ecosystem.BAKERY,
-        role=TenantMembership.Role.OWNER,
-        professional__first_name__iexact=(first_name or '').strip(),
-        professional__last_name__iexact=(last_name or '').strip(),
-    )
-    if current_professional_id is not None:
-        queryset = queryset.exclude(professional_id=current_professional_id)
-    return queryset.exists()
-
-
 def _is_password_reused(raw_password: str, current_user: Professional | None = None) -> bool:
     """[Segurança] Impede que profissionais compartilhem exatamente a mesma senha."""
     queryset = Professional.objects.all()
@@ -62,6 +50,18 @@ def _is_password_reused(raw_password: str, current_user: Professional | None = N
         if professional.has_usable_password() and professional.check_password(raw_password):
             return True
     return False
+
+
+def _has_duplicate_bakery_owner_name(
+    first_name: str,
+    last_name: str,
+    current_professional_id: int | None,
+) -> bool:
+    return has_duplicate_bakery_owner_name(
+        first_name,
+        last_name,
+        exclude_professional_id=current_professional_id,
+    )
 
 
 class Command(BaseCommand):

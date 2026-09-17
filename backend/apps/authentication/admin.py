@@ -4,6 +4,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import AdminPasswordChangeForm, UserCreationForm
 from django.utils.html import format_html
 from .models import Professional, DeviceSession, ProfessionalSettings, Tenant, TenantMembership
+from apps.bakery.validators import has_duplicate_bakery_owner_name as _has_duplicate_bakery_owner_name
 
 
 def _normalize_secret_token(value: str) -> str:
@@ -30,18 +31,6 @@ def _password_uses_identity(raw_password: str, professional: Professional, login
     ]
     normalized_candidates = {_normalize_secret_token(item) for item in candidates if item}
     return normalized_password in normalized_candidates
-
-
-def _has_duplicate_bakery_owner_name(first_name: str, last_name: str, exclude_professional_id: int | None = None) -> bool:
-    queryset = TenantMembership.objects.filter(
-        tenant__ecosystem=Tenant.Ecosystem.BAKERY,
-        role=TenantMembership.Role.OWNER,
-        professional__first_name__iexact=(first_name or '').strip(),
-        professional__last_name__iexact=(last_name or '').strip(),
-    )
-    if exclude_professional_id is not None:
-        queryset = queryset.exclude(professional_id=exclude_professional_id)
-    return queryset.exists()
 
 
 def _is_password_reused(raw_password: str, current_user: Professional | None = None) -> bool:
