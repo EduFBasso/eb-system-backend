@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Tenant, TenantMembership
+from core.middleware import OnlineMutationLockMiddleware
 
 @pytest.mark.django_db
 def test_version_header_present():
@@ -43,3 +44,8 @@ def test_online_mutation_lock_blocks_patch_but_not_get(django_user_model):
 
     assert get_response.status_code == 200
     assert patch_response.status_code == 423
+
+
+def test_online_mutation_lock_covers_bakery_api_without_covering_login():
+    assert OnlineMutationLockMiddleware._is_api_path('/api/v1/bakery/orders/1/')
+    assert not OnlineMutationLockMiddleware._is_api_path('/api/v1/auth/bakery/login/')
