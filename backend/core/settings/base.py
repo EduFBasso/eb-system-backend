@@ -23,6 +23,9 @@ ONLINE_MUTATION_LOCK_METHODS: list[str] = [
     s.upper() for s in _csv("ONLINE_MUTATION_LOCK_METHODS", "PUT,PATCH,DELETE")
 ]
 SERVE_MEDIA_FILES: bool = config("SERVE_MEDIA_FILES", default=True, cast=bool)
+SLOW_REQUEST_THRESHOLD_MS: int = config(
+    "SLOW_REQUEST_THRESHOLD_MS", default=500, cast=int
+)
 
 # === Apps Instalados ===
 
