@@ -11,7 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.authentication.models import ProfessionalSettings
-from apps.authentication.serializers.serializers import ProfessionalSettingsSerializer
+from apps.authentication.serializers.clinic.settings import ProfessionalSettingsSerializer
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import TelegramBotClient, TelegramDeliveryError
 from utils.permissions import get_active_tenant
