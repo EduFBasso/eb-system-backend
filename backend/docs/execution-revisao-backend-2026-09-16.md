@@ -47,7 +47,7 @@ O frontend Bakery ja usa `nickname` para login, busca administrativa, filtros de
 
 ### Etapa 1 — Contrato de autenticacao e tenancy
 
-Status: `[!]`
+Status: `[>]`
 
 Objetivo: comparar o comportamento efetivo de Clinic e Bakery antes de modularizar `apps/authentication`.
 
@@ -76,7 +76,7 @@ Validacao automatizada de 2026-09-17:
 - `frontend-clinic`: 119 testes passaram e 4 foram ignorados;
 - `frontend-bakery`: testes passaram; houve apenas aviso de ambiente de teste sobre `window.alert()` nao implementado.
 
-Conclusao parcial: os contratos codificados estao consistentes nos fluxos exercitados. Ainda falta o checkpoint visual com um professional Clinic de Podologia, um de Odontologia e um administrador Bakery, alem da decisao sobre selecao de tenant Clinic quando houver mais de uma membership ativa.
+Conclusao parcial: os contratos codificados estao consistentes nos fluxos exercitados. As diretrizes de slug, hostname desconhecido, tenant por especialidade e rejeicao de login ambiguo ja foram decididas e implementadas. Permanece o checkpoint visual com um professional Clinic de Podologia, um de Odontologia e um administrador Bakery.
 
 ### Etapa 2 — Modulos de core/settings
 
@@ -135,7 +135,7 @@ Decisoes: manter `/health/full` com HTTP 200 em estado degradado para permitir q
 
 ### Etapa 4 — Modularizacao de authentication
 
-Status: `[>]`
+Status: `[x]`
 
 Objetivo: separar nucleo global, Clinic e Bakery com mudancas incrementais.
 
@@ -252,6 +252,16 @@ Validacao:
 
 Decisao: manter permissões de tenancy, capability e autenticação de dispositivo no núcleo compartilhado. A separação por ecossistema deve ocorrer apenas em regras que realmente dependam de Clinic ou Bakery.
 
+Resultado da etapa: a modularizacao planejada foi concluida em seis fatias pequenas, sem alterar models, migrations, `AUTH_USER_MODEL`, rotas publicas ou contratos de payload. Permanecem conscientemente adiados a remocao dos wrappers legados e qualquer separacao de dados compartilhados.
+
+Commits da etapa:
+
+- `c30de20` — `refactor: modularize authentication by ecosystem`;
+- `2c521a6` — `refactor: move clinic management commands`;
+- `889dc51` — `refactor: centralize bakery owner validation`;
+- `fd996ac` — `refactor: isolate clinic professional settings serializer`;
+- `7bbf5eb` — `refactor: expose shared tenant permission services`.
+
 ### Etapa 5 — Revisao dirigida de apps/clinic
 
 Status: `[ ]`
@@ -353,7 +363,47 @@ Validacao: 13 testes focados passaram; `manage.py check`, verificacao do router 
 
 Proximo passo: separar os comandos de gerenciamento que importam diretamente modelos Clinic, sem alterar nomes de comandos durante a transicao.
 
-### Etapa 1
+### Etapa 4 — Terceira fatia
+
+Data: 2026-09-17
+
+Resultado: os comandos Clinic `export_clients_csv`, `import_clients_csv`, `seed_local` e `seed_demo_professional` passaram a ter implementacoes canonicas em `apps/clinic`, mantendo wrappers nos caminhos antigos.
+
+Validacao: `manage.py check`, descoberta dos quatro comandos, compatibilidade de imports, argumentos CLI e 15 testes focados passaram.
+
+Proximo passo: centralizar a validacao especifica de owners Bakery.
+
+### Etapa 4 — Quarta fatia
+
+Data: 2026-09-17
+
+Resultado: a validacao de nomes duplicados de owners Bakery foi centralizada em `apps/bakery/validators.py`; admin e comando de criacao passaram a consumir a mesma regra.
+
+Validacao: 7 testes Bakery, `manage.py check`, imports e `git diff --check` passaram.
+
+Proximo passo: isolar o serializer de settings especifico do Clinic.
+
+### Etapa 4 — Quinta fatia
+
+Data: 2026-09-17
+
+Resultado: `ProfessionalSettingsSerializer` passou para `apps/authentication/serializers/clinic/settings.py`; o model, migrations e `AUTH_USER_MODEL` permaneceram compartilhados.
+
+Validacao: 12 testes de settings Clinic e autenticacao, `manage.py check`, exports novos/legados e `git diff --check` passaram.
+
+Proximo passo: confirmar a API publica dos servicos compartilhados de tenancy.
+
+### Etapa 4 — Sexta fatia
+
+Data: 2026-09-17
+
+Resultado: os servicos compartilhados de membership e capability foram exportados por `apps/authentication/services/__init__.py`, com testes diretos para ecossistema, membership inativa, capability e superusuario.
+
+Validacao: 11 testes de permissoes e autenticacao, `manage.py check`, import sem ciclo e `git diff --check` passaram.
+
+Decisao: manter esses servicos no nucleo compartilhado; nao duplicar permissoes em namespaces Clinic ou Bakery.
+
+### Etapa 1 — Atualizacao apos implementacao
 
 Data: 2026-09-17
 
@@ -364,9 +414,9 @@ Checks executados:
 - `npm test -- --run` em `frontend-clinic`;
 - `npm test -- --run` em `frontend-bakery`.
 
-Resultado: checks automatizados aprovados; a etapa permanece em `[!]` aguardando validacao visual e decisao sobre multiplas memberships Clinic.
+Resultado: checks automatizados aprovados; a etapa permanece em `[>]` aguardando somente a validacao visual dos fluxos Clinic e Bakery.
 
-Decisao atual: manter a selecao Bakery por `tenant_slug` derivado do dominio/configuracao. Manter temporariamente a selecao Clinic pela primeira membership ativa, sem declarar esse comportamento como contrato definitivo para multiplos tenants.
+Decisao atual: manter a selecao Bakery por `tenant_slug` derivado do dominio/configuracao e rejeitar login Clinic ambiguo quando houver multiplas memberships. O backend nao deve escolher silenciosamente a primeira membership nesse caso.
 
 Decisoes confirmadas para a arquitetura Clinic online:
 
@@ -378,20 +428,23 @@ Decisoes confirmadas para a arquitetura Clinic online:
 - nao criar `frontend-odonto` e `frontend-podology` nesta fase, evitando duplicacao de autenticacao, componentes, testes e deploys.
 - o Navbar temporario deve listar somente profissionais com membership ativa no tenant indicado pelo slug; `ecosystem=clinic` sozinho nao e isolamento suficiente.
 
-Decisoes ainda necessarias para concluir a Fase 1:
+Diretrizes ja decididas e implementadas:
 
-1. **Fonte do slug Clinic:** adotar hostname/subdominio como fonte principal, com variavel de ambiente apenas para desenvolvimento, preview ou fallback controlado.
-2. **Contrato do login Clinic:** decidir se `tenant_slug` sera obrigatorio no endpoint `/token/` quando a requisicao vier do frontend online. A alternativa recomendada e envia-lo sempre no frontend e valida-lo no backend; manter um fallback legado somente durante a transicao.
-3. **Profissional com multiplas memberships:** decidir entre rejeitar login ambiguo, exibir seletor de tenant ou usar um tenant padrao previamente configurado. A recomendacao e evitar escolher silenciosamente a primeira membership.
-4. **Persistencia do contexto:** definir `tenant_id`, `tenant.slug`, `ecosystem`, `role` e `capabilities` como contexto da sessao atual, limpando-o junto com o logout e trocando-o ao trocar de tenant.
-5. **Dominios e DNS:** definir o dominio raiz oficial, os subdominios permitidos e o comportamento de hostname desconhecido. O frontend nao deve cair silenciosamente em um tenant de producao quando o dominio nao for reconhecido.
-6. **Capacidades invalidas:** decidir se um tenant Clinic pode ter Odonto e Podologia simultaneamente. O frontend atual trata essa combinacao como especialidade ambigua; a recomendacao e validar a regra no cadastro/admin.
-7. **Sessao de dispositivo:** decidir se Bakery deve adotar a mesma criacao/limite de `DeviceSession` do Clinic ou se a diferenca e intencional e documentada. Nao bloqueia subdominios, mas bloqueia uma matriz de seguranca uniforme.
-8. **Configuracoes por tenant:** decidir se agenda, `ProfessionalSettings` e Telegram sao globais por profissional ou especificos por tenant. Nao precisa ser resolvido para criar os subdominios, mas precisa ser resolvido antes de permitir o mesmo profissional em duas clinicas.
+- hostname/subdominio e a fonte principal do slug Clinic; `VITE_CLINIC_TENANT_SLUG` fica restrito a localhost/preview controlado;
+- o frontend envia `tenant_slug` ao `/token/` e o backend valida tenant ativo e membership;
+- login ambiguo e rejeitado; seletor de tenant fica para uma etapa posterior;
+- hostname desconhecido e bloqueado, sem fallback para tenant de producao;
+- cada tenant Clinic possui uma unica especialidade; capabilities conflitantes sao rejeitadas;
+- `tenant_id`, slug, ecosystem, role e capabilities formam o contexto da sessao atual.
+
+Pendencias remanescentes da Fase 1:
+
+1. **Sessao de dispositivo:** decidir se Bakery deve adotar a mesma criacao/limite de `DeviceSession` do Clinic ou se a diferenca e intencional e documentada.
+2. **Configuracoes por tenant:** decidir se agenda, `ProfessionalSettings` e Telegram sao globais por profissional ou especificos por tenant antes de permitir o mesmo profissional em duas clinicas.
 
 Itens que podem ficar para a fase seguinte, sem bloquear a arquitetura online: mover pacotes de autenticacao, migrar campos comerciais de `Professional` para `Tenant`, remover aliases de rotas e limpar comandos legados.
 
-Proximo passo: obter as decisoes dos itens 1 a 6, executar o checkpoint visual com dois tenants Clinic e depois transformar o contrato aprovado em testes antes de alterar o login.
+Proximo passo: executar o checkpoint visual com dois tenants Clinic e um administrador Bakery; depois registrar o resultado e fechar a etapa ou abrir somente os ajustes encontrados.
 
 Implementacao inicial do contrato Clinic:
 
@@ -420,14 +473,14 @@ Validacao apos a implementacao:
 ## Decisoes humanas pendentes
 
 - [x] Definir que cliente Bakery aprovado nao pode alterar `nickname`; o teste foi alinhado a regra atual.
-- [ ] Definir como o login Clinic seleciona tenant com multiplas memberships.
+- [x] Definir como o login Clinic seleciona tenant com multiplas memberships: login ambiguo e rejeitado; seletor fica para etapa posterior.
 - [ ] Definir se `ProfessionalSettings` e Telegram sao globais ou tenant-specific.
 - [ ] Definir se Bakery tambem deve criar e limitar `DeviceSession` como Clinic.
 - [ ] Aprovar eventual correcao dos dois textos inconsistentes em `docs/reset_database_loc.md`.
 
-## Resultado final
+## Estado atual
 
-A preencher quando as etapas forem concluidas, incluindo arquivos alterados, testes executados, decisoes tomadas e itens conscientemente adiados.
+Etapas 0, 2, 3 e 4 concluidas. A Etapa 1 esta em andamento apenas pelo checkpoint visual; a Etapa 5 permanece por iniciar. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
 
 ## Procedimento de checkpoint visual antes do deploy
 
