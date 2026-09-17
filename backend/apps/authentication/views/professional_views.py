@@ -440,19 +440,28 @@ class ProfessionalBasicViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        # Cada frontend passa ?ecosystem=<valor>; padrão clinic para retrocompatibilidade.
-        # A filtragem estrita por membership garante isolamento entre sistemas.
+        # O Navbar usa esta listagem antes do login. O slug delimita o tenant
+        # antes de qualquer profissional ser apresentado para autenticação.
         ecosystem = self.request.query_params.get('ecosystem', 'clinic')
         if ecosystem not in {'clinic', 'bakery'}:
             ecosystem = 'clinic'
+        tenant_slug = (self.request.query_params.get('tenant_slug') or '').strip()
+
+        if ecosystem == 'clinic' and not tenant_slug:
+            return Professional.objects.none()
+
+        filters = {
+            'is_superuser': False,
+            'is_active': True,
+            'tenant_memberships__is_active': True,
+            'tenant_memberships__tenant__is_active': True,
+            'tenant_memberships__tenant__ecosystem': ecosystem,
+        }
+        if tenant_slug:
+            filters['tenant_memberships__tenant__slug'] = tenant_slug
+
         return (
-            Professional.objects.filter(
-                is_superuser=False,
-                is_active=True,
-                tenant_memberships__is_active=True,
-                tenant_memberships__tenant__is_active=True,
-                tenant_memberships__tenant__ecosystem=ecosystem,
-            )
+            Professional.objects.filter(**filters)
             .exclude(email__iendswith='@local.invalid')
             .distinct()
             .order_by('first_name', 'last_name', 'id')

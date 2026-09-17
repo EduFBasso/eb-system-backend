@@ -74,3 +74,147 @@ def test_totp_route_is_unavailable():
     response = APIClient().post("/register/auth/totp/verify/", format="json")
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_clinic_login_selects_tenant_by_slug():
+    professional = Professional.objects.create_user(
+        email="multi-tenant@example.com",
+        password="senha-segura-123",
+    )
+    first_tenant = Tenant.objects.create(
+        name="Consultorio Podologia",
+        slug="consultorio-podologia",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "podologia": True},
+    )
+    second_tenant = Tenant.objects.create(
+        name="Consultorio Odonto",
+        slug="consultorio-odonto",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "odonto": True},
+    )
+    TenantMembership.objects.create(tenant=first_tenant, professional=professional)
+    TenantMembership.objects.create(tenant=second_tenant, professional=professional)
+
+    response = APIClient().post(
+        "/token/",
+        {
+            "email": professional.email,
+            "password": "senha-segura-123",
+            "tenant_slug": second_tenant.slug,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200, response.content
+    assert response.data["tenant_slug"] == second_tenant.slug
+    assert response.data["capabilities"] == {"clinic": True, "odonto": True}
+
+
+@pytest.mark.django_db
+def test_clinic_login_without_slug_rejects_ambiguous_memberships():
+    professional = Professional.objects.create_user(
+        email="ambiguous@example.com",
+        password="senha-segura-123",
+    )
+    for slug in ("clinic-a", "clinic-b"):
+        tenant = Tenant.objects.create(
+            name=slug,
+            slug=slug,
+            ecosystem=Tenant.Ecosystem.CLINIC,
+            capabilities={"clinic": True, "podologia": True},
+        )
+        TenantMembership.objects.create(tenant=tenant, professional=professional)
+
+    response = APIClient().post(
+        "/token/",
+        {"email": professional.email, "password": "senha-segura-123"},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "tenant_slug" in str(response.data)
+
+
+@pytest.mark.django_db
+def test_clinic_login_rejects_unknown_slug_and_conflicting_capabilities():
+    professional = Professional.objects.create_user(
+        email="invalid-context@example.com",
+        password="senha-segura-123",
+    )
+    tenant = Tenant.objects.create(
+        name="Consultorio Misto",
+        slug="consultorio-misto",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "odonto": True, "podologia": True},
+    )
+    TenantMembership.objects.create(tenant=tenant, professional=professional)
+    client = APIClient()
+
+    unknown_response = client.post(
+        "/token/",
+        {
+            "email": professional.email,
+            "password": "senha-segura-123",
+            "tenant_slug": "clinica-inexistente",
+        },
+        format="json",
+    )
+    conflicting_response = client.post(
+        "/token/",
+        {
+            "email": professional.email,
+            "password": "senha-segura-123",
+            "tenant_slug": tenant.slug,
+        },
+        format="json",
+    )
+
+    assert unknown_response.status_code == 400
+    assert conflicting_response.status_code == 400
+    assert "especialidades conflitantes" in str(conflicting_response.data)
+
+
+@pytest.mark.django_db
+def test_professionals_basic_is_scoped_to_tenant_slug():
+    first_professional = Professional.objects.create_user(
+        email="first-clinic@example.com",
+        password="senha-segura-123",
+        first_name="First",
+    )
+    second_professional = Professional.objects.create_user(
+        email="second-clinic@example.com",
+        password="senha-segura-123",
+        first_name="Second",
+    )
+    first_tenant = Tenant.objects.create(
+        name="Primeira Clinica",
+        slug="primeira-clinica",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "podologia": True},
+    )
+    second_tenant = Tenant.objects.create(
+        name="Segunda Clinica",
+        slug="segunda-clinica",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "odonto": True},
+    )
+    TenantMembership.objects.create(tenant=first_tenant, professional=first_professional)
+    TenantMembership.objects.create(tenant=second_tenant, professional=second_professional)
+
+    response = APIClient().get(
+        "/register/professionals-basic/",
+        {"ecosystem": "clinic", "tenant_slug": first_tenant.slug},
+    )
+
+    assert response.status_code == 200
+    assert [item["email"] for item in response.data] == [first_professional.email]
+
+    legacy_response = APIClient().get(
+        "/register/professionals-basic/",
+        {"ecosystem": "clinic"},
+    )
+
+    assert legacy_response.status_code == 200
+    assert legacy_response.data == []

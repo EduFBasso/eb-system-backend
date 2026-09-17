@@ -9,13 +9,44 @@ from apps.authentication.models import TenantMembership, DeviceSession
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Login do Clinic com contexto explícito de tenant.
+
+    Cada tenant Clinic deve representar uma única especialidade. O slug
+    identifica a empresa na URL; as capabilities identificam a especialidade.
+    """
+
     username_field = 'email'
     device_id = serializers.CharField(required=False, allow_blank=True, max_length=64)
+    tenant_slug = serializers.SlugField(required=False, allow_blank=True, max_length=140)
+
+    @staticmethod
+    def _has_conflicting_clinic_capabilities(capabilities):
+        capabilities = capabilities or {}
+        modules = capabilities.get('modules') if isinstance(capabilities, dict) else None
+        odonto = capabilities.get('odonto') is True or (
+            isinstance(modules, dict) and modules.get('odonto') is True
+        )
+        podologia = capabilities.get('podologia') is True or (
+            isinstance(modules, dict) and modules.get('podologia') is True
+        )
+        return odonto and podologia
+
+    def get_token(self, user):
+        token = super().get_token(user)
+        tenant = getattr(self, '_login_tenant', None)
+        membership = getattr(self, '_login_membership', None)
+        if tenant is not None and membership is not None:
+            token['tenant_id'] = tenant.id
+            token['tenant_slug'] = tenant.slug
+            token['ecosystem'] = 'clinic'
+            token['role'] = membership.role
+        return token
 
     def validate(self, attrs):
         email = attrs.get("email")
         password = attrs.get("password")
         device_id = (attrs.get("device_id") or "").strip()[:64]
+        tenant_slug = (attrs.get("tenant_slug") or "").strip()
 
         user = authenticate(username=email, password=password)
 
@@ -25,8 +56,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not user.is_active:
             raise serializers.ValidationError(_("Essa conta está desativada."))
 
-        # Exige membership ativa em tenant Clinic
-        membership = (
+        # O slug seleciona explicitamente o tenant quando fornecido. Sem slug,
+        # o fallback legado só é permitido quando não há ambiguidade.
+        memberships = (
             TenantMembership.objects
             .select_related("tenant")
             .filter(
@@ -35,10 +67,27 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 tenant__is_active=True,
                 tenant__ecosystem="clinic",
             )
-            .first()
         )
-        if membership is None:
+        if tenant_slug:
+            memberships = memberships.filter(tenant__slug=tenant_slug)
+
+        membership_count = memberships.count()
+        if membership_count == 0:
             raise serializers.ValidationError(_("Usuário não possui acesso ao sistema Clinic."))
+        if not tenant_slug and membership_count > 1:
+            raise serializers.ValidationError(
+                _("tenant_slug é obrigatório quando o profissional possui mais de uma clínica ativa.")
+            )
+
+        membership = memberships.first()
+        tenant = membership.tenant
+        if self._has_conflicting_clinic_capabilities(tenant.capabilities):
+            raise serializers.ValidationError(
+                _("O tenant Clinic possui especialidades conflitantes.")
+            )
+
+        self._login_tenant = tenant
+        self._login_membership = membership
 
         data = super().validate(attrs)
 
@@ -101,6 +150,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'capabilities': membership.tenant.capabilities,
         }
         data['tenant_id'] = membership.tenant.id
+        data['tenant_slug'] = membership.tenant.slug
         data['ecosystem'] = 'clinic'
         data['role'] = membership.role
         data['capabilities'] = membership.tenant.capabilities
