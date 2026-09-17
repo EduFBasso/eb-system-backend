@@ -63,6 +63,6 @@ Validação:
 
 ## Documentação operacional
 
-- Índice de docs: `docs/README.md`
-- Runbook Regiane (padrão para onboarding): `docs/runbook-regiane-professional-setup.md`
+- Reset e bootstrap local (padrão de cadastro de administradores): `docs/reset_database_loc.md`
 - Guia de campos dinâmicos de anamnese: `docs/anamnesis-field-maintenance-guide.md`
+- Tenants por domínio/subdomínio (LAN e Vercel): `docs/local-lan-vercel-tenant-domains-guide.md`

@@ -1,4 +1,4 @@
-# backend\apps\register\views_professionals.py
+# backend/apps/authentication/views/professional_views.py
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission, IsAdminUser
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.authentication.models import Professional, ProfessionalSettings

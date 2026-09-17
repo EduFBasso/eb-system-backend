@@ -1,9 +1,9 @@
 """
-Production settings for Render.
+Configurações de produção para o Render.
 
-Use with DJANGO_SETTINGS_MODULE=core.settings.production.
-This module keeps the shared settings package intact and only tightens the
-pieces that must be explicit in production.
+Utilize com `DJANGO_SETTINGS_MODULE=core.settings.production`.
+Este módulo mantém intacto o pacote de configurações compartilhadas e ajusta apenas
+os elementos que precisam ser explícitos em produção.
 """
 from urllib.parse import parse_qs, unquote, urlparse
 

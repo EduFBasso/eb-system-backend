@@ -1,4 +1,4 @@
-# backend\apps\register\serializers_auth.py
+# backend/apps/authentication/serializers/serializers_auth.py
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate

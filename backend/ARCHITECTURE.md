@@ -73,7 +73,7 @@ backend/
 │   │
 │   └── bakery/                        # [ECOSSISTEMA 2] Gestão de Panificação, Vendas B2B e Crédito
 │       ├── models/
-│       │   ├── customer.py            # Clientes/Compradores B2B, status (PENDING/APPROVED/BLOCKED)
+│       │   ├── customers.py           # Clientes/Compradores B2B, status (PENDING/APPROVED/BLOCKED)
 │       │   ├── product.py             # Produtos embalados (hot-dog, hambúrguer, pães)
 │       │   ├── order.py               # Pedidos de compra e itens do pedido
 │       │   ├── ledger.py              # CreditLedgerEntry: extrato financeiro e limite rotativo
@@ -93,7 +93,9 @@ backend/
 │
 ├── docs/                              # Documentação Técnica e Operacional
 │   ├── reset_database_loc.md          # Passo a passo de reset e bootstrap local do banco
-│   └── anamnesis-field-maintenance-guide.md # Guia de campos e formulários de anamnese
+│   ├── anamnesis-field-maintenance-guide.md # Guia de campos e formulários de anamnese
+│   ├── local-lan-vercel-tenant-domains-guide.md # Tenants por domínio/subdomínio (LAN e Vercel)
+│   └── plano-migracao-identidade-profissional-para-tenant.md # Plano ativo de migração de dados comerciais Professional -> Tenant
 │
 └── tests/                             # Suíte de Testes Automatizados de Integração
     ├── test_appointment_state_rules.py # Validações de máquina de estados de agendamentos
@@ -130,7 +132,7 @@ Encapsula toda a lógica de atendimento clínico.
 
 ### 3.4 `apps/bakery/` — Domínio de Panificação e Distribuição B2B
 Transforma fluxos de venda e distribuição comercial em processos digitais rápidos:
-- **Clientes B2B (`customer.py`)**: Mercados e padarias atendidos, operando com limite de compra a prazo.
+- **Clientes B2B (`customers.py`)**: Mercados e padarias atendidos, operando com limite de compra a prazo.
 - **Controle de Limite Rotativo (`ledger.py`)**: Extrato de débitos (novos pedidos) e créditos (pagamentos efetuados), calculando saldo em tempo real.
 - **Gestão de Pedidos (`order.py`, `product.py`)**: Entrada ágil de pedidos de pães e produtos embalados, com validação automática de crédito disponível.
 - **Pagamentos Cíclicos**: O status de pagamento e a recomposição do limite de crédito pertencem exclusivamente ao `CreditLedgerEntry` da Bakery; não são compartilhados com o Clinic.

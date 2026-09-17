@@ -261,7 +261,7 @@ def test_order_date_filters_include_both_boundary_days():
     assert returned_ids == {boundary_order.pk, last_order.pk}
 
 
-def test_customer_can_update_profile_but_not_governance_fields():
+def test_customer_can_update_profile_but_not_identity_or_governance_fields():
     tenant = make_tenant()
     user, customer = make_customer(tenant)
     other_user = Professional.objects.create_user(
@@ -283,10 +283,11 @@ def test_customer_can_update_profile_but_not_governance_fields():
         format="json",
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "nickname" in response.data
     customer.refresh_from_db()
-    assert customer.nickname == "Novo Apelido"
-    assert customer.phone == "11988887777"
+    assert customer.nickname == "Cliente Ciclo"
+    assert customer.phone == "11999999999"
     assert customer.status == BakeryCustomer.ApprovalStatus.APPROVED
     assert customer.credit_limit == Decimal("100.00")
     assert customer.user == user

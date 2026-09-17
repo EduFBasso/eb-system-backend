@@ -14,7 +14,7 @@ config = AutoConfig(search_path=str(BASE_DIR))
 def _load_local_env() -> dict[str, str]:
     """Load key=value pairs from backend/.env explicitly.
 
-    This keeps local DB settings deterministic during Gate Zero refactor runs.
+    Isso mantém as configurações do banco de dados local determinísticas durante as execuções de refatoração do Gate Zero.
     """
     env_path = BASE_DIR / '.env'
     if not env_path.exists():
