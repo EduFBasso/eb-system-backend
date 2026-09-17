@@ -1,6 +1,6 @@
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from apps.authentication.serializers.bakery_auth import BakeryTokenObtainPairSerializer
+from apps.authentication.serializers.bakery.auth import BakeryTokenObtainPairSerializer
 
 
 class BakeryTokenObtainPairView(TokenObtainPairView):
