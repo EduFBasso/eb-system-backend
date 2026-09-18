@@ -487,6 +487,18 @@ Validacao adicional: 28 testes Bakery passaram; `manage.py check` e `git diff --
 
 Proximo foco: avaliar aliases de rotas/imports historicos e mapear consumidores antes de qualquer remocao.
 
+Segunda fatia executada em 2026-09-18:
+
+- confirmado uso real de `/register/clients-basic/` pelo hook `frontend-clinic/src/hooks/useClients.ts`;
+- confirmado uso de `/register/clients/` pelos testes e pelo fluxo Clinic existente;
+- `apps/clinic/urls.py` ainda nao oferece rotas equivalentes para substituir esses caminhos;
+- aliases de rotas e imports historicos foram preservados por compatibilidade, sem remocao baseada apenas em aparencia estrutural;
+- nenhuma alteracao de producao foi necessaria nesta fatia.
+
+Validacao: o mapeamento de consumidores foi confirmado por busca no frontend, backend e testes; a decisao preserva os contratos publicos atuais.
+
+Proximo foco: auditar variaveis de deploy legadas e candidatos de configuracao, distinguindo referencias ativas de metadados historicos antes de qualquer limpeza.
+
 Nenhum candidato deve ser removido antes de confirmar consumidores, deploy, dados existentes e rollback.
 
 ## Registro de etapas
