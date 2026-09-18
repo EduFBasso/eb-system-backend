@@ -342,6 +342,15 @@ Revisao de alto risco — pos-revisao atual:
 - no mesmo momento final, sera executado o fluxo manual completo do Bakery, cobrindo cadastro de clientes, produtos, servicos, pedidos, agenda, filtros e demais operacoes efetivamente disponiveis;
 - essas validacoes manuais ficarao para o fim porque dependem da auditoria tecnica e devem confirmar o comportamento real integrado, sem antecipar conclusoes enquanto ainda houver alteracoes estruturais em andamento.
 
+Premissas confirmadas para a execucao final:
+
+- o banco deste deploy sera recriado e populado com dados novos, portanto a validacao nao dependera do historico antigo de migrations;
+- o historico de migrations foi apagado em ciclos anteriores durante a migracao destrutiva de mono-tenant para multi-tenant, incluindo a entrada do ecossistema Bakery com regras proprias;
+- a branch de trabalho permanece isolada e a revisao nao sera executada diretamente na `main`;
+- existe backup local dos dados da Podologia para contingencia; antes de importar qualquer dado, sera priorizada a verificacao de uma fonte online mais recente, se houver;
+- a revisao de alto risco sera tratada como gate final antes da proxima entrega do backend e, somente se houver impacto comprovado, dos frontends;
+- cada ciclo seguira a ordem: reproduzir, alterar uma fatia, commitar, testar automaticamente, validar manualmente os tenants envolvidos, corrigir se necessario, testar novamente e commitar a correcao.
+
 Contexto da decisao: a evolucao do sistema gerou conhecimento pratico sobre como identificar e limpar codigo em etapas com apoio de IA. Esse aprendizado deve ser usado como criterio de produto e usabilidade, nao apenas como criterio de completude tecnica. Sistemas grandes tambem podem acumular funcoes que parecem completas no desenho, mas nao fazem parte do trabalho cotidiano do usuario; a revisao futura deve tornar essa diferenca explicita.
 
 Quarta fatia executada em 2026-09-17:
