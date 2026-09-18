@@ -169,6 +169,12 @@ class TreatmentPlanItem(models.Model):
         null=True,
         blank=True,
     )
+    quantity = models.DecimalField(
+        'Quantidade',
+        max_digits=10,
+        decimal_places=2,
+        default=1,
+    )
     started_at = models.DateField('Data Inicial', null=True, blank=True)
     completed_at = models.DateField('Data de Conclusão', null=True, blank=True)
     notes = models.TextField('Notas Clínicas', blank=True, default='')

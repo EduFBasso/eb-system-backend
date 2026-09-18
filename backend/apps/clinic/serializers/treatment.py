@@ -1,4 +1,4 @@
-from django.db.models import Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from rest_framework import serializers
 
 from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
@@ -29,6 +29,7 @@ class TreatmentPlanItemSerializer(serializers.ModelSerializer):
             'custom_name',
             'status',
             'patient_price',
+            'quantity',
             'started_at',
             'completed_at',
             'notes',
@@ -127,7 +128,11 @@ class TreatmentPlanListSerializer(serializers.ModelSerializer):
         return obj.items.filter(status=TreatmentPlanItem.Status.COMPLETED).count()  # type: ignore[attr-defined]
 
     def get_plan_total(self, obj: TreatmentPlan):
-        result = obj.items.filter(is_active=True).aggregate(total=Sum('patient_price'))  # type: ignore[attr-defined]
+        item_total = ExpressionWrapper(
+            F('patient_price') * F('quantity'),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        )
+        result = obj.items.filter(is_active=True).aggregate(total=Sum(item_total))  # type: ignore[attr-defined]
         return f"{result['total'] or 0:.2f}"
 
 

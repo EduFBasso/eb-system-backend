@@ -99,12 +99,15 @@ Executar nos tenants Odontologia e Podologia, adaptando os campos especificos da
 2. Recarregar a lista e confirmar nome, preco, status e persistencia.
 3. Abrir a criacao de um plano de tratamento para o cliente de teste.
 4. Adicionar ao plano um produto existente no catalogo.
-5. Salvar o plano e reabrir; confirmar item, quantidade, preco e total.
-6. Dentro do plano, adicionar um produto novo que ainda nao existe no catalogo geral.
-7. Salvar e voltar ao catalogo.
-8. Confirmar se o produto novo foi criado no catalogo geral conforme a regra atual.
-9. Confirmar que os produtos dos dois tenants permanecem isolados.
-10. Repetir com alteracao de preco/status e verificar se o plano preserva o valor historico esperado.
+5. Ao adicionar produto pelo plano, preencher nome, valor, quantidade e observacoes.
+6. Selecionar um produto existente no autocomplete; confirmar preenchimento de nome, valor e observacoes do catalogo.
+7. Salvar o plano e reabrir; confirmar item, quantidade, observacoes, preco unitario e total calculado.
+8. Editar o produto; confirmar que quantidade, valor e observacoes sao carregados e persistidos.
+9. Dentro do plano, adicionar um produto novo que ainda nao existe no catalogo geral.
+10. Salvar e voltar ao catalogo.
+11. Confirmar se o produto novo foi criado no catalogo geral conforme a regra atual.
+12. Confirmar que os produtos dos dois tenants permanecem isolados.
+13. Repetir com alteracao de preco/status e verificar se o plano preserva o valor historico esperado.
 
 ## B3. Catalogo de servicos e tratamentos
 
@@ -131,7 +134,7 @@ Executar nos tenants Odontologia e Podologia, adaptando os campos especificos da
 ## C2. Impressao e bloqueio
 
 1. Abrir a visualizacao de impressao do plano.
-2. Conferir paciente, itens, quantidades, valores, totais e data.
+2. Conferir paciente, itens, regioes anatomicas, quantidades, observacoes, valores unitarios, totais e data.
 3. Acionar `Imprimir`.
 4. Confirmar o dialogo de bloqueio e escolher a acao de impressao.
 5. Verificar que o plano fica identificado como impresso/travado.
@@ -257,4 +260,9 @@ Executar ao final de cada rodada:
 - Cliente criado: `Paciente Fluxo Podo Teste Local`, telefone final `7777`: `APROVADO`.
 - ClientCard exibiu o atalho `Abrir plano de tratamento`, sem o atalho odontologico de prontuario: `APROVADO`.
 - Plano criado: `Plano Fluxo Podo`; workspace exibiu `Mapa dos Membros (Maos e Pes)` e secao `Procedimentos`: `APROVADO`.
-- Itens de catalogo/procedimentos, impressao/bloqueio, agenda diaria/semanal/mensal e isolamento cross-tenant: `PENDENTE` nesta rodada.
+- Catalogo: produto `Fungicida`, R$ 60,00, observacao `20ml`: `APROVADO`.
+- Autocomplete do produto no plano preencheu nome, valor e observacoes do catalogo: `APROVADO`.
+- Modal de produtos passou a aceitar quantidade; item persistido com quantidade `1,00`, valor unitario R$ 60,00 e observacao `20ml`: `APROVADO`.
+- Card do produto exibiu observacao, quantidade e total; modal `Editar Item` exibiu e permitiu alterar quantidade: `APROVADO`.
+- Orcamento impresso exibiu tratamento com regiao `Pe Direito - Dedo 5`, produto `Fungicida`, `1.00x — 20ml`, total R$ 260,00: `APROVADO VISUALMENTE`.
+- Itens de catalogo/procedimentos detalhados, bloqueio pos-impressao, agenda diaria/semanal/mensal e isolamento cross-tenant: `PENDENTE` nesta rodada.
