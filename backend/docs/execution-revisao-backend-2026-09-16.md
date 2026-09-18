@@ -464,7 +464,7 @@ Resultado: Etapa 6 concluida em sua revisao dirigida de backend. A etapa manual 
 
 ### Etapa 7 — Decisoes de migracao e limpeza
 
-Status: `[ ]`
+Status: `[>]`
 
 Objetivo: executar somente limpezas justificadas por evidencias.
 
@@ -475,6 +475,17 @@ Candidatos ja registrados:
 - aliases de rotas e imports historicos;
 - campos comerciais de `Professional` apos migracao para `Tenant`;
 - variaveis legadas da Render.
+
+Primeira fatia executada em 2026-09-18:
+
+- auditado `apps/authentication/services/signals.py`: o arquivo continha somente um placeholder, nao possuia importadores no workspace e `AuthenticationConfig.ready()` nao dependia dele;
+- removido apenas esse arquivo inerte, sem alterar inicializacao, models, migrations ou contratos publicos;
+- auditados `services/backfill.py` e `backfill_tenants.py`: o comando ainda carrega, mas o corpo usa app labels historicos (`tenancy`, `clients`, `agenda` e `odonto`) incompatíveis com a estrutura atual;
+- o backfill nao foi removido nem corrigido nesta fatia, pois ainda exige decisao sobre historico de deploy, dados legados e eventual necessidade de recuperacao operacional.
+
+Validacao adicional: 28 testes Bakery passaram; `manage.py check` e `git diff --check` passaram.
+
+Proximo foco: avaliar aliases de rotas/imports historicos e mapear consumidores antes de qualquer remocao.
 
 Nenhum candidato deve ser removido antes de confirmar consumidores, deploy, dados existentes e rollback.
 
