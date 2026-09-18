@@ -46,6 +46,15 @@ A validacao sera feita no Chrome com os quatro contextos abertos simultaneamente
 - Tenants de teste criados: `consultorio-odontologia`, `consultorio-podologia`, `panificadora-boa-esperanca` e `panificadora-central`.
 - Proprietarios de teste criados para os quatro tenants; senhas nao sao registradas neste documento.
 
+## Resultado da primeira fatia de frontend
+
+- O feedback de bloqueio/desbloqueio do Bakery foi alinhado ao Clinic: modal central, mensagem inteira como botao de fechamento e auto-close preservado.
+- Os tokens de sucesso e erro seguem a paleta semantica do Clinic, com fallbacks locais para o tema Bakery.
+- O teste focado do `AdminBlockConfirmModal` passou: 4 testes.
+- A suite do Bakery passou: 79 testes em 20 arquivos.
+- O build de producao do Bakery passou.
+- Permanece apenas o aviso de teste sobre `window.alert()` nao implementado; nao bloqueia esta fatia.
+
 ## Matriz Clinic
 
 ### Odontologia e Podologia
