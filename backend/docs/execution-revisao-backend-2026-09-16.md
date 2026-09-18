@@ -264,7 +264,7 @@ Commits da etapa:
 
 ### Etapa 5 — Revisao dirigida de apps/clinic
 
-Status: `[>]`
+Status: `[x]`
 
 Objetivo: validar a variacao por especialidade e capability.
 
@@ -388,6 +388,17 @@ Setima fatia executada em 2026-09-17:
 Validacao adicional: 3 testes de isolamento clinico passaram, totalizando 37 testes na rodada consolidada de agenda.
 
 Proximo foco: executar a validacao consolidada da Etapa 5 e revisar o diario antes de marcar a etapa como concluida.
+
+Conclusao da Etapa 5 em 2026-09-17:
+
+- a variacao por especialidade e capability, o isolamento por tenant, os fluxos de clientes, anamneses, tratamento, agenda, encontros e registros clinicos foram revisados por comportamento e testes;
+- a matriz de isolamento foi coberta para criacao, listagem, leitura e atualizacao nos recursos clinicos relevantes;
+- a validacao consolidada da suite `apps/clinic/tests` e do teste de exclusao relacionada passou com 89 testes, sem falhas ou erros;
+- `manage.py check` e `git diff --check` passaram, e o working tree ficou limpo apos os commits da etapa;
+- permanecem adiados, sem bloquear esta conclusao, a migracao de dados comerciais de `Professional` para `Tenant`, a decisao sobre `DeviceSession` no Bakery, a definicao de escopo tenant-specific de settings/Telegram, o fluxo financeiro legado `Charge` e a revisao manual full-stack de alto risco;
+- nenhuma migration destrutiva, remocao de wrapper legado ou alteracao de `AUTH_USER_MODEL` foi introduzida.
+
+Resultado: Etapa 5 concluida. Proximo passo: iniciar a etapa seguinte conforme o diario, preservando os itens de alto risco para a revisao especifica ja registrada.
 
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
@@ -602,7 +613,7 @@ Validacao apos a implementacao:
 
 ## Estado atual
 
-Etapas 0, 1, 2, 3 e 4 concluidas. A Etapa 5 esta em andamento, com cinco fatias funcionais executadas e validadas. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
+Etapas 0, 1, 2, 3, 4 e 5 concluidas. A Etapa 5 foi encerrada com sete fatias funcionais executadas e validadas. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
 
 ## Procedimento de checkpoint visual antes do deploy
 
