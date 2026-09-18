@@ -302,6 +302,17 @@ Validacao adicional: 5 testes do contrato de clientes Clinic passaram.
 
 Proximo foco: revisar a simetria de `AnamneseBase` e extensoes Odontologia/Podologia, incluindo os testes de isolamento e capability da Podologia.
 
+Terceira fatia executada em 2026-09-17:
+
+- identificada uma assimetria real no fluxo nested de clientes: `anamnese_podologia` sem `anamnese_base` era aceito, mas descartado silenciosamente;
+- `_save_nested_anamneses` passou a criar a `AnamneseBase` automaticamente antes de persistir a extensao de Podologia, seguindo o comportamento ja existente no fluxo Odonto;
+- adicionado teste de regressao confirmando a criacao da base e da extensao com `tenant` e `professional` corretos;
+- a correcao nao altera models, migrations ou endpoints, apenas evita perda silenciosa de dados enviados pelo cliente.
+
+Validacao adicional: 25 testes Clinic de clientes, isolamento, anamnese, tokens e permissoes passaram; `manage.py check` e `git diff --check` passaram.
+
+Nota arquitetural: a coexistencia de fluxos nested, endpoints dedicados e estruturas herdadas de iteracoes anteriores e tratada como compatibilidade a ser verificada por comportamento. Nesta fatia foi corrigida somente a perda de dados comprovada por teste.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`

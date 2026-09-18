@@ -273,14 +273,15 @@ class ClientSerializer(serializers.ModelSerializer):
                 )
 
             if podologia_payload is not None:
-                base_obj = AnamneseBase.objects.filter(
-                    client=client, tenant=tenant
-                ).first()
-                if base_obj is not None:
-                    AnamnesePodologia.objects.update_or_create(
-                        anamnese_base=base_obj,
-                        defaults={**podologia_payload, 'professional': user},
-                    )
+                base_obj, _ = AnamneseBase.objects.get_or_create(
+                    client=client,
+                    tenant=tenant,
+                    defaults={'professional': user},
+                )
+                AnamnesePodologia.objects.update_or_create(
+                    anamnese_base=base_obj,
+                    defaults={**podologia_payload, 'professional': user},
+                )
 
     def create(self, validated_data):
         anamnese_base_data = validated_data.pop('anamnese_base', None)

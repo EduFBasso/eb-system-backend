@@ -114,6 +114,35 @@ class ClientAnamnesisApiTests(APITestCase):
         self.assertEqual(anamnese_podologia.footwear_used, 'Tênis')
         self.assertEqual(anamnese_podologia.sensitivity_test, 'Normal')
 
+    def test_podologia_anamnesis_without_base_creates_both_records(self):
+        self.client.force_authenticate(user=self.prof_a)
+
+        response = self.client.post(
+            '/register/clients/',
+            {
+                'first_name': 'Cliente',
+                'last_name': 'Somente Podologia',
+                'phone': '11999999997',
+                'anamnese_podologia': {
+                    'footwear_used': 'Tênis',
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_client = Client.objects.get(id=response.data['id'])
+        anamnese_base = AnamneseBase.objects.get(
+            client=created_client,
+            tenant=self.tenant_a,
+        )
+        anamnese_podologia = AnamnesePodologia.objects.get(
+            anamnese_base=anamnese_base,
+        )
+        self.assertEqual(anamnese_base.professional, self.prof_a)
+        self.assertEqual(anamnese_podologia.professional, self.prof_a)
+        self.assertEqual(anamnese_podologia.footwear_used, 'Tênis')
+
     def test_tenant_isolation_blocks_cross_tenant_client_and_anamnesis_access(self):
         # Dados pertencentes ao Tenant B
         client_b = Client.objects.create(
