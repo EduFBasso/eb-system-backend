@@ -329,6 +329,51 @@ def test_order_date_filters_include_both_boundary_days():
     assert returned_ids == {boundary_order.pk, last_order.pk}
 
 
+def test_admin_order_filters_by_status_customer_and_open_only():
+    tenant = make_tenant()
+    _customer_user, customer = make_customer(tenant)
+    pending_order = make_order(
+        tenant,
+        customer,
+        payment_method=Order.PaymentMethod.CASH,
+        product_name="Pao Filtro Aberto",
+    )
+    confirmed_order = make_order(
+        tenant,
+        customer,
+        payment_method=Order.PaymentMethod.CASH,
+        product_name="Pao Filtro Confirmado",
+    )
+    confirmed_order.status = Order.Status.CONFIRMED
+    confirmed_order.paid_at = timezone.now()
+    confirmed_order.save(update_fields=("status", "paid_at", "updated_at"))
+    admin = Professional.objects.create_user(
+        email="admin-order-filters@bakery.test",
+        password="admin-pass",
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.ADMIN,
+        is_active=True,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=admin)
+    response = client.get(
+        "/api/v1/bakery/orders/",
+        {
+            "status": "PENDING,CONFIRMED",
+            "customer_nickname": customer.nickname,
+            "open_only": "true",
+        },
+    )
+
+    assert response.status_code == 200
+    returned_ids = {result["id"] for result in response.data["results"]}
+    assert returned_ids == {pending_order.id}
+
+
 def test_customer_can_update_profile_but_not_identity_or_governance_fields():
     tenant = make_tenant()
     user, customer = make_customer(tenant)

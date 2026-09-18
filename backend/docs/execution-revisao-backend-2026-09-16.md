@@ -402,7 +402,7 @@ Resultado: Etapa 5 concluida. Proximo passo: iniciar a etapa seguinte conforme o
 
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
-Status: `[>]`
+Status: `[x]`
 
 Objetivo: validar o fluxo uniforme entre administradores e tenants Bakery.
 
@@ -447,6 +447,20 @@ Terceira fatia executada em 2026-09-18:
 Validacao adicional: 27 testes Bakery de governanca, identidade, perfil, pedidos, notificacoes e validadores passaram; os arquivos alterados nao apresentaram erros de diagnostico.
 
 Proximo foco: concluir a revisao de status de clientes, limite de credito e transicoes administrativas de pedidos, incluindo filtros operacionais.
+
+Quarta fatia executada em 2026-09-18:
+
+- revisados os estados de clientes pendentes, aprovados e bloqueados, incluindo aprovacao, bloqueio, limite de credito e transicoes administrativas de pedidos;
+- identificada e corrigida uma lacuna que permitia a cliente bloqueado consultar pedidos e lancamentos de credito existentes;
+- confirmados os filtros administrativos de pedidos por status, cliente, apelido e somente itens em aberto;
+- owner/admin continuam com acesso aos fluxos administrativos mediante senha, enquanto clientes aprovados permanecem limitados aos proprios dados;
+- nenhuma alteracao de model ou migration foi necessaria.
+
+Validacao adicional: 40 testes Bakery de identidade, perfil, catalogo, pedidos, filtros, credito, notificacoes, CEP e validadores passaram; o novo teste de filtro nao apresentou erros de diagnostico.
+
+Conclusao da validacao automatizada da Etapa 6: isolamento entre tenants, governanca de clientes, catalogo, pedidos, credito, notificacoes e filtros foram cobertos por comportamento e testes. A validacao manual visual integrada permanece reservada para o fim da revisao de alto risco, conforme planejado.
+
+Resultado: Etapa 6 concluida em sua revisao dirigida de backend. A etapa manual full-stack nao foi antecipada e sera executada junto da auditoria final de Clinic e Bakery.
 
 ### Etapa 7 — Decisoes de migracao e limpeza
 
