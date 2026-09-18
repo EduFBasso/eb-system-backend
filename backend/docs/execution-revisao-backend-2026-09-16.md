@@ -338,6 +338,9 @@ Revisao de alto risco — pos-revisao atual:
 - cada candidato a remocao devera ter consumidores, testes, dados existentes, impacto de usabilidade e plano de rollback avaliados;
 - a revisao devera priorizar o fluxo humano real, reduzindo operacoes, telas e estados que aumentem complexidade sem beneficio comprovado;
 - nenhuma funcao sera removida apenas por parecer poluicao: sera necessario confirmar que nao e usada, que nao sustenta compatibilidade e que sua retirada melhora ou preserva a experiencia.
+- ao final da revisao de alto risco, sera viavel executar manualmente o fluxo completo do Clinic, cobrindo cadastro, clientes, agenda, filtros, anamneses, tratamento e demais operacoes usadas no atendimento;
+- no mesmo momento final, sera executado o fluxo manual completo do Bakery, cobrindo cadastro de clientes, produtos, servicos, pedidos, agenda, filtros e demais operacoes efetivamente disponiveis;
+- essas validacoes manuais ficarao para o fim porque dependem da auditoria tecnica e devem confirmar o comportamento real integrado, sem antecipar conclusoes enquanto ainda houver alteracoes estruturais em andamento.
 
 Contexto da decisao: a evolucao do sistema gerou conhecimento pratico sobre como identificar e limpar codigo em etapas com apoio de IA. Esse aprendizado deve ser usado como criterio de produto e usabilidade, nao apenas como criterio de completude tecnica. Sistemas grandes tambem podem acumular funcoes que parecem completas no desenho, mas nao fazem parte do trabalho cotidiano do usuario; a revisao futura deve tornar essa diferenca explicita.
 
