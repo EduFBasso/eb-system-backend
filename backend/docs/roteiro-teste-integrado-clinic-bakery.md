@@ -144,6 +144,26 @@ Executar nos tenants Odontologia e Podologia, adaptando os campos especificos da
 9. Verificar se nova impressao e permitida ou explicitamente impedida pela regra atual.
 10. Registrar qualquer divergencia entre bloqueio visual, bloqueio no frontend e bloqueio persistido no backend.
 
+## C3. Condicao de pagamento, autosave e validacao de impressao
+
+1. Abrir um plano sem tratamentos ou produtos com valor maior que zero.
+2. Clicar em `Imprimir` e confirmar o modal informando que e necessario adicionar pelo menos um item com valor.
+3. Adicionar pelo menos um tratamento ou produto com valor maior que zero.
+4. Marcar `A vista` e clicar em `Imprimir`; confirmar a impressao e o bloqueio.
+5. Abrir outro plano ou repetir o fluxo antes da impressao e marcar `A prazo`.
+6. Alterar o numero de parcelas; confirmar que o minimo aceito e 2 e que a alteracao e persistida sem modal de sucesso.
+7. Limpar a data da primeira parcela e clicar em `Imprimir`; confirmar o modal informando a data pendente.
+8. Preencher a data da primeira parcela e clicar em `Imprimir`; confirmar a impressao e o bloqueio.
+9. Recarregar o plano e confirmar condicao, parcelas, vencimento, itens e total.
+10. Repetir os cenarios nos tenants Odontologia e Podologia.
+
+O teste automatizado correspondente fica no repositorio `frontend-clinic`:
+
+```bash
+cd frontend-clinic
+npm test -- --run src/hooks/__tests__/useClinicalTreatmentPlans.test.tsx src/utils/__tests__/TreatmentHelpers.test.ts
+```
+
 # Parte D — Clinic: agenda e compromissos
 
 ## D1. Criacao e persistencia
