@@ -330,6 +330,17 @@ Plano minimo para essa revisao futura:
 
 Decisao: nao alterar essa estrutura durante a Etapa 5. A existencia de codigo historico misturado e reconhecida, mas somente inconsistencias comprovadas por comportamento serao corrigidas nesta etapa.
 
+Quarta fatia executada em 2026-09-17:
+
+- identificada uma falha de isolamento no `POST /clinic/treatment/plans/`: o tenant do plano era definido pelo profissional, mas o cliente podia pertencer a outro tenant;
+- a criacao agora rejeita o plano antes do `save` quando `client.tenant_id` nao corresponde ao tenant Clinic ativo;
+- adicionado teste de regressao garantindo resposta `400` e ausencia de plano cruzado;
+- nenhum model, migration ou contrato de leitura foi alterado.
+
+Validacao: 18 testes de rotas de especialidade, acesso a planos, preferencia de impressao e contexto de Podologia passaram; `manage.py check` e `git diff --check` passaram.
+
+Proximo foco: revisar os fluxos de agenda e clientes que ainda nao foram cobertos pela matriz de isolamento da Etapa 5.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`

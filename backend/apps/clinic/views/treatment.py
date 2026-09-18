@@ -1,7 +1,7 @@
 from typing import Any, cast
 
 from django.utils import timezone
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -89,6 +89,11 @@ class TreatmentPlanViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             .first()
         )
         tenant = membership.tenant if membership else None
+        client = serializer.validated_data.get('client')
+        if tenant is None or client is None or client.tenant_id != tenant.id:
+            raise serializers.ValidationError(
+                {'client': 'Cliente não localizado no tenant ativo do profissional.'}
+            )
         serializer.save(professional=user, tenant=tenant)
 
     def perform_update(self, serializer: BaseSerializer) -> None:

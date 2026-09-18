@@ -160,3 +160,37 @@ def test_treatment_route_keeps_tenant_isolation():
     ids = {row['id'] for row in response.json()}
     assert owner_plan.id in ids
     assert other_plan.id not in ids
+
+
+def test_treatment_plan_creation_rejects_client_from_another_tenant():
+    owner, owner_tenant = make_professional(
+        'owner-create-route@example.com',
+        {'clinic': True, 'odonto': True},
+    )
+    _other, other_tenant = make_professional(
+        'other-create-route@example.com',
+        {'clinic': True, 'podologia': True},
+    )
+    foreign_client = Client.objects.create(
+        tenant=other_tenant,
+        first_name='Foreign',
+        last_name='Client',
+        phone='11999991006',
+    )
+    api = APIClient()
+    api.force_authenticate(user=owner)
+
+    response = api.post(
+        '/clinic/treatment/plans/',
+        {
+            'client': foreign_client.id,
+            'name': 'Plano indevido',
+        },
+        format='json',
+    )
+
+    assert response.status_code == 400, response.content
+    assert not TreatmentPlan.objects.filter(
+        client=foreign_client,
+        tenant=owner_tenant,
+    ).exists()
