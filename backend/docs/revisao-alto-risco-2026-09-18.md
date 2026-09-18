@@ -63,6 +63,19 @@ A validacao sera feita no Chrome com os quatro contextos abertos simultaneamente
 - O catalogo da Boa Esperanca permaneceu vazio e nao exibiu o produto criado no tenant Central.
 - Cenario de isolamento de catalogo aprovado. O produto de teste permanece no banco local para continuidade da revisao e esta identificado neste registro.
 
+## Fluxo completo Bakery — 2026-09-18
+
+- Tenant usado: `panificadora-boa-esperanca`.
+- Cliente ficticio criado: `fluxoteste`, com cadastro pendente e endereco validado no painel do cliente.
+- Aprovacao administrativa concluida com limite de credito de R$ 100,00.
+- Login do cliente aprovado concluido; saldo disponivel inicial confirmado.
+- Produto ficticio criado: `Cesta Fluxo Boa`, preco de R$ 9,90.
+- Pedido criado pelo cliente: pedido `#1`, duas unidades, total de R$ 19,80.
+- Saldo utilizado e saldo disponivel atualizados no painel do cliente.
+- Pedido localizado no painel administrativo e marcado como pago mediante senha do dono.
+- Filtro `Pagamentos Confirmados` exibiu o pedido `#1` como `PAGO`.
+- Durante a aprovacao foi encontrada duplicacao da mensagem de sucesso; a origem era o feedback simultaneo no componente filho e no pai. A correcao manteve o callback e deixou a mensagem visual somente no componente da acao; testes focados passaram.
+
 ## Matriz Clinic
 
 ### Odontologia e Podologia
