@@ -330,6 +330,17 @@ Plano minimo para essa revisao futura:
 
 Decisao: nao alterar essa estrutura durante a Etapa 5. A existencia de codigo historico misturado e reconhecida, mas somente inconsistencias comprovadas por comportamento serao corrigidas nesta etapa.
 
+Revisao de alto risco — pos-revisao atual:
+
+- esta revisao somente sera iniciada depois da conclusao das etapas correntes e de seus commits;
+- o escopo devera incluir backend e frontend, acompanhando o fluxo completo desde a tela ate a persistencia;
+- a auditoria devera separar codigo efetivamente usado pelo usuario de funcoes teoricamente disponiveis, legadas ou nunca exercitadas;
+- cada candidato a remocao devera ter consumidores, testes, dados existentes, impacto de usabilidade e plano de rollback avaliados;
+- a revisao devera priorizar o fluxo humano real, reduzindo operacoes, telas e estados que aumentem complexidade sem beneficio comprovado;
+- nenhuma funcao sera removida apenas por parecer poluicao: sera necessario confirmar que nao e usada, que nao sustenta compatibilidade e que sua retirada melhora ou preserva a experiencia.
+
+Contexto da decisao: a evolucao do sistema gerou conhecimento pratico sobre como identificar e limpar codigo em etapas com apoio de IA. Esse aprendizado deve ser usado como criterio de produto e usabilidade, nao apenas como criterio de completude tecnica. Sistemas grandes tambem podem acumular funcoes que parecem completas no desenho, mas nao fazem parte do trabalho cotidiano do usuario; a revisao futura deve tornar essa diferenca explicita.
+
 Quarta fatia executada em 2026-09-17:
 
 - identificada uma falha de isolamento no `POST /clinic/treatment/plans/`: o tenant do plano era definido pelo profissional, mas o cliente podia pertencer a outro tenant;
@@ -548,6 +559,7 @@ Validacao apos a implementacao:
 - [x] Definir como o login Clinic seleciona tenant com multiplas memberships: login ambiguo e rejeitado; seletor fica para etapa posterior.
 - [ ] Definir se `ProfessionalSettings` e Telegram sao globais ou tenant-specific.
 - [ ] Definir migracao dos dados comerciais/endereco de `Professional` para identidade empresarial do `Tenant`.
+- [ ] Planejar revisao de alto risco full-stack apos esta revisao, incluindo rastreamento de uso real, limpeza de codigo legado e validacao de usabilidade.
 - [ ] Definir se Bakery tambem deve criar e limitar `DeviceSession` como Clinic.
 - [ ] Aprovar eventual correcao dos dois textos inconsistentes em `docs/reset_database_loc.md`.
 
