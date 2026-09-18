@@ -36,6 +36,16 @@ A validacao sera feita no Chrome com os quatro contextos abertos simultaneamente
 8. Para cada fatia: reproduzir, editar, commitar, testar automaticamente, validar manualmente, corrigir se necessario e testar novamente.
 9. Executar a rodada consolidada e decidir se o backend e os frontends estao prontos para a entrega.
 
+## Resultado do reset local
+
+- Banco local `eb_system_local` recriado no container `eb_system_local_db`.
+- Migrations numeradas historicas removidas, preservando os arquivos `__init__.py`.
+- Baseline novo gerado: `authentication.0001`, `bakery.0001`, `clinic.0001` e `notifications.0001`.
+- `manage.py check` passou.
+- `pytest -q` passou: 174 testes aprovados.
+- Tenants de teste criados: `consultorio-odontologia`, `consultorio-podologia`, `panificadora-boa-esperanca` e `panificadora-central`.
+- Proprietarios de teste criados para os quatro tenants; senhas nao sao registradas neste documento.
+
 ## Matriz Clinic
 
 ### Odontologia e Podologia
