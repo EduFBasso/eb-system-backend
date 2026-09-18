@@ -378,6 +378,17 @@ Validacao adicional: 15 testes comportamentais de agenda e exclusao relacionada 
 
 Proximo foco: fechar a matriz de isolamento da agenda com cenarios de leitura e mutacao cross-tenant e, depois, avaliar a conclusao da Etapa 5.
 
+Setima fatia executada em 2026-09-17:
+
+- adicionados cenarios de API para confirmar que `Encounter` e `ClinicalRecord` de outro tenant nao aparecem em listagens;
+- leitura por detalhe e mutacao cross-tenant retornam `404`, preservando o comportamento de queryset restrito e evitando revelar a existencia dos registros;
+- a matriz de isolamento da agenda e do prontuario fica coberta para criacao, listagem, leitura e atualizacao;
+- nenhuma alteracao adicional de producao foi necessaria.
+
+Validacao adicional: 3 testes de isolamento clinico passaram, totalizando 37 testes na rodada consolidada de agenda.
+
+Proximo foco: executar a validacao consolidada da Etapa 5 e revisar o diario antes de marcar a etapa como concluida.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`
