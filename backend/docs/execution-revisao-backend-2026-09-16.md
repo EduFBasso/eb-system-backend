@@ -402,7 +402,7 @@ Resultado: Etapa 5 concluida. Proximo passo: iniciar a etapa seguinte conforme o
 
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
-Status: `[ ]`
+Status: `[>]`
 
 Objetivo: validar o fluxo uniforme entre administradores e tenants Bakery.
 
@@ -414,6 +414,17 @@ Verificar:
 - isolamento entre unidades Bakery;
 - campos governados pelo administrador versus campos editaveis pelo cliente;
 - comportamento visual do mesmo fluxo para administradores diferentes.
+
+Primeira fatia executada em 2026-09-18:
+
+- validado o fluxo existente de identidade do tenant Bakery e perfil comercial, incluindo cadastro de cliente, unicidade de nickname, bloqueio de alteracao de nickname apos aprovacao, escopo de tenant e permissao de owner/member;
+- validado o comportamento de pedidos, notificacoes, consulta de CEP e validadores Bakery na linha de base atual;
+- nenhum defeito comportamental foi comprovado nessa fatia, portanto nao houve alteracao de producao;
+- a revisao manual integrada de cadastro, catalogo, pedidos, agenda e filtros continua reservada para o fim da revisao de alto risco, conforme decisao registrada acima.
+
+Validacao adicional: 36 testes Bakery de identidade, perfil, pedidos, CEP, notificacoes e validadores passaram.
+
+Proximo foco: revisar catalogo e pedidos por isolamento entre tenants e por separacao entre campos administrados pelo owner e campos editaveis pelo cliente.
 
 ### Etapa 7 — Decisoes de migracao e limpeza
 
