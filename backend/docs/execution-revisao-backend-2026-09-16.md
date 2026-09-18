@@ -313,6 +313,23 @@ Validacao adicional: 25 testes Clinic de clientes, isolamento, anamnese, tokens 
 
 Nota arquitetural: a coexistencia de fluxos nested, endpoints dedicados e estruturas herdadas de iteracoes anteriores e tratada como compatibilidade a ser verificada por comportamento. Nesta fatia foi corrigida somente a perda de dados comprovada por teste.
 
+Adendo estrutural registrado em 2026-09-17:
+
+- o formulario de dados profissionais ainda permite salvar identidade comercial e endereco (`city`, `state`, `address`, `number`, `neighborhood`, `zip_code` e `cnpj`) diretamente em `Professional`;
+- essa estrutura pertence ao desenho historico, centrado em um profissional atendendo muitos clientes, enquanto o desenho atual identifica a empresa pelo `Tenant`;
+- o profissional continua usando esses dados para montar informacoes exibidas em planos/orcamentos, portanto nao e seguro simplesmente remover ou ignorar os campos atuais;
+- a migracao para dados empresariais do tenant fica adiada para um plano de refino separado, antes do merge para `main/deploy`.
+
+Plano minimo para essa revisao futura:
+
+1. inventariar todos os consumidores backend, frontend, admin, serializers, comandos e relatorios;
+2. definir a fonte oficial por tenant e o comportamento para profissionais vinculados a mais de um tenant;
+3. preparar backfill e compatibilidade de leitura/escrita, sem apagar os campos antigos no primeiro passo;
+4. criar testes reais de migracao, isolamento por tenant, planos/orcamentos e regressao de dados existentes;
+5. executar validacao controlada antes de qualquer remocao de campos ou migration destrutiva.
+
+Decisao: nao alterar essa estrutura durante a Etapa 5. A existencia de codigo historico misturado e reconhecida, mas somente inconsistencias comprovadas por comportamento serao corrigidas nesta etapa.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`
@@ -519,6 +536,7 @@ Validacao apos a implementacao:
 - [x] Definir que cliente Bakery aprovado nao pode alterar `nickname`; o teste foi alinhado a regra atual.
 - [x] Definir como o login Clinic seleciona tenant com multiplas memberships: login ambiguo e rejeitado; seletor fica para etapa posterior.
 - [ ] Definir se `ProfessionalSettings` e Telegram sao globais ou tenant-specific.
+- [ ] Definir migracao dos dados comerciais/endereco de `Professional` para identidade empresarial do `Tenant`.
 - [ ] Definir se Bakery tambem deve criar e limitar `DeviceSession` como Clinic.
 - [ ] Aprovar eventual correcao dos dois textos inconsistentes em `docs/reset_database_loc.md`.
 
