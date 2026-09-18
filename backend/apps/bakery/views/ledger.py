@@ -3,14 +3,22 @@ from rest_framework import filters, viewsets
 from apps.bakery.models import CreditLedgerEntry
 from apps.bakery.serializers import CreditLedgerEntrySerializer
 from utils.pagination import StandardResultsSetPagination
-from utils.permissions import HasActiveBakeryTenant, IsRelatedCustomer
+from utils.permissions import (
+    HasActiveBakeryTenant,
+    IsApprovedBakeryCustomerOrAdmin,
+    IsRelatedCustomer,
+)
 
 from .base import BakeryTenantScopedMixin
 
 
 class CreditLedgerEntryViewSet(BakeryTenantScopedMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CreditLedgerEntrySerializer
-    permission_classes = (HasActiveBakeryTenant, IsRelatedCustomer)
+    permission_classes = (
+        HasActiveBakeryTenant,
+        IsApprovedBakeryCustomerOrAdmin,
+        IsRelatedCustomer,
+    )
     pagination_class = StandardResultsSetPagination
     filter_backends = (filters.OrderingFilter,)
     ordering_fields = ("created_at", "amount", "entry_type")

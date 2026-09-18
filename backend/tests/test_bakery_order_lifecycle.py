@@ -361,6 +361,41 @@ def test_customer_can_update_profile_but_not_identity_or_governance_fields():
     assert customer.user == user
 
 
+def test_blocked_customer_cannot_access_orders_or_credit_ledger():
+    tenant = make_tenant()
+    customer_user, customer = make_customer(tenant)
+    order = make_order(tenant, customer, payment_method=Order.PaymentMethod.CASH)
+    admin = Professional.objects.create_user(
+        email="admin-block-customer@bakery.test",
+        password="admin-pass",
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=admin,
+        role=TenantMembership.Role.ADMIN,
+        is_active=True,
+    )
+
+    admin_client = APIClient()
+    admin_client.force_authenticate(user=admin)
+    response = admin_client.post(
+        f"/api/v1/bakery/customers/{customer.pk}/block/",
+        {"admin_password": "admin-pass", "reason": "Cadastro bloqueado"},
+        format="json",
+    )
+    assert response.status_code == 200, response.content
+
+    customer_client = APIClient()
+    customer_client.force_authenticate(user=customer_user)
+    orders_response = customer_client.get("/api/v1/bakery/orders/")
+    ledger_response = customer_client.get("/api/v1/bakery/ledger-entries/")
+
+    assert orders_response.status_code == 403
+    assert ledger_response.status_code == 403
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING
+
+
 def test_admin_status_transition_requires_password():
     tenant = make_tenant()
     _customer_user, customer = make_customer(tenant)

@@ -113,6 +113,34 @@ class IsBakeryCustomer(permissions.BasePermission):
         ).exists()
 
 
+class IsApprovedBakeryCustomerOrAdmin(permissions.BasePermission):
+    """Exige cliente Bakery aprovado ou acesso administrativo ao tenant."""
+
+    message = "Acesso restrito a clientes Bakery aprovados."
+
+    def has_permission(self, request, view) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, "is_staff", False):
+            return True
+
+        membership = _get_bakery_membership(request)
+        if membership is None:
+            return False
+        if membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN):
+            return True
+        if membership.role != TenantMembership.Role.MEMBER:
+            return False
+
+        from apps.bakery.models import BakeryCustomer
+
+        return BakeryCustomer.objects.filter(
+            user=request.user,
+            tenant=membership.tenant,
+            status=BakeryCustomer.ApprovalStatus.APPROVED,
+        ).exists()
+
+
 class IsCustomerOrAdmin(permissions.BasePermission):
     """Owner/Admin vê tudo; customer vê apenas o próprio perfil."""
 

@@ -437,6 +437,17 @@ Validacao adicional: 11 testes do ciclo de vida de pedidos e catalogo passaram.
 
 Proximo foco: revisar os campos governados pelo administrador, incluindo produtos inativos, status de clientes, limite de credito e transicoes de pedidos.
 
+Terceira fatia executada em 2026-09-18:
+
+- identificada uma lacuna de governanca: `IsRelatedCustomer` restringia o cliente ao proprio pedido, mas nao verificava se o cadastro continuava aprovado;
+- cliente bloqueado podia consultar pedidos e lancamentos de credito ja existentes, embora nao pudesse criar novos pedidos;
+- criada permissao compartilhada para exigir cliente Bakery aprovado ou acesso administrativo no fluxo de pedidos, itens de pedido e ledger;
+- adicionada regressao confirmando `403` para cliente bloqueado, preservando os registros existentes e o acesso de owner/admin.
+
+Validacao adicional: 27 testes Bakery de governanca, identidade, perfil, pedidos, notificacoes e validadores passaram; os arquivos alterados nao apresentaram erros de diagnostico.
+
+Proximo foco: concluir a revisao de status de clientes, limite de credito e transicoes administrativas de pedidos, incluindo filtros operacionais.
+
 ### Etapa 7 — Decisoes de migracao e limpeza
 
 Status: `[ ]`

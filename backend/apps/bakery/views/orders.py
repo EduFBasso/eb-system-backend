@@ -13,6 +13,7 @@ from apps.bakery.services.notifications import notify_owner_order_cancelled
 from utils.pagination import StandardResultsSetPagination
 from utils.permissions import (
     HasActiveBakeryTenant,
+    IsApprovedBakeryCustomerOrAdmin,
     IsRelatedCustomer,
     IsTenantStaffOrReadOnly,
 )
@@ -46,7 +47,11 @@ class ProductViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
 
 class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = (HasActiveBakeryTenant, IsRelatedCustomer)
+    permission_classes = (
+        HasActiveBakeryTenant,
+        IsApprovedBakeryCustomerOrAdmin,
+        IsRelatedCustomer,
+    )
     pagination_class = StandardResultsSetPagination
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("customer__nickname", "notes")
@@ -269,7 +274,11 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
 
 class OrderItemViewSet(BakeryTenantScopedMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderItemSerializer
-    permission_classes = (HasActiveBakeryTenant, IsRelatedCustomer)
+    permission_classes = (
+        HasActiveBakeryTenant,
+        IsApprovedBakeryCustomerOrAdmin,
+        IsRelatedCustomer,
+    )
     pagination_class = StandardResultsSetPagination
     queryset = OrderItem.objects.select_related(
         "tenant",
