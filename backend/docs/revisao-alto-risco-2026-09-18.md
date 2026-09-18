@@ -55,6 +55,14 @@ A validacao sera feita no Chrome com os quatro contextos abertos simultaneamente
 - O build de producao do Bakery passou.
 - Permanece apenas o aviso de teste sobre `window.alert()` nao implementado; nao bloqueia esta fatia.
 
+## Validacao manual Bakery — 2026-09-18
+
+- `panificadora-central`: login administrativo aprovado; dashboard, clientes e catalogo carregaram corretamente.
+- Foi criado o produto ficticio local `Pao de Teste Central`, com persistencia confirmada no catalogo Central.
+- `panificadora-boa-esperanca`: login administrativo aprovado; dashboard carregou com contadores zerados.
+- O catalogo da Boa Esperanca permaneceu vazio e nao exibiu o produto criado no tenant Central.
+- Cenario de isolamento de catalogo aprovado. O produto de teste permanece no banco local para continuidade da revisao e esta identificado neste registro.
+
 ## Matriz Clinic
 
 ### Odontologia e Podologia
