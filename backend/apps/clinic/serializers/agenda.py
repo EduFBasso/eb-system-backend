@@ -14,6 +14,25 @@ from apps.clinic.models.agenda import (
 from .state_utils import promote_overdue_scheduled_to_done
 
 
+def _validate_client_tenant(client, professional):
+    if client is None or professional is None:
+        return
+
+    tenant = (
+        professional.tenant_memberships.filter(
+            is_active=True,
+            tenant__is_active=True,
+        )
+        .order_by("created_at", "id")
+        .values_list("tenant_id", flat=True)
+        .first()
+    )
+    if tenant is not None and client.tenant_id != tenant:
+        raise serializers.ValidationError(
+            {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
+        )
+
+
 class AppointmentSerializer(serializers.ModelSerializer):
     # Garante que 'professional' não seja exigido no POST e seja somente leitura
     professional = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -140,18 +159,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         client = attrs.get("client", getattr(self.instance, "client", None))
 
         if client is not None and professional is not None:
-            # Garante que o cliente pertence ao mesmo Tenant do profissional autenticado
-            req = self.context.get("request") if hasattr(self, "context") else None
-            user = getattr(req, "user", None) if req else None
-            tenant = None
-            if user:
-                membership = user.tenant_memberships.filter(is_active=True, tenant__is_active=True).first()
-                if membership:
-                    tenant = membership.tenant
-            if tenant is not None and getattr(client, "tenant_id", None) != tenant.id:
-                raise serializers.ValidationError(
-                    {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
-                )
+            _validate_client_tenant(client, professional)
 
         if self.instance is None:
             promote_overdue_scheduled_to_done(
@@ -223,6 +231,7 @@ class EncounterSerializer(serializers.ModelSerializer):
         )
         client = attrs.get("client", getattr(self.instance, "client", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
+        _validate_client_tenant(client, professional)
         started_at = attrs.get("started_at", getattr(self.instance, "started_at", timezone.now()))
         ended_at = attrs.get("ended_at", getattr(self.instance, "ended_at", None))
         chief_complaint = attrs.get("chief_complaint", getattr(self.instance, "chief_complaint", ""))
@@ -291,6 +300,7 @@ class ClinicalRecordSerializer(serializers.ModelSerializer):
         )
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
+        _validate_client_tenant(client, professional)
         record_type = attrs.get("record_type", getattr(self.instance, "record_type", ClinicalRecord.RecordType.EVOLUTION))
         title = attrs.get("title", getattr(self.instance, "title", ""))
         content = attrs.get("content", getattr(self.instance, "content", ""))

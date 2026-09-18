@@ -352,6 +352,18 @@ Validacao: 18 testes de rotas de especialidade, acesso a planos, preferencia de 
 
 Proximo foco: revisar os fluxos de agenda e clientes que ainda nao foram cobertos pela matriz de isolamento da Etapa 5.
 
+Quinta fatia executada em 2026-09-17:
+
+- identificada uma lacuna nos serializers de `Encounter` e `ClinicalRecord`: o queryset protegia leituras por tenant, mas a criacao aceitava cliente de outro tenant quando nao havia `appointment` ou `encounter` cruzado para acionar a validacao do model;
+- criada validacao compartilhada para confirmar que o cliente pertence ao tenant ativo do profissional antes de persistir atendimento ou registro clinico;
+- adicionados testes de regressao para rejeitar criacao cross-tenant em `/agenda/encounters/` e `/agenda/clinical-records/`;
+- a agenda de `Appointment` continua coberta pela validacao existente e nao teve mudanca de contrato;
+- `Charge` permanece legado e fora da ampliacao funcional desta etapa: nao sera tratado como fluxo financeiro digital sem evidencia de uso real e decisao especifica na revisao futura.
+
+Validacao adicional: 34 testes de agenda, incluindo isolamento, regras de appointment, encontros e registros clinicos, passaram; os arquivos alterados nao apresentaram erros de diagnostico.
+
+Proximo foco: revisar as regras comportamentais de `Encounter` e `ClinicalRecord` e confirmar se a matriz de isolamento da agenda esta completa, sem ampliar o escopo financeiro legado.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`
@@ -565,7 +577,7 @@ Validacao apos a implementacao:
 
 ## Estado atual
 
-Etapas 0, 1, 2, 3 e 4 concluidas. A Etapa 5 permanece por iniciar. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
+Etapas 0, 1, 2, 3 e 4 concluidas. A Etapa 5 esta em andamento, com cinco fatias funcionais executadas e validadas. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
 
 ## Procedimento de checkpoint visual antes do deploy
 
