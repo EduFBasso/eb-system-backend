@@ -426,6 +426,17 @@ Validacao adicional: 36 testes Bakery de identidade, perfil, pedidos, CEP, notif
 
 Proximo foco: revisar catalogo e pedidos por isolamento entre tenants e por separacao entre campos administrados pelo owner e campos editaveis pelo cliente.
 
+Segunda fatia executada em 2026-09-18:
+
+- revisado o catalogo Bakery: clientes recebem somente produtos ativos do tenant ativo, enquanto owner/admin podem consultar tambem itens inativos;
+- confirmado que a criacao de pedido filtra produtos pelo tenant e pela disponibilidade, impedindo uso de produto de outra unidade;
+- adicionados testes de API para isolamento da listagem de produtos e rejeicao de pedido com produto cross-tenant;
+- nenhuma alteracao de producao foi necessaria, pois a implementacao existente ja aplicava as regras corretamente.
+
+Validacao adicional: 11 testes do ciclo de vida de pedidos e catalogo passaram.
+
+Proximo foco: revisar os campos governados pelo administrador, incluindo produtos inativos, status de clientes, limite de credito e transicoes de pedidos.
+
 ### Etapa 7 — Decisoes de migracao e limpeza
 
 Status: `[ ]`

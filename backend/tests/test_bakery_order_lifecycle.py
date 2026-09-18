@@ -163,6 +163,74 @@ def test_customer_can_create_order_with_free_form_delivery_address():
     assert order.shipping_street == customer.street
 
 
+def test_customer_sees_only_active_products_from_own_tenant():
+    tenant = make_tenant()
+    user, _customer = make_customer(tenant)
+    own_product = Product.objects.create(
+        tenant=tenant,
+        name="Pao da propria padaria",
+        price=Decimal("4.00"),
+    )
+    Product.objects.create(
+        tenant=tenant,
+        name="Produto inativo",
+        price=Decimal("6.00"),
+        is_active=False,
+    )
+    other_tenant = Tenant.objects.create(
+        name="Outra Padaria",
+        slug="outra-padaria-catalogo",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={"bakery": True},
+    )
+    Product.objects.create(
+        tenant=other_tenant,
+        name="Produto de outra padaria",
+        price=Decimal("8.00"),
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    response = client.get("/api/v1/bakery/products/")
+
+    assert response.status_code == 200
+    returned_ids = {item["id"] for item in response.data["results"]}
+    assert returned_ids == {own_product.id}
+
+
+def test_customer_cannot_create_order_with_product_from_other_tenant():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    other_tenant = Tenant.objects.create(
+        name="Outra Padaria Pedido",
+        slug="outra-padaria-pedido",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={"bakery": True},
+    )
+    foreign_product = Product.objects.create(
+        tenant=other_tenant,
+        name="Produto estrangeiro",
+        price=Decimal("5.00"),
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "items": [{"product_id": foreign_product.id, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400, response.content
+    assert "items" in response.data
+    assert not Order.objects.filter(customer=customer).exists()
+
+
 def test_customer_cancel_requires_customer_password():
     tenant = make_tenant()
     user, customer = make_customer(tenant)
