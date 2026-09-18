@@ -47,7 +47,7 @@ O frontend Bakery ja usa `nickname` para login, busca administrativa, filtros de
 
 ### Etapa 1 — Contrato de autenticacao e tenancy
 
-Status: `[>]`
+Status: `[x]`
 
 Objetivo: comparar o comportamento efetivo de Clinic e Bakery antes de modularizar `apps/authentication`.
 
@@ -67,7 +67,7 @@ Checkpoint visual: usar um professional Clinic de cada especialidade e um admini
 
 Achado inicial: o Bakery resolve `tenant_slug` a partir do hostname/subdominio ou de `VITE_BAKERY_TENANT_SLUG` e envia esse valor no login. O Clinic nao envia slug no login; o backend escolhe a primeira membership Clinic ativa e retorna as capabilities usadas para compor telas e dados. Portanto, a padronizacao de slug nao deve ser tratada agora como simples renomeacao de campo: a selecao de tenant Clinic e uma decisao de produto para o caso de multiplas memberships.
 
-Decisao de escopo: a diferenca nao bloqueia o restante da Etapa 1. Ela fica registrada como pendencia desta etapa e deve ser resolvida antes de habilitar suporte real a multiplos tenants Clinic ou remover qualquer alias de dominio/rota.
+Decisao de escopo: a diferenca nao bloqueou a Etapa 1. O login ambiguo foi definido como rejeitado; um seletor de tenant e uma evolucao futura, antes de habilitar uma experiencia de troca de tenant no Clinic.
 
 Validacao automatizada de 2026-09-17:
 
@@ -76,7 +76,7 @@ Validacao automatizada de 2026-09-17:
 - `frontend-clinic`: 119 testes passaram e 4 foram ignorados;
 - `frontend-bakery`: testes passaram; houve apenas aviso de ambiente de teste sobre `window.alert()` nao implementado.
 
-Conclusao parcial: os contratos codificados estao consistentes nos fluxos exercitados. As diretrizes de slug, hostname desconhecido, tenant por especialidade e rejeicao de login ambiguo ja foram decididas e implementadas. Permanece o checkpoint visual com um professional Clinic de Podologia, um de Odontologia e um administrador Bakery.
+Conclusao: os contratos codificados estao consistentes nos fluxos exercitados. As diretrizes de slug, hostname desconhecido, tenant por especialidade e rejeicao de login ambiguo foram decididas, implementadas e conferidas visualmente.
 
 ### Etapa 2 — Modulos de core/settings
 
@@ -414,7 +414,7 @@ Checks executados:
 - `npm test -- --run` em `frontend-clinic`;
 - `npm test -- --run` em `frontend-bakery`.
 
-Resultado: checks automatizados aprovados; a etapa permanece em `[>]` aguardando somente a validacao visual dos fluxos Clinic e Bakery.
+Resultado: checks automatizados aprovados e checkpoint visual concluido em 2026-09-17.
 
 Decisao atual: manter a selecao Bakery por `tenant_slug` derivado do dominio/configuracao e rejeitar login Clinic ambiguo quando houver multiplas memberships. O backend nao deve escolher silenciosamente a primeira membership nesse caso.
 
@@ -444,7 +444,15 @@ Pendencias remanescentes da Fase 1:
 
 Itens que podem ficar para a fase seguinte, sem bloquear a arquitetura online: mover pacotes de autenticacao, migrar campos comerciais de `Professional` para `Tenant`, remover aliases de rotas e limpar comandos legados.
 
-Proximo passo: executar o checkpoint visual com dois tenants Clinic e um administrador Bakery; depois registrar o resultado e fechar a etapa ou abrir somente os ajustes encontrados.
+Proximo passo: iniciar a Etapa 5, com revisao dirigida de `apps/clinic`.
+
+Evidencia visual registrada pelo usuario:
+
+- `frontend-clinic` exibiu simultaneamente uma dentista no tenant de Odontologia e uma podologa no tenant de Podologia, com profissionais e dados distintos;
+- `frontend-bakery` exibiu dois tenants independentes, com slugs distintos, titulos `Panificadora Boa Esperanca` e `Panificadora Central` e dados de clientes correspondentes a cada contexto;
+- a evidencia confirma que o frontend compartilhado preserva o contexto do tenant e que o Bakery nao apresenta apenas uma identidade visual fixa entre unidades.
+
+Conclusao da Etapa 1: checkpoint visual aprovado; nenhuma falha visual foi identificada. Permanecem apenas as decisoes futuras sobre `DeviceSession` no Bakery e escopo tenant-specific de `ProfessionalSettings`/Telegram.
 
 Implementacao inicial do contrato Clinic:
 
@@ -480,7 +488,7 @@ Validacao apos a implementacao:
 
 ## Estado atual
 
-Etapas 0, 2, 3 e 4 concluidas. A Etapa 1 esta em andamento apenas pelo checkpoint visual; a Etapa 5 permanece por iniciar. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
+Etapas 0, 1, 2, 3 e 4 concluidas. A Etapa 5 permanece por iniciar. A modularizacao foi encerrada nesta fase sem alterar contratos publicos, models, migrations ou `AUTH_USER_MODEL`. As etapas de Bakery e limpeza continuam conscientemente adiadas.
 
 ## Procedimento de checkpoint visual antes do deploy
 
