@@ -67,6 +67,36 @@ def test_dental_anamnesis_creates_fixed_base_and_specialty_records():
     assert specialty.chief_dental_complaint == 'Sensibilidade'
 
 
+def test_dental_anamnesis_accepts_nested_odonto_capability():
+    professional, tenant = make_professional(
+        'dentist-nested-capability@example.com',
+        'dental-nested-capability',
+    )
+    tenant.capabilities = {'clinic': True, 'modules': {'odonto': True}}
+    tenant.save(update_fields=['capabilities'])
+    client = Client.objects.create(
+        tenant=tenant,
+        first_name='Paciente',
+        last_name='Capability',
+        phone='11990000006',
+    )
+    api = APIClient()
+    api.force_authenticate(user=professional)
+
+    response = api.post(
+        '/clinic/treatment/anamnesis/',
+        {
+            'client_id': client.id,
+            'gum_bleeding': True,
+        },
+        format='json',
+    )
+
+    assert response.status_code == 201, response.content
+    base = AnamneseBase.objects.get(client=client, tenant=tenant)
+    assert AnamneseOdontologia.objects.filter(anamnese_base=base).exists()
+
+
 def test_dental_anamnesis_rejects_client_from_another_tenant():
     professional, _ = make_professional(
         'dentist-owner@example.com',

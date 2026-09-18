@@ -264,7 +264,7 @@ Commits da etapa:
 
 ### Etapa 5 — Revisao dirigida de apps/clinic
 
-Status: `[ ]`
+Status: `[>]`
 
 Objetivo: validar a variacao por especialidade e capability.
 
@@ -276,6 +276,23 @@ Verificar:
 - `AnamneseBase` e extensoes `OneToOne` por especialidade;
 - tratamento, agenda, clientes e permissao por tenant;
 - comportamento visual em cada especialidade.
+
+Primeira fatia executada em 2026-09-17:
+
+- confirmado o contrato de capability Clinic no formato direto e no formato aninhado em `Tenant.capabilities.modules`;
+- adicionado teste de regressao para gravacao de anamnese odontologica quando `modules.odonto` esta ativo;
+- preservados o isolamento por `tenant_id`, a membership Clinic ativa e a rejeicao de cliente pertencente a outro tenant;
+- nenhuma alteracao em model, migration, endpoint ou regra de producao foi necessaria.
+
+Validacao:
+
+- 24 testes Clinic de clientes, isolamento, anamnese, tokens e permissoes passaram;
+- `manage.py check` passou;
+- `git diff --check` passou.
+
+Hipotese confirmada: o endpoint odontologico autoriza a gravacao somente para o tenant Clinic ativo com capability `odonto`, aceitando tanto a forma direta quanto a forma aninhada, sem permitir cliente de outro tenant.
+
+Proximo foco: revisar a simetria de `AnamneseBase` e extensoes Odontologia/Podologia, incluindo os testes de isolamento e capability da Podologia.
 
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
