@@ -156,6 +156,30 @@ class ClientAnamnesisApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('anamnese_odontologia', response.data)
 
+    def test_odonto_tenant_does_not_receive_or_accept_podologia_anamnesis(self):
+        self.client.force_authenticate(user=self.prof_b)
+
+        response = self.client.post(
+            '/register/clients/',
+            {
+                'first_name': 'Cliente',
+                'last_name': 'Odonto',
+                'phone': '11999999996',
+                'anamnese_podologia': {'footwear_used': 'Tênis'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('anamnese_podologia', response.data)
+        client = Client.objects.filter(
+            tenant=self.tenant_b,
+            first_name='Cliente',
+            last_name='Odonto',
+            phone='11999999996',
+        )
+        self.assertFalse(client.exists())
+
     def test_specialty_fields_are_filtered_by_tenant_capability(self):
         podologia_client = Client.objects.create(
             tenant=self.tenant_a,

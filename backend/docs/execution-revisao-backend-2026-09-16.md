@@ -292,6 +292,14 @@ Validacao:
 
 Hipotese confirmada: o endpoint odontologico autoriza a gravacao somente para o tenant Clinic ativo com capability `odonto`, aceitando tanto a forma direta quanto a forma aninhada, sem permitir cliente de outro tenant.
 
+Segunda fatia executada em 2026-09-17:
+
+- adicionado teste inverso de especialidade no fluxo de clientes;
+- tenant exclusivamente Odonto rejeita `anamnese_podologia` e nao cria cliente nem extensao de anamnese;
+- a protecao cruzada agora esta coberta nos dois sentidos: Podologia rejeita Odonto e Odonto rejeita Podologia.
+
+Validacao adicional: 5 testes do contrato de clientes Clinic passaram.
+
 Proximo foco: revisar a simetria de `AnamneseBase` e extensoes Odontologia/Podologia, incluindo os testes de isolamento e capability da Podologia.
 
 ### Etapa 6 — Revisao dirigida de apps/bakery
