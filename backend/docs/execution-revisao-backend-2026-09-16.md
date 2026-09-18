@@ -367,6 +367,17 @@ Validacao adicional: 34 testes de agenda, incluindo isolamento, regras de appoin
 
 Proximo foco: revisar as regras comportamentais de `Encounter` e `ClinicalRecord` e confirmar se a matriz de isolamento da agenda esta completa, sem ampliar o escopo financeiro legado.
 
+Sexta fatia executada em 2026-09-17:
+
+- revisadas as regras comportamentais de `Encounter`: criacao independente, apenas uma sessao aberta por cliente/profissional, encerramento, cancelamento e bloqueio de exclusao;
+- revisado o fluxo de `ClinicalRecord`: exigencia de vinculo coerente com o atendimento, preservacao do historico e remocao em cascata quando o cliente e excluido pelo fluxo permitido;
+- nenhuma inconsistência adicional foi comprovada nessa fatia, portanto nao houve alteracao de regra de producao;
+- a protecao de tenant permanece aplicada tanto no queryset dos viewsets quanto na validacao de criacao registrada na fatia anterior.
+
+Validacao adicional: 15 testes comportamentais de agenda e exclusao relacionada passaram.
+
+Proximo foco: fechar a matriz de isolamento da agenda com cenarios de leitura e mutacao cross-tenant e, depois, avaliar a conclusao da Etapa 5.
+
 ### Etapa 6 — Revisao dirigida de apps/bakery
 
 Status: `[ ]`
