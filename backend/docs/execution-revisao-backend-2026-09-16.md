@@ -499,6 +499,15 @@ Validacao: o mapeamento de consumidores foi confirmado por busca no frontend, ba
 
 Proximo foco: auditar variaveis de deploy legadas e candidatos de configuracao, distinguindo referencias ativas de metadados historicos antes de qualquer limpeza.
 
+Terceira fatia executada em 2026-09-18:
+
+- referencias a Render permanecem ativas em settings de producao, scripts operacionais, arquitetura e documentacao de deploy;
+- `VITE_BAKERY_ROOT_DOMAIN` e `VITE_BAKERY_TENANT_SLUG` possuem consumidores no frontend Bakery e nao sao variaveis orfas;
+- nenhum candidato de configuracao apresentou evidencia suficiente para remocao segura nesta fatia;
+- a Etapa 7 permanece aberta para investigacao do backfill legado, migracao de identidade empresarial e demais itens que exigem historico operacional antes de qualquer limpeza.
+
+Validacao: consumidores de backend, frontend e documentacao foram mapeados; nenhuma alteracao de configuracao foi feita.
+
 Nenhum candidato deve ser removido antes de confirmar consumidores, deploy, dados existentes e rollback.
 
 ## Registro de etapas
