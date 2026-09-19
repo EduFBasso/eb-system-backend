@@ -2,6 +2,8 @@
 Configuração do banco de dados: PostgreSQL em produção, SQLite em testes/CI.
 Inclui guarda contra conexão acidental com DB remoto em modo DEBUG.
 """
+import os
+
 from django.core.exceptions import ImproperlyConfigured
 
 from decouple import AutoConfig
@@ -52,7 +54,14 @@ def _required_env(key: str) -> str:
 
 _USE_SQLITE_FOR_TESTS: bool = config('TEST_USE_SQLITE', default=False, cast=bool) or _IN_CI
 
-if _USE_SQLITE_FOR_TESTS:
+# The production module replaces DATABASES with the DATABASE_URL-based
+# configuration after importing the shared settings package. Do not require
+# local DB_* variables during that intermediate import.
+_USE_PRODUCTION_DATABASE = os.getenv('DJANGO_SETTINGS_MODULE') == 'core.settings.production'
+
+if _USE_PRODUCTION_DATABASE:
+    DATABASES = {}
+elif _USE_SQLITE_FOR_TESTS:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
