@@ -23,19 +23,18 @@ ONLINE_MUTATION_LOCK_METHODS: list[str] = [
     s.upper() for s in _csv("ONLINE_MUTATION_LOCK_METHODS", "PUT,PATCH,DELETE")
 ]
 SERVE_MEDIA_FILES: bool = config("SERVE_MEDIA_FILES", default=True, cast=bool)
+SLOW_REQUEST_THRESHOLD_MS: int = config(
+    "SLOW_REQUEST_THRESHOLD_MS", default=500, cast=int
+)
 
 # === Apps Instalados ===
 
 INSTALLED_APPS = [
     'rest_framework',
-    'apps.agenda',
-    'apps.anamnesis',
-    'apps.clients',
-    'apps.odonto',
-    'apps.reminders',
-    'apps.register',
-    'apps.tenancy',
-    'apps.inventory',
+    'apps.authentication',
+    'apps.notifications',
+    'apps.clinic',
+    'apps.bakery',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,7 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
-AUTH_USER_MODEL = 'register.Professional'
+AUTH_USER_MODEL = 'authentication.Professional'
 
 # === Middleware ===
 

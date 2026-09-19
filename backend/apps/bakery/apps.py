@@ -1,0 +1,8 @@
+from django.apps import AppConfig
+
+
+class BakeryConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.bakery'
+    label = 'bakery'
+    verbose_name = 'Bakery'

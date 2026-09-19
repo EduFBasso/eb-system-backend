@@ -1,10 +1,10 @@
 import pytest
 from rest_framework.test import APIClient
 
-from apps.clients.models import Client
-from apps.anamnesis.models import AnamneseBase, AnamnesePodologia
-from apps.register.models import Professional
-from apps.tenancy.models import Tenant, TenantMembership
+from apps.clinic.models.clients import Client
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
+from apps.authentication.models import Professional
+from apps.authentication.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -22,7 +22,13 @@ def professional():
 
 @pytest.fixture
 def tenant(professional):
-    t = Tenant.objects.create(name='Tenant Teste', slug='tenant-teste')
+    t = Tenant.objects.create(
+        name='Consultório Podologia',
+        slug='consultorio-podologia',
+        ecosystem='clinic',
+        is_active=True,
+        capabilities={'clinic': True, 'podologia': True},
+    )
     TenantMembership.objects.create(
         tenant=t,
         professional=professional,
@@ -40,7 +46,7 @@ def auth_client(professional):
 
 
 @pytest.fixture
-def client_obj(auth_client):
+def client_obj(auth_client, tenant):
     response = auth_client.post(
         '/register/clients/',
         {
@@ -78,6 +84,7 @@ def test_generate_and_validate_anamnesis_token(auth_client, client_obj):
 def test_validate_anamnesis_token_returns_prefill_data_without_podologia(
     auth_client,
     client_obj,
+    professional,
 ):
     client_obj.email = 'maria.paciente@example.com'
     client_obj.profession = 'Professora'
@@ -98,7 +105,6 @@ def test_validate_anamnesis_token_returns_prefill_data_without_podologia(
     AnamneseBase.objects.update_or_create(
         client=client_obj,
         tenant=client_obj.tenant,
-        professional=client_obj.professional,
         defaults={
             'takes_medication': 'Não',
             'had_surgery': 'Não',
@@ -108,13 +114,12 @@ def test_validate_anamnesis_token_returns_prefill_data_without_podologia(
             'sport_activity': 'Leve',
         },
     )
+    base_obj, _ = AnamneseBase.objects.get_or_create(
+        client=client_obj, tenant=client_obj.tenant,
+    )
     AnamnesePodologia.objects.update_or_create(
-        client=client_obj,
-        tenant=client_obj.tenant,
-        professional=client_obj.professional,
-        defaults={
-            'footwear_used': 'Tênis',
-        },
+        anamnese_base=base_obj,
+        defaults={'footwear_used': 'Tênis', 'professional': professional},
     )
 
     generate_response = auth_client.post(
@@ -203,7 +208,6 @@ def test_submit_public_anamnesis_updates_client_and_base(auth_client, client_obj
     base = AnamneseBase.objects.get(
         client=client_obj,
         tenant=client_obj.tenant,
-        professional=client_obj.professional,
     )
     assert base.takes_medication == 'Sim: Losartana'
     assert base.clinical_history == 'Hipertensão'
@@ -230,7 +234,6 @@ def test_submit_public_anamnesis_blocks_podologia_payload(auth_client, client_ob
     assert response.status_code == 400, response.content
     assert 'podologia' in response.data['detail'].lower()
     assert not AnamnesePodologia.objects.filter(
-        client=client_obj,
-        tenant=client_obj.tenant,
-        professional=client_obj.professional,
+        anamnese_base__client=client_obj,
+        anamnese_base__tenant=client_obj.tenant,
     ).exists()

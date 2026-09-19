@@ -13,7 +13,6 @@
       "path": "frontend-bakery",
     },
   ],
-
   "settings": {
     "git.openRepositoryInParentFolders": "always",
     "editor.formatOnSave": true,

@@ -5,11 +5,11 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.agenda.models import Appointment, Charge, ClinicalRecord, Encounter, FinalizeAudit
-from apps.anamnesis.models import AnamnesisField, AnamnesisResponse
-from apps.clients.models import Client
-from apps.register.models import Professional
-from apps.tenancy.models import Tenant, TenantMembership
+from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
+from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
+from apps.clinic.models.clients import Client
+from apps.authentication.models import Professional
+from apps.authentication.models import Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -46,7 +46,6 @@ def auth_client(professional):
 def client_obj(professional):
     return Client.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
-        professional=professional,
         first_name='Cliente',
         last_name='Excluir',
         phone='11999999991',
@@ -63,13 +62,6 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
         title='Consulta ativa',
         start_at=start_at,
         end_at=start_at + timedelta(hours=1),
-    )
-    FinalizeAudit.objects.create(
-        tenant=tenant,
-        appointment=appointment,
-        professional=professional,
-        client=client_obj,
-        server_now=timezone.now(),
     )
     encounter = Encounter.objects.create(
         tenant=tenant,
@@ -93,21 +85,16 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
         appointment=appointment,
         title='Cobrança teste',
     )
-    field = AnamnesisField.objects.create(
-        professional=professional,
-        code='takes_medication',
-        sector='Histórico',
-        sector_order=0,
-        label='Toma medicação',
-        field_type='radio',
-        options=['Sim', 'Não'],
-        order=0,
-    )
-    AnamnesisResponse.objects.create(
+    anamnesis = AnamneseBase.objects.create(
         client=client_obj,
-        field=field,
-        field_label_snap='Toma medicação',
-        value='Sim',
+        tenant=tenant,
+        professional=professional,
+        takes_medication='Sim',
+    )
+    AnamnesePodologia.objects.create(
+        anamnese_base=anamnesis,
+        professional=professional,
+        footwear_used='Tênis',
     )
 
     response = auth_client.delete(f'/register/clients/{client_obj.id}/')
@@ -115,11 +102,13 @@ def test_delete_client_cascades_related_records(auth_client, professional, clien
     assert response.status_code == 204, response.content
     assert not Client.objects.filter(pk=client_obj.id).exists()
     assert not Appointment.objects.filter(client_id=client_obj.id).exists()
-    assert not FinalizeAudit.objects.filter(client_id=client_obj.id).exists()
     assert not Encounter.objects.filter(client_id=client_obj.id).exists()
     assert not ClinicalRecord.objects.filter(client_id=client_obj.id).exists()
     assert not Charge.objects.filter(client_id=client_obj.id).exists()
-    assert not AnamnesisResponse.objects.filter(client_id=client_obj.id).exists()
+    assert not AnamneseBase.objects.filter(client_id=client_obj.id).exists()
+    assert not AnamnesePodologia.objects.filter(
+        anamnese_base_id=anamnesis.id,
+    ).exists()
 
 
 def test_clients_basic_detail_is_read_only(auth_client, client_obj):

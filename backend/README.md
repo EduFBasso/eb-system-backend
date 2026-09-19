@@ -1,21 +1,68 @@
-# 🧠 ENGINE — Backend (Django)
+# EB System Backend
 
-Este repositório contém o backend principal utilizado por todos os sistemas (Clinic, Bakery, Jurídico, Previdenciário).  
-A arquitetura é **multi-servidor**, permitindo isolamento e personalização por cliente.
+Backend único para dois sistemas de negócio distintos:
 
-## 🚀 Tecnologias
-- Django + Django REST Framework  
-- PostgreSQL  
-- JWT para autenticação  
-- Deploy na Render  
+- Clinic System (atendimento clínico)
+- Bakery System (controle de pedidos de produtos para panificadora)
 
-## 📂 Estrutura
-- `apps/` → módulos independentes (agenda, clients, tenancy, etc.)
-- `scripts/` → utilitários e automações
-- `docs/` → documentação interna
-- `core/` → configurações principais do projeto
+Este README é a visão geral. Regras específicas ficam em READMEs separados:
 
-## ▶️ Como rodar localmente
+- `README-CLINIC.md`
+- `README-BAKERY.md`
+
+## Contexto da arquitetura
+
+- `apps.authentication`: autenticação, profissionais, memberships e permissões
+- `apps.clinic`: agenda, clientes, anamnese, odonto, reminders
+- `apps.bakery`: clientes, catálogo, pedidos e lançamentos da padaria
+- `core`: settings, urls e middleware
+
+Stack:
+
+- Python 3.12+
+- Django + DRF
+- PostgreSQL
+- JWT (SimpleJWT)
+- Deploy backend: Render
+
+## Frontends separados na Vercel
+
+Os frontends são independentes e possuem deploys distintos:
+
+- Frontend Clinic: `../frontend-clinic`
+- Frontend Bakery: `../frontend-bakery`
+
+Cada frontend pode ter seu próprio projeto na Vercel, domínio e variáveis de ambiente.
+
+## Setup local rápido
+
 ```bash
-python manage.py migrate
-python manage.py runserver
+cd backend
+./.venv/bin/python manage.py migrate
+./.venv/bin/python manage.py runserver
+```
+
+## Teste local de reminders
+
+Fluxo mais próximo do ambiente online:
+
+```bash
+cd backend
+bash dev.sh
+```
+
+Esse script sobe o Django e executa o comando canônico de reminders em loop a
+cada 60 segundos por padrão.
+
+Validação:
+
+```bash
+./.venv/bin/python manage.py check
+./.venv/bin/python -m pytest -q
+```
+
+## Documentação operacional
+
+- Reset e bootstrap local (padrão de cadastro de administradores): `docs/reset_database_loc.md`
+- Guia de campos dinâmicos de anamnese: `docs/anamnesis-field-maintenance-guide.md`
+- Tenants por domínio/subdomínio (LAN e Vercel): `docs/local-lan-vercel-tenant-domains-guide.md`
