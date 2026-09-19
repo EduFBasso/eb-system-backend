@@ -158,11 +158,11 @@ class Command(BaseCommand):
                     skipped += 1
                     continue
 
-                existing = None
-                if phone_digits:
-                    existing = Client.objects.filter(tenant=tenant, phone=phone_digits).first()
-                if not existing and email_remote:
-                    existing = Client.objects.filter(tenant=tenant, email=email_remote).first()
+                existing = Client.objects.filter(tenant=tenant, phone=phone_digits).first()
+                if email_remote:
+                    email_owner = Client.objects.filter(tenant=tenant, email=email_remote).first()
+                    if email_owner and (not existing or email_owner.pk != existing.pk):
+                        email_remote = None
 
                 if existing:
                     changed = False
