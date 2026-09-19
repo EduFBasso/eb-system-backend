@@ -4,12 +4,40 @@ Use este checklist no Web Service do backend na Render. O deploy deve sair da br
 
 ## Runtime Django
 
-- [ ] `DJANGO_SETTINGS_MODULE=clinic_project.settings.production`
+- [ ] `DJANGO_SETTINGS_MODULE=core.settings.production`
 - [ ] `DJANGO_SECRET_KEY=<secret forte gerado para producao>`
 - [ ] `DEBUG=False`
 - [ ] `APP_VERSION=<hash, tag ou versao do deploy>`
 - [ ] `TIME_ZONE=America/Sao_Paulo`
 - [ ] `SERVE_MEDIA_FILES=False`
+
+### Regra para Web Service e Cron Job
+
+O Web Service e o Cron Job possuem ambientes independentes no Render. O Cron
+Job precisa repetir as variaveis obrigatorias do `production.py`, mesmo que elas
+ja existam no Web Service:
+
+- `DJANGO_SETTINGS_MODULE`
+- `DJANGO_SECRET_KEY`
+- `DATABASE_URL`
+- `DJANGO_ALLOWED_HOSTS`
+- `CORS_ALLOWED_ORIGINS`
+- `CSRF_TRUSTED_ORIGINS`
+- `DEFAULT_FROM_EMAIL`
+- `EMAIL_HOST`
+- `EMAIL_HOST_USER`
+- `EMAIL_HOST_PASSWORD`
+
+No Cron Job, definir tambem `APPOINTMENT_REMINDERS_ENABLED=False` durante a
+validacao inicial. Depois de validar o bot e o vinculo da Podologa, alterar
+para `True`. O `TELEGRAM_BOT_TOKEN` tambem precisa existir no Cron Job quando os
+lembretes estiverem habilitados.
+
+Variaveis legadas identificadas no painel e nao encontradas no codigo atual:
+`ALLOW_OTP_FALLBACK`, `OTP_FALLBACK_CODE`, `TOTP_ISSUER`, `TOTP_VALID_WINDOW`,
+`WEBAUTHN_ORIGINS`, `WEBAUTHN_RP_ID` e `WEBAUTHN_RP_NAME`. Mantenha-as sem uso
+durante esta revisao e remova-as somente depois de confirmar que nenhum outro
+servico do Render depende delas.
 
 Observacao: use `SERVE_MEDIA_FILES=True` apenas se o deploy inicial precisar servir arquivos locais pelo Django. Na Render, arquivos de media exigem Persistent Disk ou storage externo para sobreviver a redeploys.
 
@@ -91,10 +119,12 @@ Validacao do bot no Render Shell:
 
 ```bash
 cd backend
-python manage.py shell -c "from apps.reminders.services.telegram import TelegramBotClient; print(TelegramBotClient().get_me())"
+python manage.py shell -c "from apps.notifications.services.telegram_client import TelegramBotClient; print(TelegramBotClient().get_me())"
 ```
 
-Vinculo manual profissional-chat, se necessario:
+Se for necessario criar ou corrigir o vinculo profissional-chat, use o fluxo
+de vinculacao existente no Clinic. Nao execute comandos que nao estejam
+presentes nesta versao do backend.
 
 ```bash
 cd backend
@@ -104,7 +134,7 @@ python manage.py telegram_link_professional --email profissional@exemplo.com --c
 Cron job Render, depois de validar token e vinculos:
 
 - Schedule: `*/5 * * * *`
-- Command: `cd backend && python manage.py send_reminders`
+- Command: `cd backend && python manage.py send_clinic_appointment_reminders`
 
 Depois de validar o cron, ajuste:
 
@@ -157,10 +187,27 @@ pip install -r backend/requirements.txt && cd backend && python manage.py collec
 Start command inicial:
 
 ```bash
-cd backend && python manage.py migrate --noinput && gunicorn clinic_project.wsgi --bind 0.0.0.0:$PORT --workers 2
+cd backend && python manage.py migrate --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2
 ```
 
 Smoke URLs:
 
 - `https://<backend>.onrender.com/health`
 - `https://<backend>.onrender.com/health/full`
+
+## Importacao de clientes da Podologia
+
+Depois do deploy e da validacao do tenant, importar a tabela completa somente
+com o backup confirmado. Primeiro executar em simulacao:
+
+```bash
+cd backend
+python manage.py import_clients_csv \
+	--file /caminho/clientes-podologia-completo.csv \
+	--tenant-slug consultorio-podologia \
+	--dry-run
+```
+
+Conferir criados, atualizados e ignorados. So depois repetir sem `--dry-run`.
+Nao publicar o CSV nem criar uma API publica para transporta-lo; ele contem
+dados pessoais e deve ser transferido por canal privado e temporario.
