@@ -1,4 +1,5 @@
 import csv
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 from django.core.management.base import BaseCommand, CommandError
@@ -18,6 +19,15 @@ def normalize_phone_digits(phone: Optional[str]) -> Optional[str]:
     return digits or None
 
 
+def parse_date(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value).strip())
+    except ValueError:
+        return None
+
+
 class Command(BaseCommand):
     help = (
         "Importa ou atualiza (upsert) clientes de um arquivo CSV associando-os a uma clínica (Tenant).\n"
@@ -30,6 +40,11 @@ class Command(BaseCommand):
         parser.add_argument("--professional-email", help="E-mail do profissional responsável por assinar a anamnese (opcional)")
         parser.add_argument("--limit", type=int, default=0, help="Limite máximo de linhas a serem processadas (0=todas)")
         parser.add_argument("--dry-run", action="store_true", help="Executa em modo de simulação sem salvar nada no banco")
+        parser.add_argument(
+            "--skip-anamnesis",
+            action="store_true",
+            help="Importa apenas o cadastro do cliente, deixando a anamnese para o preenchimento pelo link",
+        )
 
     def handle(self, *args, **options):
         file_path: str = options["file"]
@@ -37,6 +52,7 @@ class Command(BaseCommand):
         target_email: Optional[str] = options.get("professional_email")
         limit: int = options.get("limit") or 0
         dry_run = bool(options.get("dry_run"))
+        skip_anamnesis = bool(options.get("skip_anamnesis"))
 
         try:
             tenant = Tenant.objects.get(slug=tenant_slug)
@@ -104,6 +120,15 @@ class Command(BaseCommand):
                 state = (item.get("state") or None) or None
                 profession = (item.get("profession") or None) or None
                 postal_code = (item.get("postal_code") or None) or None
+                address_number = (item.get("address_number") or None) or None
+                address_complement = (item.get("address_complement") or None) or None
+                date_of_birth = parse_date(item.get("date_of_birth"))
+                document_number = (item.get("document_number") or None) or None
+                document_type = (item.get("document_type") or None) or None
+                marital_status = (item.get("marital_status") or None) or None
+                nationality = (item.get("nationality") or None) or None
+                sex = (item.get("sex") or None) or None
+                rg = (item.get("rg") or None) or None
 
                 base_payload = {
                     "takes_medication": (item.get("takes_medication") or None) or None,
@@ -129,7 +154,7 @@ class Command(BaseCommand):
                     "other_procedures": (item.get("other_procedures") or None) or None,
                 }
 
-                if not first_name and not phone_digits:
+                if not first_name or not phone_digits:
                     skipped += 1
                     continue
 
@@ -151,6 +176,15 @@ class Command(BaseCommand):
                         "state": state if state is not None else existing.state,
                         "profession": profession if profession is not None else existing.profession,
                         "postal_code": postal_code if postal_code is not None else existing.postal_code,
+                        "address_number": address_number if address_number is not None else existing.address_number,
+                        "address_complement": address_complement if address_complement is not None else existing.address_complement,
+                        "date_of_birth": date_of_birth if date_of_birth is not None else existing.date_of_birth,
+                        "document_number": document_number if document_number is not None else existing.document_number,
+                        "document_type": document_type if document_type is not None else existing.document_type,
+                        "marital_status": marital_status if marital_status is not None else existing.marital_status,
+                        "nationality": nationality if nationality is not None else existing.nationality,
+                        "sex": sex if sex is not None else existing.sex,
+                        "rg": rg if rg is not None else existing.rg,
                     }
                     for field, value in updates.items():
                         if getattr(existing, field) != value:
@@ -158,7 +192,7 @@ class Command(BaseCommand):
                             changed = True
                     if changed and not dry_run:
                         existing.save()
-                    if not dry_run:
+                    if not dry_run and not skip_anamnesis:
                         base_values = {key: value for key, value in base_payload.items() if value is not None}
                         anamnese_base, _ = AnamneseBase.objects.update_or_create(
                             client=existing,
@@ -173,7 +207,7 @@ class Command(BaseCommand):
                             )
                     updated += int(changed)
                 else:
-                    if not phone_digits:
+                    if not first_name or not phone_digits:
                         skipped += 1
                         continue
                     if not dry_run:
@@ -189,19 +223,29 @@ class Command(BaseCommand):
                             state=state,
                             profession=profession,
                             postal_code=postal_code,
+                            address_number=address_number,
+                            address_complement=address_complement,
+                            date_of_birth=date_of_birth,
+                            document_number=document_number,
+                            document_type=document_type,
+                            marital_status=marital_status,
+                            nationality=nationality,
+                            sex=sex,
+                            rg=rg,
                         )
-                        base_values = {key: value for key, value in base_payload.items() if value is not None}
-                        anamnese_base, _ = AnamneseBase.objects.update_or_create(
-                            client=client,
-                            tenant=tenant,
-                            defaults={**base_values, "professional": professional},
-                        )
-                        podologia_values = {key: value for key, value in podologia_payload.items() if value is not None}
-                        if podologia_values:
-                            AnamnesePodologia.objects.update_or_create(
-                                anamnese_base=anamnese_base,
-                                defaults={**podologia_values, "professional": professional},
+                        if not skip_anamnesis:
+                            base_values = {key: value for key, value in base_payload.items() if value is not None}
+                            anamnese_base, _ = AnamneseBase.objects.update_or_create(
+                                client=client,
+                                tenant=tenant,
+                                defaults={**base_values, "professional": professional},
                             )
+                            podologia_values = {key: value for key, value in podologia_payload.items() if value is not None}
+                            if podologia_values:
+                                AnamnesePodologia.objects.update_or_create(
+                                    anamnese_base=anamnese_base,
+                                    defaults={**podologia_values, "professional": professional},
+                                )
                     created += 1
 
         import_batch(rows)

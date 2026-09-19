@@ -29,3 +29,5 @@ scripts/seed_common_anamnesis_fields.py
 *.csv
 *.xlsx
 clients_export.csv
+docs/
+docs/2026-09-18T19_17Z.dir.tar.gz
