@@ -1,8 +1,10 @@
 import pytest
+from types import SimpleNamespace
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.authentication.services import (
     get_active_tenant_membership,
+    get_tenant_membership_from_request,
     user_has_tenant_capability,
 )
 
@@ -75,3 +77,60 @@ def test_superuser_bypasses_capability_check(db):
     )
 
     assert user_has_tenant_capability(superuser, "any-capability", ecosystem="clinic")
+
+
+@pytest.mark.django_db
+def test_request_resolver_uses_jwt_tenant_instead_of_first_membership(professional):
+    first_tenant = Tenant.objects.create(
+        name="First Clinic",
+        slug="first-clinic",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True},
+    )
+    selected_tenant = Tenant.objects.create(
+        name="Selected Clinic",
+        slug="selected-clinic",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "odonto": True},
+    )
+    TenantMembership.objects.create(
+        tenant=first_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+    selected_membership = TenantMembership.objects.create(
+        tenant=selected_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+
+    request = SimpleNamespace(
+        user=professional,
+        auth={"tenant_id": selected_tenant.id},
+    )
+
+    assert get_tenant_membership_from_request(
+        request,
+        ecosystem="clinic",
+    ) == selected_membership
+
+
+@pytest.mark.django_db
+def test_request_resolver_rejects_jwt_tenant_without_active_membership(
+    professional,
+    clinic_tenant,
+):
+    TenantMembership.objects.create(
+        tenant=clinic_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+    request = SimpleNamespace(
+        user=professional,
+        auth={"tenant_id": clinic_tenant.id + 999},
+    )
+
+    assert get_tenant_membership_from_request(
+        request,
+        ecosystem="clinic",
+    ) is None

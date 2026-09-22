@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.clinic.models.anamnesis import AnamneseBase, AnamneseOdontologia
 from apps.clinic.models.clients import Client
-from apps.authentication.services.permissions import get_active_tenant_membership
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 
 
 class DentalAnamnesisSerializer(serializers.ModelSerializer):
@@ -29,8 +29,8 @@ class DentalAnamnesisSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Autenticação necessária.")
             
         # Extracts tenant context through active user membership
-        membership = get_active_tenant_membership(
-            request.user,
+        membership = get_tenant_membership_from_request(
+            request,
             ecosystem='clinic',
         )
         if not membership:

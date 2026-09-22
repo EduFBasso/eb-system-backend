@@ -15,23 +15,13 @@ from apps.clinic.serializers.agenda import (
     ClinicalRecordSerializer,
     EncounterSerializer,
 )
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 from .state_utils import promote_overdue_scheduled_to_done
 
 
-def _get_active_tenant(user):
-    """Resolve the active tenant from the authenticated user's memberships."""
-    if not user or not getattr(user, "is_authenticated", False):
-        return None
-
-    membership = (
-        user.tenant_memberships.select_related("tenant")
-        .filter(is_active=True, tenant__is_active=True)
-        .order_by("created_at", "id")
-        .first()
-    )
-    if membership:
-        return membership.tenant
-    return None
+def _get_active_tenant(request):
+    membership = get_tenant_membership_from_request(request, ecosystem="clinic")
+    return membership.tenant if membership else None
 
 
 class TypedRequestMixin:
@@ -75,7 +65,7 @@ class ProfessionalOwnedViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         qs = self.base_queryset()
         user = getattr(self.request, "user", None)
 
-        tenant = _get_active_tenant(user)
+        tenant = _get_active_tenant(self.request)
         if tenant is not None:
             # Compat: include legacy rows with tenant=NULL that still belong to this tenant's professionals.
             return qs.filter(
@@ -94,7 +84,7 @@ class ProfessionalOwnedViewSet(TypedRequestMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = getattr(self.request, "user", None)
-        tenant = _get_active_tenant(user)
+        tenant = _get_active_tenant(self.request)
         serializer.save(professional=user, tenant=tenant)
 
 
@@ -114,7 +104,7 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         qs = self.base_queryset()
         user = getattr(self.request, "user", None)
 
-        tenant = _get_active_tenant(user)
+        tenant = _get_active_tenant(self.request)
         # Restringe a agenda ao tenant ativo da profissional.
         if tenant is not None:
             qs = qs.filter(
@@ -172,7 +162,7 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # profissional sempre é o usuário autenticado
         user = getattr(self.request, "user", None)
-        tenant = _get_active_tenant(user)
+        tenant = _get_active_tenant(self.request)
         obj = serializer.save(professional=user, tenant=tenant)
         # Marcar device de criação (não obrigatório)
         try:

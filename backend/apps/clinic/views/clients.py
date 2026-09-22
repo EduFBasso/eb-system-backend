@@ -18,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.clinic.models.clients import Client
 from apps.clinic.serializers.clients import ClientSerializer, ClientBasicSerializer
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
-from apps.authentication.services.permissions import get_active_tenant_membership
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 
 
 ANAMNESIS_LINK_SALT = 'anamnesis-link-v1'
@@ -54,9 +54,9 @@ PODOLOGIA_BLOCK_MESSAGE = 'Campos de anamnese podologia não são permitidos nes
 LINK_EXPIRED_MESSAGE = 'Link expirado'
 
 
-def _get_active_tenant(user):
-    membership = get_active_tenant_membership(
-        user,
+def _get_active_tenant(request):
+    membership = get_tenant_membership_from_request(
+        request,
         ecosystem='clinic',
     )
     return membership.tenant if membership else None
@@ -71,14 +71,14 @@ class ClientViewSet(ModelViewSet):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['tenant'] = _get_active_tenant(self.request.user)
+        context['tenant'] = _get_active_tenant(self.request)
         return context
 
     def get_queryset(self): # type: ignore
         user_id = getattr(self.request.user, 'id', None)
         if not user_id:
             return Client.objects.none()
-        tenant = _get_active_tenant(self.request.user)
+        tenant = _get_active_tenant(self.request)
         if tenant is None:
             return Client.objects.none()
 
@@ -332,7 +332,7 @@ class ClientBasicViewSet(ReadOnlyModelViewSet):
         user_id = getattr(self.request.user, 'id', None)
         if not user_id:
             return Client.objects.none()
-        tenant = _get_active_tenant(self.request.user)
+        tenant = _get_active_tenant(self.request)
         if tenant is None:
             return Client.objects.none()
 
