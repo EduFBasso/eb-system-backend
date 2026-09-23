@@ -4,7 +4,6 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.authentication.models import Tenant
 from apps.clinic.models.inventory import Supplier, Product, StockMove, Service, ServiceMaterial
 from apps.clinic.serializers.inventory import (
     SupplierSerializer,
@@ -13,6 +12,7 @@ from apps.clinic.serializers.inventory import (
     ServiceSerializer,
     ServiceMaterialSerializer,
 )
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 
 
 class BaseScopedViewSet(viewsets.ModelViewSet):
@@ -21,15 +21,11 @@ class BaseScopedViewSet(viewsets.ModelViewSet):
     tenant_lookup = "tenant"
 
     def active_tenant(self):
-        return (
-            Tenant.objects.filter(
-                memberships__professional=self.request.user,
-                memberships__is_active=True,
-                is_active=True,
-            )
-            .order_by("memberships__created_at", "id")
-            .first()
+        membership = get_tenant_membership_from_request(
+            self.request,
+            ecosystem="clinic",
         )
+        return membership.tenant if membership else None
 
     def get_queryset(self):
         qs = super().get_queryset()

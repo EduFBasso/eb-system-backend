@@ -26,15 +26,33 @@ class TelegramBotClient:
         token: str | None = None,
         api_base: str | None = None,
         timeout: int | None = None,
+        ecosystem: str = "clinic",
     ):
-        self.token = token if token is not None else settings.TELEGRAM_BOT_TOKEN
+        self.ecosystem = ecosystem
+        if token is None:
+            token = (
+                settings.BAKERY_TELEGRAM_BOT_TOKEN
+                if ecosystem == "bakery"
+                else settings.CLINIC_TELEGRAM_BOT_TOKEN or settings.TELEGRAM_BOT_TOKEN
+            )
+        self.token = token
         self.api_base = (
-            api_base if api_base is not None else settings.TELEGRAM_BOT_API_BASE
+            api_base
+            if api_base is not None
+            else (
+                settings.BAKERY_TELEGRAM_BOT_API_BASE
+                if ecosystem == "bakery"
+                else settings.CLINIC_TELEGRAM_BOT_API_BASE
+            )
         ).rstrip("/")
         self.timeout = (
             timeout
             if timeout is not None
-            else settings.TELEGRAM_BOT_TIMEOUT_SECONDS
+            else (
+                settings.BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS
+                if ecosystem == "bakery"
+                else settings.CLINIC_TELEGRAM_BOT_TIMEOUT_SECONDS
+            )
         )
 
     @property
@@ -49,7 +67,7 @@ class TelegramBotClient:
         reply_markup: dict | None = None,
     ) -> TelegramSendResult:
         if not self.is_configured:
-            raise TelegramDeliveryError("TELEGRAM_BOT_TOKEN não configurado.")
+            raise TelegramDeliveryError("Token do bot Telegram não configurado.")
 
         payload: dict[str, object] = {
             "chat_id": chat_id,
@@ -92,7 +110,7 @@ class TelegramBotClient:
 
     def get_me(self) -> dict:
         if not self.is_configured:
-            raise TelegramDeliveryError("TELEGRAM_BOT_TOKEN não configurado.")
+            raise TelegramDeliveryError("Token do bot Telegram não configurado.")
 
         try:
             response = requests.get(
@@ -127,7 +145,7 @@ class TelegramBotClient:
         allowed_updates: list[str] | None = None,
     ) -> list[dict]:
         if not self.is_configured:
-            raise TelegramDeliveryError("TELEGRAM_BOT_TOKEN não configurado.")
+            raise TelegramDeliveryError("Token do bot Telegram não configurado.")
 
         payload: dict[str, object] = {
             "limit": max(1, min(int(limit), 100)),
@@ -171,12 +189,24 @@ def masked_token_fingerprint(token: str) -> str:
     return f"***{tail}" if tail else "***"
 
 
+def _default_bot_token(ecosystem: str) -> tuple[str, str]:
+    ecosystem_token = (
+        settings.BAKERY_TELEGRAM_BOT_TOKEN
+        if ecosystem == "bakery"
+        else settings.CLINIC_TELEGRAM_BOT_TOKEN
+    )
+    if ecosystem_token:
+        return ecosystem_token.strip(), ecosystem
+    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
+
+
 def resolve_bot_token(link: "notifications_models.TelegramProfessionalLink") -> tuple[str, str]:
-    """Returns (token, origin) where origin is 'professional' or 'global'."""
+    """Resolve o token privado ou o token padrão do ecossistema do vínculo."""
     private_token = (link.bot_token or '').strip()
     if private_token:
         return private_token, 'professional'
-    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
+    ecosystem = link.tenant.ecosystem
+    return _default_bot_token(ecosystem)
 
 
 def send_via_link(
@@ -187,5 +217,5 @@ def send_via_link(
 ) -> TelegramSendResult:
     """Resolves the right bot token for a link (own bot or global fallback) and sends a message."""
     token, _origin = resolve_bot_token(link)
-    client = TelegramBotClient(token=token)
+    client = TelegramBotClient(token=token, ecosystem=link.tenant.ecosystem)
     return client.send_message(chat_id=link.chat_id, text=text, reply_markup=reply_markup)

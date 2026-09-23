@@ -38,6 +38,7 @@ def professional():
 def auth_client(professional):
     client = APIClient()
     token = AccessToken.for_user(professional)
+    token['tenant_id'] = professional.tenant_memberships.first().tenant_id
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 

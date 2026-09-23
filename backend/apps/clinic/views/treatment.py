@@ -14,6 +14,7 @@ from apps.clinic.serializers.treatment import (
     TreatmentPlanListSerializer,
     TreatmentPlanWriteSerializer,
 )
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 
 
 def _refresh_plan_status(plan: TreatmentPlan) -> None:
@@ -57,6 +58,10 @@ class TreatmentPlanViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         if not user_id:
             return super().get_queryset().none()
         qs = super().get_queryset().filter(professional_id=user_id)
+        membership = get_tenant_membership_from_request(self.request, ecosystem='clinic')
+        if membership is None:
+            return qs.none()
+        qs = qs.filter(tenant_id=membership.tenant_id)
 
         client_id = self.request.query_params.get('client')
         status_param = self.request.query_params.get('status')
@@ -82,12 +87,7 @@ class TreatmentPlanViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer: BaseSerializer) -> None:
         user = self.current_user()
-        membership = (
-            user.tenant_memberships.filter(is_active=True, tenant__is_active=True)
-            .order_by('created_at', 'id')
-            .select_related('tenant')
-            .first()
-        )
+        membership = get_tenant_membership_from_request(self.request, ecosystem='clinic')
         tenant = membership.tenant if membership else None
         client = serializer.validated_data.get('client')
         if tenant is None or client is None or client.tenant_id != tenant.id:
@@ -136,6 +136,10 @@ class TreatmentPlanItemViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
         if not user_id:
             return super().get_queryset().none()
         qs = super().get_queryset().filter(plan__professional_id=user_id)
+        membership = get_tenant_membership_from_request(self.request, ecosystem='clinic')
+        if membership is None:
+            return qs.none()
+        qs = qs.filter(plan__tenant_id=membership.tenant_id)
 
         plan_id = self.request.query_params.get('plan')
         status_param = self.request.query_params.get('status')

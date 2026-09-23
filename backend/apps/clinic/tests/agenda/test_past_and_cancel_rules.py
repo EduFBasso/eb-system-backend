@@ -30,6 +30,7 @@ def professional():
 def api(professional):
     c = APIClient()
     token = AccessToken.for_user(professional)
+    token['tenant_id'] = professional.tenant_memberships.first().tenant_id
     c.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return c
 

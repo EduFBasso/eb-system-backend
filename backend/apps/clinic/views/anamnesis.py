@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from apps.authentication.services.permissions import (
     HasTenantCapability,
-    get_active_tenant_membership,
+    get_tenant_membership_from_request,
 )
 from apps.clinic.models.anamnesis import AnamneseOdontologia
 from apps.clinic.serializers.anamnesis import DentalAnamnesisSerializer
@@ -25,8 +25,8 @@ class DentalAnamnesisViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # [Segurança Multi-tenant] Restringe a busca apenas para dados da clínica do usuário logado
-        membership = get_active_tenant_membership(
-            self.request.user,
+        membership = get_tenant_membership_from_request(
+            self.request,
             ecosystem='clinic',
         )
         if not membership:
