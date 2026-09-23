@@ -16,6 +16,11 @@ from apps.notifications.models import TelegramProfessionalLink
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def configure_bakery_telegram(settings):
+    settings.BAKERY_TELEGRAM_BOT_TOKEN = "test-bakery-token"
+
+
 def _make_tenant_with_owner(*, link_telegram: bool) -> tuple[Tenant, Professional]:
     tenant = Tenant.objects.create(
         name="Padaria Teste",
