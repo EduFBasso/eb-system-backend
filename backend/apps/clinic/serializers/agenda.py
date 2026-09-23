@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.clinic.models.inventory import Product, Service
+from apps.authentication.services.permissions import get_tenant_membership_from_request
 from apps.clinic.models.agenda import (
     Appointment,
     Charge,
@@ -14,23 +15,27 @@ from apps.clinic.models.agenda import (
 from .state_utils import promote_overdue_scheduled_to_done
 
 
-def _validate_client_tenant(client, professional):
+def _validate_client_tenant(client, professional, request=None):
     if client is None or professional is None:
         return
 
-    tenant = (
-        professional.tenant_memberships.filter(
-            is_active=True,
-            tenant__is_active=True,
-        )
-        .order_by("created_at", "id")
-        .values_list("tenant_id", flat=True)
-        .first()
-    )
+    membership = get_tenant_membership_from_request(request, ecosystem="clinic") if request else None
+    tenant = membership.tenant_id if membership else None
     if tenant is not None and client.tenant_id != tenant:
         raise serializers.ValidationError(
             {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
         )
+
+
+def _request_tenant(request, professional):
+    membership = get_tenant_membership_from_request(request, ecosystem="clinic") if request else None
+    if membership:
+        return membership.tenant
+    if professional:
+        return professional.tenant_memberships.filter(
+            is_active=True, tenant__is_active=True
+        ).order_by("created_at", "id").select_related("tenant").first().tenant
+    return None
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -159,7 +164,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         client = attrs.get("client", getattr(self.instance, "client", None))
 
         if client is not None and professional is not None:
-            _validate_client_tenant(client, professional)
+            _validate_client_tenant(client, professional, self.context.get("request"))
 
         if self.instance is None:
             promote_overdue_scheduled_to_done(
@@ -220,18 +225,12 @@ class EncounterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
-        tenant = (
-            getattr(self.instance, "tenant", None)
-            or (
-                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
-                .order_by('created_at', 'id').values_list('tenant', flat=True).first()
-                and professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
-                .order_by('created_at', 'id').select_related('tenant').first().tenant
-            ) if professional else None
+        tenant = getattr(self.instance, "tenant", None) or _request_tenant(
+            self.context.get("request"), professional
         )
         client = attrs.get("client", getattr(self.instance, "client", None))
         appointment = attrs.get("appointment", getattr(self.instance, "appointment", None))
-        _validate_client_tenant(client, professional)
+        _validate_client_tenant(client, professional, self.context.get("request"))
         started_at = attrs.get("started_at", getattr(self.instance, "started_at", timezone.now()))
         ended_at = attrs.get("ended_at", getattr(self.instance, "ended_at", None))
         chief_complaint = attrs.get("chief_complaint", getattr(self.instance, "chief_complaint", ""))
@@ -291,16 +290,12 @@ class ClinicalRecordSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
-        tenant = (
-            getattr(self.instance, "tenant", None)
-            or (
-                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
-                .order_by('created_at', 'id').select_related('tenant').first().tenant
-            ) if professional else None
+        tenant = getattr(self.instance, "tenant", None) or _request_tenant(
+            self.context.get("request"), professional
         )
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))
-        _validate_client_tenant(client, professional)
+        _validate_client_tenant(client, professional, self.context.get("request"))
         record_type = attrs.get("record_type", getattr(self.instance, "record_type", ClinicalRecord.RecordType.EVOLUTION))
         title = attrs.get("title", getattr(self.instance, "title", ""))
         content = attrs.get("content", getattr(self.instance, "content", ""))

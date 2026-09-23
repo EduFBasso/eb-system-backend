@@ -37,8 +37,10 @@ def catalog_context():
         client=client,
     )
     api_client = APIClient()
+    token = AccessToken.for_user(professional)
+    token['tenant_id'] = tenant.id
     api_client.credentials(
-        HTTP_AUTHORIZATION=f'Bearer {AccessToken.for_user(professional)}',
+        HTTP_AUTHORIZATION=f'Bearer {token}',
     )
     return api_client, tenant, plan
 

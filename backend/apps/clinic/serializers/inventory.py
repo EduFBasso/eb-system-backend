@@ -1,5 +1,11 @@
 from rest_framework import serializers
 from apps.clinic.models.inventory import Supplier, Product, StockMove, Service, ServiceMaterial
+from apps.authentication.services.permissions import get_tenant_membership_from_request
+
+
+def _request_tenant_id(request):
+    membership = get_tenant_membership_from_request(request, ecosystem="clinic")
+    return membership.tenant_id if membership else None
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -14,9 +20,7 @@ class SupplierSerializer(serializers.ModelSerializer):
         if not request or not hasattr(request, "user"):
             return value
 
-        tenant = request.user.tenant_memberships.filter(
-            is_active=True, tenant__is_active=True
-        ).values_list("tenant_id", flat=True).first()
+        tenant = _request_tenant_id(request)
         if tenant is None:
             return value
         # Se é atualização, exclui o próprio fornecedor da verificação
@@ -50,9 +54,7 @@ class ProductSerializer(serializers.ModelSerializer):
         if not request or not hasattr(request, "user"):
             return value
 
-        tenant = request.user.tenant_memberships.filter(
-            is_active=True, tenant__is_active=True
-        ).values_list("tenant_id", flat=True).first()
+        tenant = _request_tenant_id(request)
         if tenant is None:
             return value
         # Se é atualização, exclui o próprio produto da verificação
@@ -105,9 +107,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         if not request or not hasattr(request, "user"):
             return value
 
-        tenant = request.user.tenant_memberships.filter(
-            is_active=True, tenant__is_active=True
-        ).values_list("tenant_id", flat=True).first()
+        tenant = _request_tenant_id(request)
         if tenant is None:
             return value
         # Se é atualização, exclui o próprio serviço da verificação

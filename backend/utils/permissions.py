@@ -39,7 +39,7 @@ def _get_bakery_membership(request) -> TenantMembership | None:
     if tenant_id is None:
         auth_token = getattr(request, "auth", None)
         if auth_token is not None:
-            tenant_id = auth_token.get("tenant_id")
+            tenant_id = auth_token["tenant_id"] if "tenant_id" in auth_token else None
             if tenant_id is None:
                 return None
         else:

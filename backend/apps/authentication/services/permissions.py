@@ -39,9 +39,16 @@ def get_tenant_membership_from_request(
         memberships = memberships.filter(tenant__ecosystem=ecosystem)
 
     auth_token = getattr(request, 'auth', None)
-    tenant_id = auth_token.get('tenant_id') if auth_token is not None else None
+    tenant_id = (
+        auth_token['tenant_id']
+        if auth_token is not None and 'tenant_id' in auth_token
+        else None
+    )
     if tenant_id is not None:
         return memberships.filter(tenant_id=tenant_id).first()
+
+    if auth_token is not None:
+        return None
 
     return memberships.order_by('created_at', 'id').first()
 

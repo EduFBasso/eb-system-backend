@@ -72,6 +72,7 @@ def other_client(other_professional):
 def api_client(owner):
     client = APIClient()
     token = AccessToken.for_user(owner)
+    token['tenant_id'] = owner.tenant_memberships.first().tenant_id
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 
