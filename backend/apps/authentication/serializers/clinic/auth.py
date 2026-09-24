@@ -1,8 +1,10 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import TenantMembership, DeviceSession
 
@@ -86,7 +88,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         self._login_tenant = tenant
         self._login_membership = membership
 
-        data = super().validate(attrs)
+        self.user = user
+        refresh = self.get_token(user)
+        data = {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
+        if api_settings.UPDATE_LAST_LOGIN:
+            update_last_login(None, user)
 
         if not device_id:
             device_id = f"pwd-{user.pk}"

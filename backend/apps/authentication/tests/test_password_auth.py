@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -38,6 +40,38 @@ def test_clinic_authentication_uses_password_without_totp():
         "podologia": True,
     }
     assert "totp_secret" not in {field.name for field in Professional._meta.fields}
+
+
+@pytest.mark.django_db
+def test_clinic_login_authenticates_password_once():
+    professional = Professional.objects.create_user(
+        email="single-auth@example.com",
+        password="senha-segura-123",
+    )
+    tenant = Tenant.objects.create(
+        name="Clinica Login Unico",
+        slug="clinica-login-unico",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "podologia": True},
+    )
+    TenantMembership.objects.create(tenant=tenant, professional=professional)
+
+    with patch(
+        "apps.authentication.serializers.clinic.auth.authenticate",
+        return_value=professional,
+    ) as authenticate_mock:
+        response = APIClient().post(
+            "/token/",
+            {
+                "email": professional.email,
+                "password": "senha-segura-123",
+                "tenant_slug": tenant.slug,
+            },
+            format="json",
+        )
+
+    assert response.status_code == 200, response.content
+    assert authenticate_mock.call_count == 1
 
 
 @pytest.mark.django_db

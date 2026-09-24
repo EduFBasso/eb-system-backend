@@ -26,6 +26,9 @@ SERVE_MEDIA_FILES: bool = config("SERVE_MEDIA_FILES", default=True, cast=bool)
 SLOW_REQUEST_THRESHOLD_MS: int = config(
     "SLOW_REQUEST_THRESHOLD_MS", default=500, cast=int
 )
+PERFORMANCE_DIAGNOSTICS_ENABLED: bool = config(
+    "PERFORMANCE_DIAGNOSTICS_ENABLED", default=False, cast=bool
+)
 
 # === Apps Instalados ===
 

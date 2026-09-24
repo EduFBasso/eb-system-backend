@@ -1,9 +1,25 @@
 import time
 import logging
 from django.conf import settings
+from django.db import connection
 from django.http import JsonResponse
 
 logger = logging.getLogger('performance')
+
+
+class DatabaseTimingCollector:
+    def __init__(self):
+        self.duration_ms = 0.0
+        self.query_count = 0
+
+    def __call__(self, execute, sql, params, many, context):
+        start = time.perf_counter()
+        try:
+            return execute(sql, params, many, context)
+        finally:
+            self.duration_ms += (time.perf_counter() - start) * 1000
+            self.query_count += 1
+
 
 class QueryTimingMiddleware:
     """Mede tempo da requisição e loga se ultrapassar limiar.
@@ -17,10 +33,26 @@ class QueryTimingMiddleware:
 
     def __call__(self, request):
         start = time.perf_counter()
-        response = self.get_response(request)
+        collector = None
+        if getattr(settings, 'PERFORMANCE_DIAGNOSTICS_ENABLED', False):
+            collector = DatabaseTimingCollector()
+            with connection.execute_wrapper(collector):
+                response = self.get_response(request)
+        else:
+            response = self.get_response(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
         if elapsed_ms > self.threshold_ms:
-            logger.info("SLOW %sms %s %s", int(elapsed_ms), request.method, request.path)
+            if collector is None:
+                logger.info("SLOW %sms %s %s", int(elapsed_ms), request.method, request.path)
+            else:
+                logger.info(
+                    "SLOW %sms %s %s db=%sms queries=%s",
+                    int(elapsed_ms),
+                    request.method,
+                    request.path,
+                    int(collector.duration_ms),
+                    collector.query_count,
+                )
         return response
 
 
