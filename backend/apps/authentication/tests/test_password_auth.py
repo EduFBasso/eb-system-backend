@@ -72,6 +72,7 @@ def test_clinic_login_authenticates_password_once():
 
     assert response.status_code == 200, response.content
     assert authenticate_mock.call_count == 1
+    assert authenticate_mock.call_args.kwargs["request"] is not None
 
 
 @pytest.mark.django_db

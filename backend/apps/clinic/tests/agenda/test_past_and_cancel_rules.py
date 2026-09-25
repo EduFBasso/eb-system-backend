@@ -96,6 +96,16 @@ def test_cancel_keeps_record_and_frees_slot(api, professional, client_obj):
     assert r2.status_code == 201, r2.content
 
 
+def test_expired_appointment_cannot_be_canceled(api, professional, client_obj):
+    expired = make(professional, client_obj, -2)
+
+    response = api.post(f'/agenda/appointments/{expired.id}/cancel/')
+
+    assert response.status_code == 400, response.content
+    expired.refresh_from_db()
+    assert expired.status == Appointment.Status.DONE
+
+
 def test_past_and_canceled_not_in_client_basic_next(api, professional, client_obj):
     # passado (scheduled) - deve ser ignorado
     make(professional, client_obj, -3, title='Passado')
