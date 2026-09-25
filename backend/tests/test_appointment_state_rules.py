@@ -133,3 +133,54 @@ def test_expired_appointment_is_promoted_directly_to_done(client, django_user_mo
     assert repeated_done_response.status_code == 200
     appointment.refresh_from_db()
     assert appointment.status == Appointment.Status.DONE
+
+
+@pytest.mark.django_db
+def test_interval_read_only_promotes_appointments_in_requested_range(
+    client,
+    django_user_model,
+):
+    pro = django_user_model.objects.create_user(
+        email='state4@example.com',
+        password='x',
+        first_name='State',
+        last_name='Four',
+    )
+    client.force_login(pro)
+    tenant = _setup_tenant(pro)
+    now = timezone.now()
+    customer = Client.objects.create(
+        tenant=tenant,
+        first_name='Cliente',
+        last_name='Intervalo',
+        phone='11900000004',
+    )
+    expired = Appointment.objects.create(
+        tenant=tenant,
+        professional=pro,
+        client=customer,
+        title='Consulta vencida',
+        start_at=now - timezone.timedelta(hours=2),
+        end_at=now - timezone.timedelta(hours=1),
+        status=Appointment.Status.SCHEDULED,
+    )
+
+    tomorrow_start = (now + timezone.timedelta(days=1)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    tomorrow_end = tomorrow_start + timezone.timedelta(days=1)
+    response = client.get(
+        '/agenda/appointments/',
+        {
+            'status': 'scheduled',
+            'start': tomorrow_start.isoformat(),
+            'end': tomorrow_end.isoformat(),
+        },
+    )
+
+    assert response.status_code == 200, response.content
+    expired.refresh_from_db()
+    assert expired.status == Appointment.Status.SCHEDULED

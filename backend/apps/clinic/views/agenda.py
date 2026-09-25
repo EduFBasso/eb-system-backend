@@ -121,10 +121,6 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
             qs = qs.filter(professional_id=user.id)
         else:
             qs = qs.none()
-        # Promoção temporal oportunista: limitar a leituras de agenda.
-        # Evita escritas implícitas desnecessárias em fluxos de update/destroy.
-        if getattr(self, "action", None) in {"list", "next_for_client"}:
-            promote_overdue_scheduled_to_done(qs)
         # filtros opcionais ?start=2025-09-01T00:00:00&end=2025-09-02T00:00:00&client=<id>
         start = self.query_param("start")
         end = self.query_param("end")
@@ -143,6 +139,11 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
                 pass
         if client_id:
             qs = qs.filter(client_id=client_id)
+
+        # Promoção temporal oportunista: limitar ao recorte da leitura atual.
+        # Evita atualizar a agenda inteira ao consultar um intervalo específico.
+        if getattr(self, "action", None) in {"list", "next_for_client"}:
+            promote_overdue_scheduled_to_done(qs)
         if status_val:
             qs = qs.filter(status=status_val)
 
@@ -195,6 +196,9 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
             return Response({"detail": "forbidden"}, status=403)
         if obj.status == Appointment.Status.CANCELED:
             return Response({"detail": "já cancelado"}, status=200)
+        if obj.status == Appointment.Status.SCHEDULED and obj.end_at <= timezone.now():
+            promote_overdue_scheduled_to_done(Appointment.objects.filter(pk=obj.pk))
+            obj.refresh_from_db()
         if obj.status == Appointment.Status.DONE:
             return Response(
                 {"detail": "compromisso concluído não pode ser cancelado"},
