@@ -48,8 +48,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         password = attrs.get("password")
         device_id = (attrs.get("device_id") or "").strip()[:64]
         tenant_slug = (attrs.get("tenant_slug") or "").strip()
+        request = self.context.get("request")
 
-        user = authenticate(username=email, password=password)
+        user = authenticate(username=email, password=password, request=request)
 
         if user is None:
             raise serializers.ValidationError(_("Credenciais inválidas ou profissional não encontrado."))
@@ -70,15 +71,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if tenant_slug:
             memberships = memberships.filter(tenant__slug=tenant_slug)
 
-        membership_count = memberships.count()
-        if membership_count == 0:
-            raise serializers.ValidationError(_("Usuário não possui acesso ao sistema Clinic."))
-        if not tenant_slug and membership_count > 1:
-            raise serializers.ValidationError(
-                _("tenant_slug é obrigatório quando o profissional possui mais de uma clínica ativa.")
-            )
+        if tenant_slug:
+            membership = memberships.first()
+            if membership is None:
+                raise serializers.ValidationError(_("Usuário não possui acesso ao sistema Clinic."))
+        else:
+            membership_count = memberships.count()
+            if membership_count == 0:
+                raise serializers.ValidationError(_("Usuário não possui acesso ao sistema Clinic."))
+            if membership_count > 1:
+                raise serializers.ValidationError(
+                    _("tenant_slug é obrigatório quando o profissional possui mais de uma clínica ativa.")
+                )
+            membership = memberships.first()
 
-        membership = memberships.first()
         tenant = membership.tenant
         if self._has_conflicting_clinic_capabilities(tenant.capabilities):
             raise serializers.ValidationError(
@@ -99,7 +105,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         if not device_id:
             device_id = f"pwd-{user.pk}"
-        request = self.context.get("request")
         ua = ""
         ip = None
         if request is not None:
