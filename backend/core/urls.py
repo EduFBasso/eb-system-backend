@@ -2,10 +2,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
-from django.db import connection
-from django.utils import timezone
 from django.views.generic import RedirectView
+from core.health import full_health_view, health_view
 from apps.authentication.services.authentication import EmailTokenObtainPairView
 from apps.authentication.views.views_bakery_auth import BakeryTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -14,22 +12,6 @@ from apps.authentication.views.views_sessions import (
     sessions_active,
     sessions_revoke,
 )
-
-def health_view(_request):
-    return JsonResponse({'status': 'ok'})
-
-def full_health_view(_request):
-    db_ok = True
-    try:
-        connection.ensure_connection()
-    except Exception:
-        db_ok = False
-    return JsonResponse({
-        'status': 'ok' if db_ok else 'degraded',
-        'database': 'ok' if db_ok else 'error',
-        'version': getattr(settings, 'APP_VERSION', 'unknown'),
-        'time': timezone.now().isoformat(),
-    })
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
