@@ -4,14 +4,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from core.health import full_health_view, health_view
-from apps.authentication.services.authentication import EmailTokenObtainPairView
-from apps.authentication.views.views_bakery_auth import BakeryTokenObtainPairView
-from rest_framework_simplejwt.views import TokenRefreshView
-from apps.authentication.views.views_sessions import (
-    sessions_summary,
-    sessions_active,
-    sessions_revoke,
-)
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
@@ -19,7 +11,7 @@ urlpatterns = [
     path('health', health_view),   # liveness (no slash)
     path('health/full', full_health_view),  # readiness + metadata
     path('admin/', admin.site.urls),
-    path('api/v1/auth/bakery/login/', BakeryTokenObtainPairView.as_view(), name='bakery_token_obtain_pair'),
+    path('api/v1/auth/bakery/login/', include('apps.authentication.urls_bakery_auth')),
     path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
     path('clinic/', include('apps.clinic.urls')),
     path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
@@ -27,13 +19,10 @@ urlpatterns = [
     path('inventory/', include('apps.clinic.views.inventory_urls')),
 
     # 📱 Sessões de dispositivos (fase 1)
-    path('sessions/summary', sessions_summary),
-    path('sessions/active', sessions_active),
-    path('sessions/revoke', sessions_revoke),
+    path('sessions/', include('apps.authentication.urls_sessions')),
 
     # 🔐 JWT endpoints
-    path('token/', EmailTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/', include('apps.authentication.urls_tokens')),
 ]
 
 if getattr(settings, 'SERVE_MEDIA_FILES', False):
