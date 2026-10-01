@@ -1,8 +1,8 @@
 from typing import cast
 
 from django.db.models import QuerySet
-from django.db.models import Q
 from rest_framework import viewsets, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -16,6 +16,7 @@ from apps.clinic.serializers.agenda import (
     EncounterSerializer,
 )
 from apps.authentication.services.permissions import get_tenant_membership_from_request
+from utils.permissions import HasActiveClinicTenant
 from .state_utils import promote_overdue_scheduled_to_done
 
 
@@ -46,51 +47,34 @@ class TypedRequestMixin:
         return cast(QuerySet, queryset)
 
 
-class IsProfessionalOrReadOnly(permissions.BasePermission):
-    """Permissão simples: usuário autenticado pode ler; alterações restritas ao próprio profissional.
-    Assumimos que request.user é Professional.
-    """
-
-    def has_permission(self, request, view):  # pyright: ignore[reportIncompatibleMethodOverride]
-        return request.user and request.user.is_authenticated
+class IsProfessionalOwner(permissions.BasePermission):
+    """Restringe operações sobre objetos ao profissional autenticado."""
 
     def has_object_permission(self, request, view, obj: Appointment):
         return getattr(request.user, "id", None) == getattr(obj.professional, "id", None)
 
 
 class ProfessionalOwnedViewSet(TypedRequestMixin, viewsets.ModelViewSet):
-    permission_classes = [IsProfessionalOrReadOnly]
+    permission_classes = [HasActiveClinicTenant, IsProfessionalOwner]
 
     def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         qs = self.base_queryset()
-        user = getattr(self.request, "user", None)
-
         tenant = _get_active_tenant(self.request)
-        if tenant is not None:
-            # Compat: include legacy rows with tenant=NULL that still belong to this tenant's professionals.
-            return qs.filter(
-                Q(tenant_id=tenant.id)
-                | Q(
-                    tenant__isnull=True,
-                    professional__tenant_memberships__tenant=tenant,
-                    professional__tenant_memberships__is_active=True,
-                    professional__tenant_memberships__tenant__is_active=True,
-                )
-            ).distinct()
-
-        if user and getattr(user, "id", None):
-            return qs.filter(professional_id=user.id)
-        return qs.none()
+        if tenant is None:
+            return qs.none()
+        return qs.filter(tenant_id=tenant.id)
 
     def perform_create(self, serializer):
         user = getattr(self.request, "user", None)
         tenant = _get_active_tenant(self.request)
+        if tenant is None:
+            raise PermissionDenied("Usuário não possui um tenant Clinic ativo.")
         serializer.save(professional=user, tenant=tenant)
 
 
 class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
-    permission_classes = [IsProfessionalOrReadOnly]
+    permission_classes = [HasActiveClinicTenant, IsProfessionalOwner]
     queryset = Appointment.objects.select_related("professional", "client")
     ordering_fields = {"start_at", "end_at", "created_at", "updated_at"}
 
@@ -102,25 +86,11 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         qs = self.base_queryset()
-        user = getattr(self.request, "user", None)
-
         tenant = _get_active_tenant(self.request)
-        # Restringe a agenda ao tenant ativo da profissional.
-        if tenant is not None:
-            qs = qs.filter(
-                Q(tenant_id=tenant.id)
-                | Q(
-                    tenant__isnull=True,
-                    professional__tenant_memberships__tenant=tenant,
-                    professional__tenant_memberships__is_active=True,
-                    professional__tenant_memberships__tenant__is_active=True,
-                )
-            ).distinct()
-        elif user and getattr(user, "id", None):
-            # Compat fallback para fluxos sem tenant ativo.
-            qs = qs.filter(professional_id=user.id)
-        else:
+        if tenant is None:
             qs = qs.none()
+        else:
+            qs = qs.filter(tenant_id=tenant.id)
         # filtros opcionais ?start=2025-09-01T00:00:00&end=2025-09-02T00:00:00&client=<id>
         start = self.query_param("start")
         end = self.query_param("end")
@@ -164,6 +134,8 @@ class AppointmentViewSet(TypedRequestMixin, viewsets.ModelViewSet):
         # profissional sempre é o usuário autenticado
         user = getattr(self.request, "user", None)
         tenant = _get_active_tenant(self.request)
+        if tenant is None:
+            raise PermissionDenied("Usuário não possui um tenant Clinic ativo.")
         obj = serializer.save(professional=user, tenant=tenant)
         # Marcar device de criação (não obrigatório)
         try:

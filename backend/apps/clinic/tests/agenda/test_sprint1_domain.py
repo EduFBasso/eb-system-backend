@@ -7,6 +7,7 @@ from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encou
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from tests.auth_helpers import authenticate_clinic_client
 
 
 pytestmark = pytest.mark.django_db
@@ -49,8 +50,7 @@ def other_professional():
 @pytest.fixture
 def auth_client(professional):
     client = APIClient()
-    client.force_authenticate(user=professional)
-    return client
+    return authenticate_clinic_client(client, professional)
 
 
 @pytest.fixture
@@ -75,8 +75,7 @@ def staff_professional():
 @pytest.fixture
 def staff_client(staff_professional):
     client = APIClient()
-    client.force_authenticate(user=staff_professional)
-    return client
+    return authenticate_clinic_client(client, staff_professional)
 
 
 @pytest.fixture

@@ -1,5 +1,7 @@
 import pytest
 from django.utils import timezone
+from rest_framework.test import APIClient
+from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Tenant, TenantMembership
@@ -20,8 +22,8 @@ def _setup_tenant(professional):
 @pytest.mark.django_db
 def test_cancel_sets_canceled_at(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc@example.com', password='x', first_name='PC', last_name='X')
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     c = Client.objects.create(tenant=tenant, first_name='CC', last_name='LL', phone='11900001001')
     now = timezone.now()
     appt = Appointment.objects.create(
@@ -43,8 +45,8 @@ def test_cancel_sets_canceled_at(client, django_user_model):
 @pytest.mark.django_db
 def test_cancel_idempotent(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc2@example.com', password='x', first_name='PC2', last_name='X2')
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     c = Client.objects.create(tenant=tenant, first_name='CC2', last_name='LL2', phone='11900001002')
     now = timezone.now()
     appt = Appointment.objects.create(
@@ -70,8 +72,8 @@ def test_cancel_idempotent(client, django_user_model):
 @pytest.mark.django_db
 def test_cancel_scheduled_sets_canceled_at(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc3@example.com', password='x', first_name='PC3', last_name='X3')
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     c = Client.objects.create(tenant=tenant, first_name='CC3', last_name='LL3', phone='11900001004')
     now = timezone.now()
     appt = Appointment.objects.create(
@@ -93,8 +95,8 @@ def test_cancel_scheduled_sets_canceled_at(client, django_user_model):
 @pytest.mark.django_db
 def test_cancel_done_is_rejected(client, django_user_model):
     pro = django_user_model.objects.create_user(email='pc4@example.com', password='x', first_name='PC4', last_name='X4')
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     c = Client.objects.create(tenant=tenant, first_name='CC4', last_name='LL4', phone='11900001005')
     now = timezone.now()
     appt = Appointment.objects.create(

@@ -76,6 +76,52 @@ def test_clinic_login_authenticates_password_once():
 
 
 @pytest.mark.django_db
+def test_bakery_login_authenticates_password_once():
+    professional = Professional.objects.create_user(
+        email="single-auth-bakery@example.com",
+        password="senha-segura-123",
+        first_name="Profissional",
+        last_name="Bakery",
+    )
+    tenant = Tenant.objects.create(
+        name="Padaria Login Unico",
+        slug="padaria-login-unico",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        is_active=True,
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+        is_active=True,
+    )
+
+    with patch(
+        "apps.authentication.serializers.bakery.auth.authenticate",
+        return_value=professional,
+    ) as authenticate_mock:
+        response = APIClient().post(
+            "/api/v1/auth/bakery/login/",
+            {
+                "login": professional.email,
+                "password": "senha-segura-123",
+                "tenant_slug": tenant.slug,
+            },
+            format="json",
+        )
+
+    assert response.status_code == 200, response.content
+    assert authenticate_mock.call_count == 1
+    assert authenticate_mock.call_args.kwargs["request"] is not None
+    assert response.data["tenant_id"] == tenant.id
+    assert response.data["ecosystem"] == "bakery"
+    assert response.data["role"] == TenantMembership.Role.MEMBER
+    assert response.data["tenant"]["slug"] == tenant.slug
+    assert "access" in response.data
+    assert "refresh" in response.data
+
+
+@pytest.mark.django_db
 def test_admin_creates_professional_without_totp_contract():
     admin = Professional.objects.create_superuser(
         email="admin@example.com",

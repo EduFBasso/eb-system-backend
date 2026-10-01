@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer
@@ -73,7 +75,11 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not email:
             raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
 
-        user = authenticate(username=email, password=password)
+        user = authenticate(
+            username=email,
+            password=password,
+            request=self.context.get("request"),
+        )
         if user is None:
             raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
 
@@ -103,8 +109,16 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
             if customer.status == BakeryCustomer.ApprovalStatus.BLOCKED:
                 raise serializers.ValidationError(_("Conta bloqueada."))
 
-        normalized_attrs = {**attrs, "email": email}
-        data = super().validate(normalized_attrs)
+        self.user = user
+        refresh = self.get_token(user)
+
+        data = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        if api_settings.UPDATE_LAST_LOGIN:
+            update_last_login(None, user)
 
         data["tenant_id"] = tenant.id
         data["ecosystem"] = "bakery"

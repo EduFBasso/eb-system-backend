@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from tests.auth_helpers import authenticate_clinic_client
 
 
 pytestmark = pytest.mark.django_db
@@ -97,8 +98,7 @@ def other_appointment(other_professional, other_client):
 @pytest.fixture
 def api_client(owner):
     client = APIClient()
-    client.force_authenticate(user=owner)
-    return client
+    return authenticate_clinic_client(client, owner)
 
 
 def test_professional_lists_only_own_appointments(
