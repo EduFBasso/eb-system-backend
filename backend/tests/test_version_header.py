@@ -48,4 +48,5 @@ def test_online_mutation_lock_blocks_patch_but_not_get(django_user_model):
 
 def test_online_mutation_lock_covers_bakery_api_without_covering_login():
     assert OnlineMutationLockMiddleware._is_api_path('/api/v1/bakery/orders/1/')
-    assert not OnlineMutationLockMiddleware._is_api_path('/api/v1/auth/bakery/login/')
+    assert not OnlineMutationLockMiddleware._is_api_path('/api/v1/auth/bakery/login/admin/')
+    assert not OnlineMutationLockMiddleware._is_api_path('/api/v1/auth/bakery/login/customer/')

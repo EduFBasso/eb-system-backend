@@ -190,7 +190,7 @@ graph TD
 - **Público Alvo B2B:** Os compradores são padarias, minimercados e lanchonetes.
 - **Auto-Cadastro Público com Tenant:** O endpoint `/api/v1/bakery/customers/register/` opera com permissão pública (`AllowAny`), recebendo dados cadastrais e `tenant_slug`. O cliente é registrado com status inicial `PENDENTE`.
 - **Aprovação Segura pelo Administrador:** A ativação do cliente exige confirmação da senha do administrador (`admin_password`) e atribuição obrigatória de limite de crédito rotativo.
-- **Autenticação Direta:** Utiliza o endpoint `/api/v1/auth/bakery/login/`, recebendo `login` (e-mail ou alias), `password` e `tenant_slug`.
+- **Autenticação Direta com Contratos Separados:** `POST /api/v1/auth/bakery/login/admin/` (somente `owner`/`admin`) e `POST /api/v1/auth/bakery/login/customer/` (somente `member` com `BakeryCustomer` aprovado). Ambos recebem `login` (e-mail ou alias), `password` e `tenant_slug`. O endpoint único anterior (`/api/v1/auth/bakery/login/`) foi removido e retorna `404`.
 - **Motor de Crédito (Ledger):** Ao emitir um pedido, o sistema valida se `saldo_atual + valor_pedido <= limite_de_credito`. A cada pagamento recebido pelo administrador, um lançamento positivo no `CreditLedgerEntry` restaura a capacidade de compra do cliente.
 
 ---
@@ -203,6 +203,6 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
 | **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
-| **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/`) |
+| **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/admin/` e `/api/v1/auth/bakery/login/customer/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.

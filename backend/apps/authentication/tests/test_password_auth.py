@@ -97,16 +97,16 @@ def test_bakery_login_authenticates_password_once():
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,
-        role=TenantMembership.Role.MEMBER,
+        role=TenantMembership.Role.OWNER,
         is_active=True,
     )
 
     with patch(
-        "apps.authentication.serializers.bakery.auth.authenticate",
+        "apps.authentication.services.bakery_auth.authenticate",
         return_value=professional,
     ) as authenticate_mock:
         response = APIClient().post(
-            "/api/v1/auth/bakery/login/",
+            "/api/v1/auth/bakery/login/admin/",
             {
                 "login": professional.email,
                 "password": "senha-segura-123",
@@ -120,7 +120,7 @@ def test_bakery_login_authenticates_password_once():
     assert authenticate_mock.call_args.kwargs["request"] is not None
     assert response.data["tenant_id"] == tenant.id
     assert response.data["ecosystem"] == "bakery"
-    assert response.data["role"] == TenantMembership.Role.MEMBER
+    assert response.data["role"] == TenantMembership.Role.OWNER
     assert response.data["tenant"]["slug"] == tenant.slug
     assert "access" in response.data
     assert "refresh" in response.data

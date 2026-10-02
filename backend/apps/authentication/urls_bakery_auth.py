@@ -1,8 +1,12 @@
 from django.urls import path
 
-from apps.authentication.views.views_bakery_auth import BakeryTokenObtainPairView
+from apps.authentication.views.views_bakery_auth import (
+    BakeryAdminLoginView,
+    BakeryCustomerLoginView,
+)
 
 
 urlpatterns = [
-    path('', BakeryTokenObtainPairView.as_view(), name='bakery_token_obtain_pair'),
+    path('admin/', BakeryAdminLoginView.as_view(), name='bakery_admin_login'),
+    path('customer/', BakeryCustomerLoginView.as_view(), name='bakery_customer_login'),
 ]

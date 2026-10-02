@@ -262,7 +262,7 @@ def test_bakery_login_embeds_tenant_context_in_jwt(client):
     user, _customer = make_customer(tenant)
 
     response = client.post(
-        "/api/v1/auth/bakery/login/",
+        "/api/v1/auth/bakery/login/customer/",
         {
             "login": user.email,
             "password": "client-pass",

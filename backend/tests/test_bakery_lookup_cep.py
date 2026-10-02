@@ -332,7 +332,7 @@ def test_bakery_customer_can_login_with_nickname_after_approval():
 
     anon_client = APIClient()
     login_response = anon_client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/customer/',
         {
             'login': 'João',
             'password': 'XmXHYvp6',
@@ -392,7 +392,7 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
 
     anon_client = APIClient()
     login_response = anon_client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/customer/',
         {
             'login': 'Pendente',
             'password': 'qualquer',
@@ -431,7 +431,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
 
     client = APIClient()
     login_response = client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/admin/',
         {
             'login': 'Dono',
             'password': 'secret123',

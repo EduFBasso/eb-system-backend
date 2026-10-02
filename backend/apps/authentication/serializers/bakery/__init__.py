@@ -1,3 +1,3 @@
-from .auth import BakeryTokenObtainPairSerializer
+from .auth import BakeryAdminLoginSerializer, BakeryCustomerLoginSerializer
 
-__all__ = ["BakeryTokenObtainPairSerializer"]
+__all__ = ["BakeryAdminLoginSerializer", "BakeryCustomerLoginSerializer"]
