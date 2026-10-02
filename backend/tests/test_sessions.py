@@ -17,10 +17,17 @@ def professional(db):
 @pytest.fixture
 def auth_client(client, professional):
     refresh = RefreshToken.for_user(professional)
+    refresh["device_id"] = "test-device"
     access = str(refresh.access_token)
     client.defaults['HTTP_AUTHORIZATION'] = f'Bearer {access}'
     client.defaults['HTTP_X_DEVICE_ID'] = 'test-device'
     client.defaults['HTTP_USER_AGENT'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+    DeviceSession.objects.create(
+        professional=professional,
+        device_id='test-device',
+        user_agent=client.defaults['HTTP_USER_AGENT'],
+        ip_address='127.0.0.1',
+    )
     return client
 
 
@@ -97,3 +104,58 @@ def test_sessions_revoke_single(auth_client, professional):
     s3.refresh_from_db()
     assert s2.is_active is False
     assert s3.is_active is True
+
+
+def test_revoked_device_cannot_be_reactivated_by_summary(auth_client, professional):
+    session = DeviceSession.objects.get(
+        professional=professional,
+        device_id='test-device',
+    )
+    session.terminate(reason='test')
+
+    response = auth_client.get('/sessions/summary')
+
+    assert response.status_code == 401
+    session.refresh_from_db()
+    assert session.is_active is False
+
+
+def test_device_claim_works_without_header(auth_client):
+    del auth_client.defaults['HTTP_X_DEVICE_ID']
+
+    response = auth_client.get('/sessions/summary')
+
+    assert response.status_code == 200
+
+
+def test_device_header_mismatch_is_rejected(auth_client):
+    auth_client.defaults['HTTP_X_DEVICE_ID'] = 'different-device'
+
+    response = auth_client.get('/sessions/summary')
+
+    assert response.status_code == 401
+
+
+def test_refresh_rejects_revoked_device(auth_client, professional):
+    refresh = RefreshToken.for_user(professional)
+    refresh['device_id'] = 'test-device'
+    session = DeviceSession.objects.get(
+        professional=professional,
+        device_id='test-device',
+    )
+
+    first_response = auth_client.post(
+        '/token/refresh/',
+        {'refresh': str(refresh)},
+        content_type='application/json',
+    )
+    assert first_response.status_code == 200
+
+    session.terminate(reason='test')
+    second_response = auth_client.post(
+        '/token/refresh/',
+        {'refresh': str(refresh)},
+        content_type='application/json',
+    )
+
+    assert second_response.status_code == 401

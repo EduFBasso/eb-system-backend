@@ -3,10 +3,13 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import update_last_login
 from django.utils.translation import gettext_lazy as _
-from django.conf import settings
 from rest_framework_simplejwt.settings import api_settings
 
-from apps.authentication.models import TenantMembership, DeviceSession
+from apps.authentication.models import TenantMembership
+from apps.authentication.services.device_sessions import (
+    activate_login_session,
+    resolve_device_id,
+)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -36,11 +39,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         tenant = getattr(self, '_login_tenant', None)
         membership = getattr(self, '_login_membership', None)
+        device_id = getattr(self, "_login_device_id", None)
         if tenant is not None and membership is not None:
             token['tenant_id'] = tenant.id
             token['tenant_slug'] = tenant.slug
             token['ecosystem'] = 'clinic'
             token['role'] = membership.role
+        if device_id:
+            token["device_id"] = device_id
         return token
 
     def validate(self, attrs):
@@ -94,6 +100,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         self._login_tenant = tenant
         self._login_membership = membership
 
+        device_id = resolve_device_id(device_id, user)
+        ua = ""
+        ip = None
+        if request is not None:
+            ua = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
+            ip = request.META.get("REMOTE_ADDR")
+        active_count = activate_login_session(
+            user,
+            device_id,
+            user_agent=ua,
+            ip_address=ip,
+        )
+
+        self._login_device_id = device_id
         self.user = user
         refresh = self.get_token(user)
         data = {
@@ -102,40 +122,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
         if api_settings.UPDATE_LAST_LOGIN:
             update_last_login(None, user)
-
-        if not device_id:
-            device_id = f"pwd-{user.pk}"
-        ua = ""
-        ip = None
-        if request is not None:
-            ua = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
-            ip = request.META.get("REMOTE_ADDR")
-
-        session, created = DeviceSession.objects.get_or_create(
-            professional=user,
-            device_id=device_id,
-            defaults={"user_agent": ua, "ip_address": ip, "is_active": True},
-        )
-        if not created:
-            session.is_active = True
-            session.user_agent = ua
-            session.ip_address = ip
-            session.save(update_fields=["is_active", "user_agent", "ip_address"])
-
-        max_sessions = getattr(settings, "MAX_ACTIVE_DEVICE_SESSIONS", 2)
-        active_qs = DeviceSession.objects.filter(professional=user, is_active=True)
-        active_count = active_qs.count()
-        if active_count > max_sessions:
-            overflow = active_count - max_sessions
-            to_close = (
-                DeviceSession.objects
-                .filter(professional=user, is_active=True)
-                .exclude(device_id=device_id)
-                .order_by("last_seen_at")[:overflow]
-            )
-            for session_to_close in to_close:
-                session_to_close.terminate(reason="limit")
-            active_count = max_sessions
 
         data['professional'] = {
             'id': user.id,

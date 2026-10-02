@@ -8,6 +8,10 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.services.device_sessions import (
+    activate_login_session,
+    resolve_device_id,
+)
 from apps.bakery.models import BakeryCustomer
 
 
@@ -23,6 +27,12 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     login = serializers.CharField(write_only=True)
     tenant_slug = serializers.SlugField(write_only=True)
+    device_id = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=64,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -52,16 +62,20 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         tenant = getattr(self, "_login_tenant", None)
         membership = getattr(self, "_login_membership", None)
+        device_id = getattr(self, "_login_device_id", None)
         if tenant is not None and membership is not None:
             token["tenant_id"] = tenant.id
             token["ecosystem"] = "bakery"
             token["role"] = membership.role
+        if device_id:
+            token["device_id"] = device_id
         return token
 
     def validate(self, attrs):
         login = attrs.get("login", "").strip()
         password = attrs.get("password", "")
         tenant_slug = attrs.get("tenant_slug", "").strip()
+        device_id = attrs.get("device_id", "")
 
         if not login or not password or not tenant_slug:
             raise serializers.ValidationError(_("login, password e tenant_slug são obrigatórios."))
@@ -109,6 +123,21 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
             if customer.status == BakeryCustomer.ApprovalStatus.BLOCKED:
                 raise serializers.ValidationError(_("Conta bloqueada."))
 
+        device_id = resolve_device_id(device_id, user)
+        request = self.context.get("request")
+        user_agent = ""
+        ip_address = None
+        if request is not None:
+            user_agent = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
+            ip_address = request.META.get("REMOTE_ADDR")
+        active_count = activate_login_session(
+            user,
+            device_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+
+        self._login_device_id = device_id
         self.user = user
         refresh = self.get_token(user)
 
@@ -123,6 +152,8 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
         data["tenant_id"] = tenant.id
         data["ecosystem"] = "bakery"
         data["role"] = membership.role
+        data["device_id"] = device_id
+        data["active_sessions_count"] = active_count
         data["tenant"] = {
             "slug": tenant.slug,
             "trade_name": tenant.trade_name,

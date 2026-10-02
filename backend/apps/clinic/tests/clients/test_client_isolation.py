@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import DeviceSession, Professional
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -72,7 +72,11 @@ def other_client(other_professional):
 def api_client(owner):
     client = APIClient()
     token = AccessToken.for_user(owner)
+    device_id = f"test-device-{owner.pk}"
+    DeviceSession.objects.create(professional=owner, device_id=device_id)
     token['tenant_id'] = owner.tenant_memberships.first().tenant_id
+    token['ecosystem'] = 'clinic'
+    token['device_id'] = device_id
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 
