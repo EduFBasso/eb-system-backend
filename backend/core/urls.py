@@ -14,15 +14,13 @@ urlpatterns = [
     path('api/v1/auth/bakery/login/', include('apps.authentication.urls_bakery_auth')),
     path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
     path('clinic/', include('apps.clinic.urls')),
-    path('register/', include('apps.authentication.urls')),  # 🧩 Rotas do app clínico
+    path('register/', include('apps.clinic.urls_registration')),
+    path('register/auth/', include('apps.authentication.urls_professional_registration')),
     path('agenda/', include('apps.clinic.views.agenda_urls')),
     path('inventory/', include('apps.clinic.views.inventory_urls')),
 
-    # 📱 Sessões de dispositivos (fase 1)
-    path('sessions/', include('apps.authentication.urls_sessions')),
-
-    # 🔐 JWT endpoints
-    path('token/', include('apps.authentication.urls_tokens')),
+    # 🔐 Rotas globais de autenticação
+    path('', include('apps.authentication.urls')),
 ]
 
 if getattr(settings, 'SERVE_MEDIA_FILES', False):
