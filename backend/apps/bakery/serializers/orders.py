@@ -183,6 +183,7 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         original_address_text = self._format_customer_address(customer)
         delivery_address_text = validated_data.pop("delivery_address_text", "").strip()
+        delivery_notes = str(validated_data.get("notes") or "").strip()
         validated_data.setdefault("shipping_zip_code", customer.zip_code)
         validated_data.setdefault("shipping_street", customer.street)
         validated_data.setdefault("shipping_number", customer.number)
@@ -190,6 +191,16 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data.setdefault("shipping_neighborhood", customer.neighborhood)
         validated_data.setdefault("shipping_city", customer.city)
         validated_data.setdefault("shipping_state", customer.state)
+        delivery_snapshot = delivery_address_text or original_address_text
+        if delivery_notes:
+            delivery_snapshot = " | ".join(
+                part
+                for part in (
+                    delivery_address_text,
+                    f"Observações de entrega: {delivery_notes}",
+                )
+                if part
+            )
 
         product_ids = [item["product_id"] for item in item_payloads]
         products = {
@@ -224,7 +235,7 @@ class OrderSerializer(serializers.ModelSerializer):
         order = Order.objects.create(
             customer=customer,
             original_address_text=original_address_text,
-            delivery_address_text=delivery_address_text or original_address_text,
+            delivery_address_text=delivery_snapshot,
             **validated_data,
         )
         for item in item_payloads:
