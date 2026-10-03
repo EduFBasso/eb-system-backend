@@ -332,6 +332,8 @@ def test_order_date_filters_include_both_boundary_days():
 def test_admin_order_filters_by_status_customer_and_open_only():
     tenant = make_tenant()
     _customer_user, customer = make_customer(tenant)
+    customer.nickname = "João"
+    customer.save(update_fields=("nickname", "updated_at"))
     pending_order = make_order(
         tenant,
         customer,
@@ -364,7 +366,7 @@ def test_admin_order_filters_by_status_customer_and_open_only():
         "/api/v1/bakery/orders/",
         {
             "status": "PENDING,CONFIRMED",
-            "customer_nickname": customer.nickname,
+            "customer_nickname": "Joao",
             "open_only": "true",
         },
     )

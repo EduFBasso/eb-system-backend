@@ -1,4 +1,5 @@
 import random
+import re
 import string
 from decimal import Decimal, InvalidOperation
 
@@ -20,6 +21,7 @@ from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
 from utils.pagination import StandardResultsSetPagination
 from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin, get_active_tenant
+from utils.text import normalize_search_text
 
 from .base import BakeryTenantScopedMixin
 
@@ -28,7 +30,7 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     serializer_class = BakeryCustomerSerializer
     permission_classes = (HasActiveBakeryTenant, IsCustomerOrAdmin)
     pagination_class = StandardResultsSetPagination
-    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (filters.OrderingFilter,)
     search_fields = ("nickname", "company_name", "cpf", "cnpj", "phone")
     ordering_fields = ("nickname", "status", "created_at", "credit_limit")
     ordering = ("nickname",)
@@ -58,6 +60,21 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
         status_value = self.request.query_params.get("status")
         if status_value:
             queryset = queryset.filter(status=status_value)
+
+        search = self.request.query_params.get("search")
+        if search:
+            normalized_search = normalize_search_text(search)
+            searchable_fields = ("nickname", "company_name", "cpf", "cnpj", "phone")
+            matching_customer_ids = [
+                customer_id
+                for row in queryset.values_list("id", *searchable_fields).distinct()
+                if (customer_id := row[0])
+                and any(
+                    normalized_search in normalize_search_text(value or "")
+                    for value in row[1:]
+                )
+            ]
+            queryset = queryset.filter(id__in=matching_customer_ids)
 
         if self.request.query_params.get("has_open_balance") == "true":
             queryset = self._with_open_balance(queryset).filter(open_balance__gt=0)
@@ -223,6 +240,64 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             return bakery_tenants.first()
 
         return None
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="nickname-availability",
+        permission_classes=[AllowAny],
+    )
+    def nickname_availability(self, request):
+        tenant = self._resolve_registration_tenant(request)
+        nickname = str(request.query_params.get("nickname") or "").strip()
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant Bakery não encontrado ou inativo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not nickname:
+            return Response({"available": False})
+
+        normalized_nickname = normalize_search_text(nickname)
+        customer_exists = any(
+            normalize_search_text(existing_nickname) == normalized_nickname
+            for existing_nickname in BakeryCustomer.objects.filter(tenant=tenant).values_list(
+                "nickname",
+                flat=True,
+            )
+        )
+        membership_exists = any(
+            normalize_search_text(login_alias) == normalized_nickname
+            for login_alias in TenantMembership.objects.filter(
+                tenant=tenant,
+                login_alias__gt="",
+            ).values_list("login_alias", flat=True)
+        )
+        return Response({"available": not (customer_exists or membership_exists)})
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="field-availability",
+        permission_classes=[AllowAny],
+    )
+    def field_availability(self, request):
+        tenant = self._resolve_registration_tenant(request)
+        field = str(request.query_params.get("field") or "").strip()
+        value = re.sub(r"\D", "", str(request.query_params.get("value") or ""))
+        allowed_fields = {"cpf", "cnpj", "phone"}
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant Bakery não encontrado ou inativo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if field not in allowed_fields:
+            return Response({"detail": "Campo de identificação inválido."}, status=status.HTTP_400_BAD_REQUEST)
+        if not value:
+            return Response({"available": False})
+
+        exists = BakeryCustomer.objects.filter(tenant=tenant, **{field: value}).exists()
+        return Response({"available": not exists})
 
     @action(
         detail=False,
