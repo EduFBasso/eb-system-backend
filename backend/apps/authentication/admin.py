@@ -202,6 +202,14 @@ class TenantMembershipAdmin(admin.ModelAdmin):
     search_fields = ['tenant__name', 'tenant__slug', 'professional__email', 'login_alias']
     autocomplete_fields = ['tenant', 'professional']
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+
+        return queryset.exclude(
+            tenant__ecosystem=Tenant.Ecosystem.BAKERY,
+            role=TenantMembership.Role.MEMBER,
+        )
+
 
 
 @admin.register(ProfessionalSettings)

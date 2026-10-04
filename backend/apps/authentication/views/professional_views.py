@@ -1,10 +1,9 @@
 # backend/apps/authentication/views/professional_views.py
-from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission, IsAdminUser
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.permissions import IsAuthenticated, BasePermission, IsAdminUser
+from rest_framework.viewsets import ModelViewSet
 from apps.authentication.models import Professional
 from apps.authentication.serializers.serializers import (
     ProfessionalSerializer,
-    ProfessionalBasicSerializer,
 )
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -133,34 +132,3 @@ class ProfessionalViewSet(ClinicProfessionalActionsMixin, ModelViewSet):
         return Response(serializer.data)
 
 
-class ProfessionalBasicViewSet(ReadOnlyModelViewSet):
-    serializer_class = ProfessionalBasicSerializer
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        # O Navbar usa esta listagem antes do login. O slug delimita o tenant
-        # antes de qualquer profissional ser apresentado para autenticação.
-        ecosystem = self.request.query_params.get('ecosystem', 'clinic')
-        if ecosystem not in {'clinic', 'bakery'}:
-            ecosystem = 'clinic'
-        tenant_slug = (self.request.query_params.get('tenant_slug') or '').strip()
-
-        if ecosystem == 'clinic' and not tenant_slug:
-            return Professional.objects.none()
-
-        filters = {
-            'is_superuser': False,
-            'is_active': True,
-            'tenant_memberships__is_active': True,
-            'tenant_memberships__tenant__is_active': True,
-            'tenant_memberships__tenant__ecosystem': ecosystem,
-        }
-        if tenant_slug:
-            filters['tenant_memberships__tenant__slug'] = tenant_slug
-
-        return (
-            Professional.objects.filter(**filters)
-            .exclude(email__iendswith='@local.invalid')
-            .distinct()
-            .order_by('first_name', 'last_name', 'id')
-        )

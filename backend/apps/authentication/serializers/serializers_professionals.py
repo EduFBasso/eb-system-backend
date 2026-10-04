@@ -34,12 +34,6 @@ class ProfessionalSerializer(serializers.ModelSerializer):
         }
 
 
-class ProfessionalBasicSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Professional
-        fields = ['id', 'email', 'first_name', 'last_name', 'display_name', 'register_number', 'specialty']
-
-
 class CanManageProfessionals(BasePermission):
     def has_permission(self, request, view) -> bool: # type: ignore[override]
         return request.user.is_authenticated and bool(getattr(request.user, 'can_manage_professionals', False))

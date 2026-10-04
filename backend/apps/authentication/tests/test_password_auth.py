@@ -31,7 +31,11 @@ def test_clinic_authentication_uses_password_without_totp():
 
     response = APIClient().post(
         "/token/",
-        {"email": professional.email, "password": "senha-segura-123"},
+        {
+            "login": professional.email,
+            "password": "senha-segura-123",
+            "tenant_slug": tenant.slug,
+        },
         format="json",
     )
 
@@ -68,7 +72,7 @@ def test_clinic_login_authenticates_password_once():
         response = APIClient().post(
             "/token/",
             {
-                "email": professional.email,
+                "login": professional.email,
                 "password": "senha-segura-123",
                 "tenant_slug": tenant.slug,
             },
@@ -190,7 +194,7 @@ def test_clinic_login_selects_tenant_by_slug():
     response = APIClient().post(
         "/token/",
         {
-            "email": professional.email,
+            "login": professional.email,
             "password": "senha-segura-123",
             "tenant_slug": second_tenant.slug,
         },
@@ -203,7 +207,77 @@ def test_clinic_login_selects_tenant_by_slug():
 
 
 @pytest.mark.django_db
-def test_clinic_login_without_slug_rejects_ambiguous_memberships():
+def test_clinic_login_accepts_membership_alias():
+    professional = Professional.objects.create_user(
+        email="alias-clinic@example.com",
+        password="senha-segura-123",
+    )
+    tenant = Tenant.objects.create(
+        name="Clinica Alias",
+        slug="clinica-alias",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "podologia": True},
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=professional,
+        login_alias="regiane",
+    )
+
+    response = APIClient().post(
+        "/token/",
+        {
+            "login": "Regiane",
+            "password": "senha-segura-123",
+            "tenant_slug": tenant.slug,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200, response.content
+    assert response.data["tenant_slug"] == tenant.slug
+    assert response.data["ecosystem"] == Tenant.Ecosystem.CLINIC
+
+
+@pytest.mark.django_db
+def test_clinic_login_alias_is_scoped_to_tenant():
+    professional = Professional.objects.create_user(
+        email="scoped-alias@example.com",
+        password="senha-segura-123",
+    )
+    clinic_tenant = Tenant.objects.create(
+        name="Clinica Alias Correta",
+        slug="clinica-alias-correta",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "podologia": True},
+    )
+    other_tenant = Tenant.objects.create(
+        name="Clinica Alias Outra",
+        slug="clinica-alias-outra",
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        capabilities={"clinic": True, "odonto": True},
+    )
+    TenantMembership.objects.create(
+        tenant=clinic_tenant,
+        professional=professional,
+        login_alias="regiane",
+    )
+
+    response = APIClient().post(
+        "/token/",
+        {
+            "login": "regiane",
+            "password": "senha-segura-123",
+            "tenant_slug": other_tenant.slug,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_clinic_login_requires_tenant_slug():
     professional = Professional.objects.create_user(
         email="ambiguous@example.com",
         password="senha-segura-123",
@@ -219,7 +293,7 @@ def test_clinic_login_without_slug_rejects_ambiguous_memberships():
 
     response = APIClient().post(
         "/token/",
-        {"email": professional.email, "password": "senha-segura-123"},
+        {"login": professional.email, "password": "senha-segura-123"},
         format="json",
     )
 
@@ -245,7 +319,7 @@ def test_clinic_login_rejects_unknown_slug_and_conflicting_capabilities():
     unknown_response = client.post(
         "/token/",
         {
-            "email": professional.email,
+            "login": professional.email,
             "password": "senha-segura-123",
             "tenant_slug": "clinica-inexistente",
         },
@@ -254,7 +328,7 @@ def test_clinic_login_rejects_unknown_slug_and_conflicting_capabilities():
     conflicting_response = client.post(
         "/token/",
         {
-            "email": professional.email,
+            "login": professional.email,
             "password": "senha-segura-123",
             "tenant_slug": tenant.slug,
         },
@@ -267,44 +341,7 @@ def test_clinic_login_rejects_unknown_slug_and_conflicting_capabilities():
 
 
 @pytest.mark.django_db
-def test_professionals_basic_is_scoped_to_tenant_slug():
-    first_professional = Professional.objects.create_user(
-        email="first-clinic@example.com",
-        password="senha-segura-123",
-        first_name="First",
-    )
-    second_professional = Professional.objects.create_user(
-        email="second-clinic@example.com",
-        password="senha-segura-123",
-        first_name="Second",
-    )
-    first_tenant = Tenant.objects.create(
-        name="Primeira Clinica",
-        slug="primeira-clinica",
-        ecosystem=Tenant.Ecosystem.CLINIC,
-        capabilities={"clinic": True, "podologia": True},
-    )
-    second_tenant = Tenant.objects.create(
-        name="Segunda Clinica",
-        slug="segunda-clinica",
-        ecosystem=Tenant.Ecosystem.CLINIC,
-        capabilities={"clinic": True, "odonto": True},
-    )
-    TenantMembership.objects.create(tenant=first_tenant, professional=first_professional)
-    TenantMembership.objects.create(tenant=second_tenant, professional=second_professional)
+def test_professionals_basic_route_is_removed():
+    response = APIClient().get("/register/professionals-basic/")
 
-    response = APIClient().get(
-        "/register/professionals-basic/",
-        {"ecosystem": "clinic", "tenant_slug": first_tenant.slug},
-    )
-
-    assert response.status_code == 200
-    assert [item["email"] for item in response.data] == [first_professional.email]
-
-    legacy_response = APIClient().get(
-        "/register/professionals-basic/",
-        {"ecosystem": "clinic"},
-    )
-
-    assert legacy_response.status_code == 200
-    assert legacy_response.data == []
+    assert response.status_code == 404

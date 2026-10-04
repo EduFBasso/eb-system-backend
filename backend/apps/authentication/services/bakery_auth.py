@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.services.login_identity import resolve_login_email
 from apps.bakery.models import BakeryCustomer
 
 
@@ -16,20 +17,6 @@ class BakeryLoginContext:
     tenant: Tenant
     membership: TenantMembership
     customer: BakeryCustomer | None
-
-
-def resolve_login_email(login: str, tenant: Tenant) -> str | None:
-    """Resolve login como email ou login_alias ativo dentro do tenant."""
-    if "@" in login:
-        return login.strip().lower()
-
-    membership = (
-        TenantMembership.objects
-        .select_related("professional")
-        .filter(tenant=tenant, login_alias__iexact=login, is_active=True)
-        .first()
-    )
-    return membership.professional.email if membership else None
 
 
 def authenticate_bakery_user(
