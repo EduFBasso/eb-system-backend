@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 from datetime import timezone as dt_timezone
@@ -93,27 +94,9 @@ class AnamneseOdontologiaSerializer(serializers.ModelSerializer):
 
 def _active_anamnese_tenant(context) -> object:
     tenant = context.get('tenant')
-    if tenant is not None:
-        return tenant
-
-    request = context.get('request')
-    user = getattr(request, 'user', None)
-    if user is None:
-        raise serializers.ValidationError('Usuário autenticado é obrigatório para gravar anamnese.')
-
-    membership = (
-        user.tenant_memberships.select_related('tenant')
-        .filter(
-            is_active=True,
-            tenant__is_active=True,
-            tenant__ecosystem='clinic',
-        )
-        .order_by('created_at', 'id')
-        .first()
-    )
-    if membership is None:
-        raise serializers.ValidationError('Nenhum tenant ativo encontrado para o usuário autenticado.')
-    return membership.tenant
+    if tenant is None:
+        raise PermissionDenied('Usuário não possui um tenant Clinic ativo.')
+    return tenant
 
 
 def _active_specialty(tenant) -> str | None:
