@@ -203,6 +203,38 @@ def test_customer_address_prefill_is_not_stored_as_alternative_delivery_address(
     assert order.delivery_address_text == order.original_address_text
 
 
+def test_structured_alternative_delivery_address_is_preserved():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    product = Product.objects.create(tenant=tenant, name="Pao Alternativo", price=Decimal("5.00"))
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "delivery_address_text": "Rua B, 20, Fundos, Centro, Limeira, SP, 13480000",
+            "shipping_zip_code": customer.zip_code,
+            "shipping_street": "Rua B",
+            "shipping_number": "20",
+            "shipping_complement": "Fundos",
+            "shipping_neighborhood": customer.neighborhood,
+            "shipping_city": customer.city,
+            "shipping_state": customer.state,
+            "items": [{"product_id": product.pk, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    order = Order.objects.get(pk=response.data["id"])
+    assert order.delivery_address_text == "Rua B, 20, Fundos, Centro, Limeira, SP, 13480000"
+    assert order.original_address_text != order.delivery_address_text
+
+
 def test_delivery_notes_are_preserved_with_address_snapshot():
     tenant = make_tenant()
     user, customer = make_customer(tenant)
