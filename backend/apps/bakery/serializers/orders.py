@@ -256,7 +256,7 @@ class OrderSerializer(serializers.ModelSerializer):
             and not customer.can_reserve_credit(total)
         ):
             raise serializers.ValidationError(
-                {"items": "Order total exceeds the available credit."}
+                {"items": "O valor total do pedido excede o crédito disponível."}
             )
 
         order = Order.objects.create(
