@@ -84,8 +84,14 @@ Componentes principais:
 ### Ambientes e Rotas
 Em desenvolvimento local:
 - **Porta**: `5173`
-- **URL**: `http://localhost:5173`
-- **Prefixo de API**: `/register/`, `/agenda/`, `/clinic/`, `/inventory/`
+- **URL**: `http://localhost:5173/?tenant=consultorio-podologia` ou com
+   `VITE_CLINIC_TENANT_SLUG` configurado explicitamente.
+- **Prefixos de API**: `/token/`, `/sessions/`, `/register/`, `/agenda/`,
+   `/clinic/` e `/inventory/`.
+- Em produção, o hostname/subdomínio seleciona o tenant. Hostname Clinic
+   desconhecido deve ser bloqueado, sem fallback silencioso.
+- O login envia `tenant_slug` para `/token/`; login ambíguo com múltiplas
+   memberships é rejeitado.
 
 ---
 
@@ -95,6 +101,8 @@ Em desenvolvimento local:
   - Domínio próprio por ambiente (ex: `clinic.yourdomain.com` para produção).
   - Variáveis de ambiente:
     - `VITE_API_BASE`: URL do backend em produção (ex: `https://api.yourdomain.com`).
+      - `VITE_CLINIC_TENANT_SLUG`: somente localhost/preview controlado quando
+         não houver hostname que identifique o tenant.
     - `VITE_PUBLIC_ANAMNESIS_BASE_URL`: URL pública para links de anamnese via WhatsApp.
 
 - **Backend**: Compartilhado na Render com suporte a ambos os ecossistemas.
@@ -127,13 +135,13 @@ npm run dev
 ## Fluxo de Testes Manuais Recomendados
 
 1. **Login e Acesso Multi-Tenant**:
-   - Fazer login com Podologia (`rezinha.bas@icloud.com`).
+   - Fazer login com uma conta de teste autorizada no tenant de Podologia.
    - Verificar que vê apenas dados da clínica Podologia.
-   - Fazer logout e login com Odontologia (`odontologia@consultorio.local`).
+   - Fazer logout e login com uma conta de teste autorizada no tenant de Odontologia.
    - Verificar que vê apenas dados da clínica Odontologia.
 
 2. **Cadastro de Pacientes**:
-   - Cadastrar um paciente em Podologia com telefone `(19) 99855-2882`.
+   - Cadastrar um paciente fictício em Podologia com telefone de teste.
    - Fazer logout e login em Odontologia.
    - Cadastrar o **mesmo paciente** com o mesmo telefone.
    - Verificar que não há conflito (isolamento funciona).
