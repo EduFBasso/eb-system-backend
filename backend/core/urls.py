@@ -15,7 +15,6 @@ urlpatterns = [
     path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
     path('clinic/', include('apps.clinic.urls')),
     path('register/', include('apps.clinic.urls_registration')),
-    path('register/auth/', include('apps.authentication.urls_professional_registration')),
     path('agenda/', include('apps.clinic.views.agenda_urls')),
     path('inventory/', include('apps.clinic.views.inventory_urls')),
 

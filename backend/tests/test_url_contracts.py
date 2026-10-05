@@ -12,6 +12,7 @@ from django.urls import resolve, reverse
         ("/register/clients/", "client-list", ""),
         ("/register/clients-basic/", "client-basic-list", ""),
         ("/register/professionals/", "professional-list", ""),
+        ("/register/auth/professional-create/", None, ""),
         ("/agenda/appointments/", "appointment-list", ""),
         ("/inventory/suppliers/", "supplier-list", ""),
         ("/clinic/treatment/plans/", "odonto-plan-list", ""),
