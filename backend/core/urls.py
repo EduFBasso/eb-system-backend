@@ -11,15 +11,9 @@ urlpatterns = [
     path('health', health_view),   # liveness (no slash)
     path('health/full', full_health_view),  # readiness + metadata
     path('admin/', admin.site.urls),
-    path('api/v1/auth/bakery/login/', include('apps.authentication.urls_bakery_auth')),
-    path('api/v1/bakery/', include('apps.bakery.urls', namespace='bakery')),
-    path('clinic/', include('apps.clinic.urls')),
-    path('register/', include('apps.clinic.urls_registration')),
-    path('agenda/', include('apps.clinic.views.agenda_urls')),
-    path('inventory/', include('apps.clinic.views.inventory_urls')),
-
-    # 🔐 Rotas globais de autenticação
     path('', include('apps.authentication.urls')),
+    path('', include('apps.clinic.urls_root')),
+    path('', include('apps.bakery.urls_root')),
 ]
 
 if getattr(settings, 'SERVE_MEDIA_FILES', False):
