@@ -221,7 +221,6 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
             )
             .filter(appointment_filters)
             .select_related("client", "professional")
-            .prefetch_related("professional__telegram_link")
             .order_by("start_at")
             .distinct()
         )
@@ -261,9 +260,11 @@ def dispatch_appointment_reminder(
             payload={"reason": "already_sent"},
         )
 
-    try:
-        link = appointment.professional.telegram_link
-    except TelegramProfessionalLink.DoesNotExist:
+    link = TelegramProfessionalLink.objects.filter(
+        professional=appointment.professional,
+        tenant=appointment.tenant,
+    ).first()
+    if link is None:
         return ReminderDelivery.objects.create(
             tenant=appointment.tenant,
             appointment=appointment,
@@ -361,7 +362,7 @@ def dispatch_due_reminders(
     if appointment_id is not None:
         appointments = Appointment.objects.filter(pk=appointment_id).select_related(
             "professional", "client"
-        ).prefetch_related("professional__telegram_link")
+        )
     else:
         appointments = get_due_appointments(
             now=now,

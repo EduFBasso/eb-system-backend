@@ -18,10 +18,10 @@ class TelegramProfessionalLink(models.Model):
         verbose_name="Clínica/Tenant"
     )
 
-    professional = models.OneToOneField(
+    professional = models.ForeignKey(
         "authentication.Professional",
         on_delete=models.CASCADE,
-        related_name="telegram_link",
+        related_name="telegram_links",
         verbose_name="Profissional",
     )
 
@@ -60,7 +60,11 @@ class TelegramProfessionalLink(models.Model):
             models.UniqueConstraint(
                 fields=['tenant', 'chat_id'],
                 name='uniq_telegram_link_tenant_chat'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=['professional', 'tenant'],
+                name='uniq_telegram_link_professional_tenant',
+            ),
         ]
 
     def __str__(self):

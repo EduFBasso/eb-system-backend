@@ -32,7 +32,7 @@ backend/apps/notifications/
 - **Herança física:** mapeado explicitamente para `db_table = 'clinic_telegramprofessionallink'`. A migração foi executada via `SeparateDatabaseAndState` sem tocar na tabela original do banco de dados (zero perda de dados ou downtime).
 - **Campos principais:**
   - `tenant`: `ForeignKey('authentication.Tenant')` — garante isolamento multi-tenant estrito.
-  - `professional`: `OneToOneField('authentication.Professional')` — cada usuário profissional possui no máximo um vínculo Telegram global no modelo atual, independentemente do tenant.
+  - `professional`: `ForeignKey('authentication.Professional')` — permite um vínculo Telegram por combinação de profissional e tenant.
   - `bot_token`: token opcional do BotFather privado do profissional. Se nulo, utiliza o bot padrão global do sistema (`TELEGRAM_BOT_TOKEN`).
   - `chat_id`: identificador numérico privado ou de canal no Telegram.
   - `is_active`, `linked_at`, `last_error`: controle de status e auditoria operacional de erro da conexão.

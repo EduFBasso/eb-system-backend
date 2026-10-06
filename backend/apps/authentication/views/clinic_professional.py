@@ -273,6 +273,7 @@ class ClinicProfessionalActionsMixin:
 
         TelegramProfessionalLink.objects.update_or_create(
             professional_id=user.id,
+            tenant=tenant,
             defaults=defaults,
         )
 
