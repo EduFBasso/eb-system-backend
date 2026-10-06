@@ -32,7 +32,7 @@ backend/apps/notifications/
 - **Herança física:** mapeado explicitamente para `db_table = 'clinic_telegramprofessionallink'`. A migração foi executada via `SeparateDatabaseAndState` sem tocar na tabela original do banco de dados (zero perda de dados ou downtime).
 - **Campos principais:**
   - `tenant`: `ForeignKey('authentication.Tenant')` — garante isolamento multi-tenant estrito.
-  - `professional`: `OneToOneField('authentication.Professional')` — cada usuário profissional possui no máximo um canal ativo por tenant.
+  - `professional`: `OneToOneField('authentication.Professional')` — cada usuário profissional possui no máximo um vínculo Telegram global no modelo atual, independentemente do tenant.
   - `bot_token`: token opcional do BotFather privado do profissional. Se nulo, utiliza o bot padrão global do sistema (`TELEGRAM_BOT_TOKEN`).
   - `chat_id`: identificador numérico privado ou de canal no Telegram.
   - `is_active`, `linked_at`, `last_error`: controle de status e auditoria operacional de erro da conexão.
@@ -43,6 +43,7 @@ backend/apps/notifications/
 ## 4. Camada de Serviços (`services/telegram_client.py`)
 
 - `TelegramBotClient`: cliente HTTP encapsulado via `requests` para os métodos `/sendMessage`, `/getMe` e `/getUpdates` da Telegram Bot API. Trata timeouts, respostas inválidas e levanta `TelegramDeliveryError`.
+- `telegram_config.py`: resolve explicitamente o token, a API e o timeout por ecossistema (`clinic` ou `bakery`). O cliente não usa mais `TELEGRAM_BOT_TOKEN` como fallback para escolher o bot.
 - `resolve_bot_token(link)`: resolve com precedência o token individual do profissional (`bot_token`), recorrendo ao global de ambiente caso não esteja configurado.
 - `send_via_link(link, *, text, reply_markup=None)`: **ponto de entrada universal** para qualquer app do backend. Resolve o token correto, instancia o cliente e despacha a mensagem sem exigir que o chamador conheça a lógica de resolução de credenciais.
 

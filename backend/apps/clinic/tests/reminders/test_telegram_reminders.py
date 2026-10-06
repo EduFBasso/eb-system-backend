@@ -88,7 +88,7 @@ def test_dispatch_appointment_reminder_sends_telegram(
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "test-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -124,7 +124,7 @@ def test_dispatch_appointment_reminder_uses_professional_private_bot_token(
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "global-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "global-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -156,7 +156,7 @@ def test_dispatch_appointment_reminder_private_token_auth_failure_does_not_fallb
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "global-fallback-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "global-fallback-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -221,7 +221,7 @@ def test_send_reminders_command_can_force_specific_appointment(
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "test-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,

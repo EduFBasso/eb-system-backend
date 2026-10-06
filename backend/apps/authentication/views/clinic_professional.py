@@ -10,10 +10,14 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.authentication.models import ProfessionalSettings
+from apps.authentication.models import ProfessionalSettings, TenantMembership
 from apps.authentication.serializers.clinic.settings import ProfessionalSettingsSerializer
 from apps.notifications.models import TelegramProfessionalLink
-from apps.notifications.services.telegram_client import TelegramBotClient, TelegramDeliveryError
+from apps.notifications.services.telegram_client import (
+    TelegramBotClient,
+    TelegramDeliveryError,
+    send_via_link,
+)
 from utils.permissions import get_active_tenant
 
 
@@ -77,6 +81,28 @@ def _parse_telegram_link_token(token: str) -> dict | None:
     return {"pid": professional_id, "ts": timestamp, "nonce": nonce}
 
 
+def _get_request_tenant(request):
+    user = request.user
+    auth_token = getattr(request, "auth", None)
+    if auth_token is not None:
+        tenant_id = auth_token.get("tenant_id")
+        if tenant_id is None:
+            return None
+        membership = (
+            TenantMembership.objects
+            .select_related("tenant")
+            .filter(
+                professional=user,
+                tenant_id=tenant_id,
+                is_active=True,
+                tenant__is_active=True,
+            )
+            .first()
+        )
+        return membership.tenant if membership else None
+    return get_active_tenant(user)
+
+
 class ClinicProfessionalActionsMixin:
     """Acoes de settings e integracao Telegram exclusivas do Clinic."""
 
@@ -92,9 +118,11 @@ class ClinicProfessionalActionsMixin:
             data["reminders_globally_enabled"] = bool(
                 django_settings.APPOINTMENT_REMINDERS_ENABLED
             )
+            tenant = _get_request_tenant(request)
             link = TelegramProfessionalLink.objects.filter(
-                professional_id=user.id
-            ).first()
+                professional_id=user.id,
+                tenant=tenant,
+            ).first() if tenant else None
             data["telegram_linked"] = bool(link)
             data["telegram_link_active"] = bool(link.is_active) if link else False
             data["telegram_username"] = link.telegram_username if link else ""
@@ -117,7 +145,14 @@ class ClinicProfessionalActionsMixin:
         if not user or not user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=401)
 
-        client = TelegramBotClient()
+        tenant = _get_request_tenant(request)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant ativo não identificado.", "bot_configured": False},
+                status=403,
+            )
+
+        client = TelegramBotClient(ecosystem=tenant.ecosystem)
         if not client.is_configured:
             return Response(
                 {
@@ -184,7 +219,14 @@ class ClinicProfessionalActionsMixin:
         if now_timestamp - timestamp > TELEGRAM_LINK_TOKEN_TTL_SECONDS:
             return Response({"detail": "Token expirado. Gere um novo vínculo."}, status=400)
 
-        client = TelegramBotClient()
+        tenant = _get_request_tenant(request)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant ativo não identificado.", "linked": False},
+                status=403,
+            )
+
+        client = TelegramBotClient(ecosystem=tenant.ecosystem)
         if not client.is_configured:
             return Response(
                 {"detail": "Bot do Telegram não configurado no servidor.", "linked": False},
@@ -219,12 +261,6 @@ class ClinicProfessionalActionsMixin:
                 },
                 status=409,
             )
-
-        tenant = get_active_tenant(user)
-        if not tenant:
-            membership = user.tenant_memberships.filter(is_active=True).first()
-            if membership:
-                tenant = membership.tenant
 
         defaults = {
             "chat_id": matched_chat_id,
@@ -271,9 +307,18 @@ class ClinicProfessionalActionsMixin:
         if not user or not user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=401)
 
+        tenant = _get_request_tenant(request)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant ativo não identificado."},
+                status=403,
+            )
+
         try:
             link = TelegramProfessionalLink.objects.get(
-                professional_id=user.id, is_active=True
+                professional_id=user.id,
+                tenant=tenant,
+                is_active=True,
             )
         except TelegramProfessionalLink.DoesNotExist:
             return Response(
@@ -281,17 +326,13 @@ class ClinicProfessionalActionsMixin:
                 status=400,
             )
 
-        client = TelegramBotClient()
-        if not client.is_configured:
-            return Response(
-                {"detail": "Bot do Telegram não configurado no servidor."},
-                status=503,
-            )
-
         try:
-            result = client.send_message(
-                chat_id=link.chat_id,
-                text="✅ Teste de notificação — sistema Clínica conectado com sucesso!",
+            result = send_via_link(
+                link,
+                text=(
+                    "✅ Teste de notificação — "
+                    f"sistema {tenant.get_ecosystem_display()} conectado com sucesso!"
+                ),
             )
         except TelegramDeliveryError as exc:
             return Response({"detail": str(exc)}, status=502)
