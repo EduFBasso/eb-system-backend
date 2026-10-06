@@ -129,7 +129,7 @@ def test_bakery_register_customer_allows_multiple_customers_for_same_admin_tenan
     client.force_authenticate(user=admin)
 
     payload_a = {
-        'nickname': 'Cliente A',
+        'nickname': 'João',
         'customer_type': 'PF',
         'cpf': '11122233355',
         'phone': '11999999901',
@@ -161,6 +161,25 @@ def test_bakery_register_customer_allows_multiple_customers_for_same_admin_tenan
     assert response_a.data['tenant'] == tenant.id
     assert response_b.data['tenant'] == tenant.id
     assert response_a.data['user'] != response_b.data['user']
+
+    availability_response = client.get(
+        '/api/v1/bakery/customers/nickname-availability/?nickname=Joao'
+    )
+
+    assert availability_response.status_code == 200
+    assert availability_response.data == {'available': False}
+
+    cpf_availability_response = client.get(
+        '/api/v1/bakery/customers/field-availability/?field=cpf&value=11122233355'
+    )
+
+    assert cpf_availability_response.status_code == 200
+    assert cpf_availability_response.data == {'available': False}
+
+    search_response = client.get('/api/v1/bakery/customers/?search=Joao')
+
+    assert search_response.status_code == 200
+    assert [customer['nickname'] for customer in search_response.data['results']] == ['João']
 
 
 def test_bakery_approve_customer_returns_json_and_updates_status():
@@ -332,7 +351,7 @@ def test_bakery_customer_can_login_with_nickname_after_approval():
 
     anon_client = APIClient()
     login_response = anon_client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/customer/',
         {
             'login': 'João',
             'password': 'XmXHYvp6',
@@ -392,7 +411,7 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
 
     anon_client = APIClient()
     login_response = anon_client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/customer/',
         {
             'login': 'Pendente',
             'password': 'qualquer',
@@ -431,7 +450,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
 
     client = APIClient()
     login_response = client.post(
-        '/api/v1/auth/bakery/login/',
+        '/api/v1/auth/bakery/login/admin/',
         {
             'login': 'Dono',
             'password': 'secret123',

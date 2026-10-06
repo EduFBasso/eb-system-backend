@@ -1,16 +1,28 @@
 from __future__ import annotations
 
-from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.settings import api_settings
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import TenantMembership
+from apps.authentication.services.bakery_auth import (
+    BakeryLoginContext,
+    authenticate_bakery_user,
+    build_customer_snapshot,
+    build_professional_snapshot,
+    build_tenant_snapshot,
+)
+from apps.authentication.services.device_sessions import (
+    activate_login_session,
+    resolve_device_id,
+)
 from apps.bakery.models import BakeryCustomer
 
 
-class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Login exclusivo do ecossistema Bakery.
+class BakeryLoginSerializer(TokenObtainPairSerializer):
+    """Base do login Bakery. Cada perfil define apenas suas regras e payload.
 
     Recebe: { login, password, tenant_slug }
     - login pode ser email ou login_alias da membership naquele tenant.
@@ -21,124 +33,116 @@ class BakeryTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     login = serializers.CharField(write_only=True)
     tenant_slug = serializers.SlugField(write_only=True)
+    device_id = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=64,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop("email", None)
 
-    def _resolve_email(self, login: str, tenant: Tenant) -> str | None:
-        """Resolve login como email ou login_alias dentro do tenant."""
-        if "@" in login:
-            return login.strip().lower()
+    def validate_profile(self, context: BakeryLoginContext) -> None:
+        raise NotImplementedError
 
-        membership = (
-            TenantMembership.objects
-            .select_related("professional")
-            .filter(
-                tenant=tenant,
-                login_alias__iexact=login,
-                is_active=True,
-            )
-            .first()
-        )
-        if membership:
-            return membership.professional.email
-
-        return None
+    def profile_payload(self, context: BakeryLoginContext) -> dict:
+        raise NotImplementedError
 
     def get_token(self, user):
         token = super().get_token(user)
         tenant = getattr(self, "_login_tenant", None)
         membership = getattr(self, "_login_membership", None)
+        device_id = getattr(self, "_login_device_id", None)
         if tenant is not None and membership is not None:
             token["tenant_id"] = tenant.id
             token["ecosystem"] = "bakery"
             token["role"] = membership.role
+        if device_id:
+            token["device_id"] = device_id
         return token
 
     def validate(self, attrs):
-        login = attrs.get("login", "").strip()
-        password = attrs.get("password", "")
-        tenant_slug = attrs.get("tenant_slug", "").strip()
-
-        if not login or not password or not tenant_slug:
-            raise serializers.ValidationError(_("login, password e tenant_slug são obrigatórios."))
-
-        try:
-            tenant = Tenant.objects.get(slug=tenant_slug, is_active=True, ecosystem=Tenant.Ecosystem.BAKERY)
-        except Tenant.DoesNotExist:
-            raise serializers.ValidationError(_("Tenant Bakery não encontrado ou inativo."))
-
-        email = self._resolve_email(login, tenant)
-        if not email:
-            raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
-
-        user = authenticate(username=email, password=password)
-        if user is None:
-            raise serializers.ValidationError(_("Credenciais inválidas ou usuário não encontrado."))
-
-        if not user.is_active:
-            raise serializers.ValidationError(_("Esta conta está desativada."))
-
-        try:
-            membership = TenantMembership.objects.select_related("tenant").get(
-                professional=user,
-                tenant=tenant,
-                is_active=True,
-            )
-        except TenantMembership.DoesNotExist:
-            raise serializers.ValidationError(_("Usuário não possui acesso a este tenant Bakery."))
-
-        self._login_tenant = tenant
-        self._login_membership = membership
-
-        customer: BakeryCustomer | None = (
-            BakeryCustomer.objects
-            .filter(user=user, tenant=tenant)
-            .first()
+        request = self.context.get("request")
+        context = authenticate_bakery_user(
+            login=attrs.get("login", ""),
+            password=attrs.get("password", ""),
+            tenant_slug=attrs.get("tenant_slug", ""),
+            request=request,
         )
-        if customer is not None:
-            if customer.status == BakeryCustomer.ApprovalStatus.PENDING:
-                raise serializers.ValidationError(_("Cadastro ainda não aprovado."))
-            if customer.status == BakeryCustomer.ApprovalStatus.BLOCKED:
-                raise serializers.ValidationError(_("Conta bloqueada."))
+        # As regras de perfil rodam antes de criar a sessão de dispositivo.
+        self.validate_profile(context)
 
-        normalized_attrs = {**attrs, "email": email}
-        data = super().validate(normalized_attrs)
+        user = context.user
+        device_id = resolve_device_id(attrs.get("device_id", ""), user)
+        user_agent = ""
+        ip_address = None
+        if request is not None:
+            user_agent = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
+            ip_address = request.META.get("REMOTE_ADDR")
+        active_count = activate_login_session(
+            user,
+            device_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
 
-        data["tenant_id"] = tenant.id
-        data["ecosystem"] = "bakery"
-        data["role"] = membership.role
-        data["tenant"] = {
-            "slug": tenant.slug,
-            "trade_name": tenant.trade_name,
-            "address": {
-                "zip_code": tenant.zip_code,
-                "street": tenant.street,
-                "number": tenant.number,
-                "neighborhood": tenant.neighborhood,
-                "city": tenant.city,
-                "state": tenant.state,
-                "complement": tenant.complement,
-            },
+        self._login_tenant = context.tenant
+        self._login_membership = context.membership
+        self._login_device_id = device_id
+        self.user = user
+        refresh = self.get_token(user)
+
+        if api_settings.UPDATE_LAST_LOGIN:
+            update_last_login(None, user)
+
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "tenant_id": context.tenant.id,
+            "ecosystem": "bakery",
+            "role": context.membership.role,
+            "device_id": device_id,
+            "active_sessions_count": active_count,
+            "tenant": build_tenant_snapshot(context.tenant),
+            **self.profile_payload(context),
         }
 
-        if customer is not None:
-            data["customer"] = {
-                "id": customer.id,
-                "nickname": customer.nickname,
-                "customer_type": customer.customer_type,
-                "phone": customer.phone,
-                "status": customer.status,
-                "credit_limit": str(customer.credit_limit),
-            }
-        else:
-            data["professional"] = {
-                "id": user.id,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email": user.email,
-                "phone": str(user.phone) if user.phone else "",
-            }
 
-        return data
+class BakeryAdminLoginSerializer(BakeryLoginSerializer):
+    """Login administrativo: somente owner/admin ativos do tenant."""
+
+    ALLOWED_ROLES = (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN)
+
+    def validate_profile(self, context: BakeryLoginContext) -> None:
+        if context.membership.role not in self.ALLOWED_ROLES:
+            raise serializers.ValidationError(
+                _("Esta conta não possui acesso administrativo. Use o login de cliente.")
+            )
+
+    def profile_payload(self, context: BakeryLoginContext) -> dict:
+        return {"professional": build_professional_snapshot(context.user)}
+
+
+class BakeryCustomerLoginSerializer(BakeryLoginSerializer):
+    """Login de cliente: somente member com BakeryCustomer aprovado no tenant."""
+
+    def validate_profile(self, context: BakeryLoginContext) -> None:
+        if context.membership.role != TenantMembership.Role.MEMBER:
+            raise serializers.ValidationError(
+                _("Conta administrativa não pode entrar como cliente. Use o login administrativo.")
+            )
+
+        customer = context.customer
+        if customer is None:
+            raise serializers.ValidationError(_("Cadastro de cliente não encontrado neste tenant."))
+        if customer.status == BakeryCustomer.ApprovalStatus.PENDING:
+            raise serializers.ValidationError(_("Cadastro ainda não aprovado."))
+        if customer.status == BakeryCustomer.ApprovalStatus.BLOCKED:
+            raise serializers.ValidationError(_("Conta bloqueada."))
+        if customer.status != BakeryCustomer.ApprovalStatus.APPROVED:
+            raise serializers.ValidationError(_("Cadastro de cliente não está ativo."))
+
+    def profile_payload(self, context: BakeryLoginContext) -> dict:
+        return {"customer": build_customer_snapshot(context.customer)}

@@ -1,9 +1,11 @@
 import pytest
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Tenant, TenantMembership
+from tests.auth_helpers import authenticate_clinic_client
 
 
 def _setup_tenant(professional):
@@ -26,8 +28,8 @@ def test_patch_cannot_transition_status(client, django_user_model):
         first_name='State',
         last_name='One',
     )
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     now = timezone.now()
     c = Client.objects.create(tenant=tenant, first_name='Cliente', last_name='Teste', phone='11900000001')
 
@@ -63,8 +65,8 @@ def test_create_promotes_overdue_to_done_and_allows_new_schedule(
         first_name='State',
         last_name='Two',
     )
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     now = timezone.now()
     c = Client.objects.create(tenant=tenant, first_name='Cliente', last_name='Pendente', phone='11900000002')
 
@@ -101,8 +103,8 @@ def test_expired_appointment_is_promoted_directly_to_done(client, django_user_mo
         first_name='State',
         last_name='Three',
     )
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     now = timezone.now()
     customer = Client.objects.create(
         tenant=tenant,
@@ -146,8 +148,8 @@ def test_interval_read_only_promotes_appointments_in_requested_range(
         first_name='State',
         last_name='Four',
     )
-    client.force_login(pro)
     tenant = _setup_tenant(pro)
+    client = authenticate_clinic_client(APIClient(), pro)
     now = timezone.now()
     customer = Client.objects.create(
         tenant=tenant,

@@ -2,6 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import ClinicalRecord, Encounter
 from apps.clinic.models.clients import Client
 
@@ -63,8 +64,7 @@ def other_client():
 @pytest.fixture
 def api_client(owner):
     client = APIClient()
-    client.force_authenticate(user=owner)
-    return client
+    return authenticate_clinic_client(client, owner)
 
 
 def test_professional_cannot_create_encounter_for_other_tenant_client(api_client, other_client):

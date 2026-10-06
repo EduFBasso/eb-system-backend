@@ -51,7 +51,7 @@ backend/
 │   │   ├── views/                     # Autenticação JWT, sessões ativas e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
 │   │   ├── services/                  # Lógica de emissão de tokens JWT
-│   │   └── urls.py                    # Rotas sob o prefixo /register/ e /token/
+│   │   └── urls.py                    # Rotas globais, /token/, /sessions/ e /register/auth/
 │   │
 │   ├── notifications/                 # [GLOBAL] Motor Central de Mensageria e Alertas
 │   │   ├── models.py                  # TelegramProfessionalLink (vínculo de bot/chat_id por tenant)
@@ -69,7 +69,7 @@ backend/
 │   │   │   └── odonto.py              # Procedimentos Odontológicos e Notação Dentária FDI
 │   │   ├── views/                     # APIs para agenda, prontuário, catálogo e anamnese pública
 │   │   ├── serializers/               # Serializadores para cada especialidade clínica
-│   │   └── urls.py                    # Rotas clínicas (/agenda/, /clinic/, /inventory/)
+│   │   └── urls.py                    # Rotas clínicas (/agenda/, /clinic/, /inventory/ e /register/)
 │   │
 │   └── bakery/                        # [ECOSSISTEMA 2] Gestão de Panificação, Vendas B2B e Crédito
 │       ├── models/
@@ -184,13 +184,19 @@ graph TD
 - **Capacidades Ativas (`capabilities`):** A interface e os endpoints adaptam os formulários de acordo com o JSON de capacidades:
   - `{"clinic": true, "podologia": true}` ➡️ Exibe contexto podológico e seleção de dedos no SVG.
   - `{"clinic": true, "odonto": true}` ➡️ Exibe odontograma com mapeamento FDI e cálculo de orçamentos.
+- **Seleção do tenant:** o hostname/subdomínio é a fonte principal de
+    `tenant_slug`; em localhost ou preview controlado, `?tenant=` e
+    `VITE_CLINIC_TENANT_SLUG` são fallbacks explícitos. Hostnames públicos
+    desconhecidos falham fechados.
+- **Login:** o frontend envia `tenant_slug` para `/token/`; memberships
+    ambíguas são rejeitadas em vez de selecionar uma delas silenciosamente.
 - **Proteção de PII no Logout:** O frontend centraliza a limpeza de estado local (`clearStoredAuth` / `clearStaleLocalStorageKeys`). No encerramento da sessão (manual ou expiração), todas as chaves de nomes de clientes (`client.name.*`) e resquícios legados são expurgados do `localStorage`, prevenindo vazamento de dados em terminais compartilhados.
 
 ### 4.2 Comportamento do Ecossistema `bakery`
 - **Público Alvo B2B:** Os compradores são padarias, minimercados e lanchonetes.
 - **Auto-Cadastro Público com Tenant:** O endpoint `/api/v1/bakery/customers/register/` opera com permissão pública (`AllowAny`), recebendo dados cadastrais e `tenant_slug`. O cliente é registrado com status inicial `PENDENTE`.
 - **Aprovação Segura pelo Administrador:** A ativação do cliente exige confirmação da senha do administrador (`admin_password`) e atribuição obrigatória de limite de crédito rotativo.
-- **Autenticação Direta:** Utiliza o endpoint `/api/v1/auth/bakery/login/`, recebendo `login` (e-mail ou alias), `password` e `tenant_slug`.
+- **Autenticação Direta com Contratos Separados:** `POST /api/v1/auth/bakery/login/admin/` (somente `owner`/`admin`) e `POST /api/v1/auth/bakery/login/customer/` (somente `member` com `BakeryCustomer` aprovado). Ambos recebem `login` (e-mail ou alias), `password` e `tenant_slug`. O endpoint único anterior (`/api/v1/auth/bakery/login/`) foi removido e retorna `404`.
 - **Motor de Crédito (Ledger):** Ao emitir um pedido, o sistema valida se `saldo_atual + valor_pedido <= limite_de_credito`. A cada pagamento recebido pelo administrador, um lançamento positivo no `CreditLedgerEntry` restaura a capacidade de compra do cliente.
 
 ---
@@ -202,7 +208,7 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
-| **Frontend Clinic** | Vite / React | `5173` | `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
-| **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/`) |
+| **Frontend Clinic** | Vite / React | `5173` | `/token/`, `/sessions/`, `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
+| **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/admin/` e `/api/v1/auth/bakery/login/customer/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.

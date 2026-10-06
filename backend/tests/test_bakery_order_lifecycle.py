@@ -163,6 +163,120 @@ def test_customer_can_create_order_with_free_form_delivery_address():
     assert order.shipping_street == customer.street
 
 
+def test_customer_address_prefill_is_not_stored_as_alternative_delivery_address():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    product = Product.objects.create(tenant=tenant, name="Pao Padrao", price=Decimal("5.00"))
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "delivery_address_text": ", ".join(
+                [
+                    customer.street,
+                    customer.number,
+                    customer.neighborhood,
+                    customer.city,
+                    customer.state,
+                    customer.zip_code,
+                ]
+            ),
+            "shipping_zip_code": customer.zip_code,
+            "shipping_street": customer.street,
+            "shipping_number": customer.number,
+            "shipping_complement": customer.complement,
+            "shipping_neighborhood": customer.neighborhood,
+            "shipping_city": customer.city,
+            "shipping_state": customer.state,
+            "items": [{"product_id": product.pk, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    order = Order.objects.get(pk=response.data["id"])
+    assert order.delivery_address_text == order.original_address_text
+
+
+def test_structured_alternative_delivery_address_is_preserved():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    product = Product.objects.create(tenant=tenant, name="Pao Alternativo", price=Decimal("5.00"))
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "delivery_address_text": "Rua B, 20, Fundos, Centro, Limeira, SP, 13480000",
+            "shipping_zip_code": customer.zip_code,
+            "shipping_street": "Rua B",
+            "shipping_number": "20",
+            "shipping_complement": "Fundos",
+            "shipping_neighborhood": customer.neighborhood,
+            "shipping_city": customer.city,
+            "shipping_state": customer.state,
+            "items": [{"product_id": product.pk, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    order = Order.objects.get(pk=response.data["id"])
+    assert order.delivery_address_text == "Rua B, 20, Fundos, Centro, Limeira, SP, 13480000"
+    assert order.original_address_text != order.delivery_address_text
+
+
+def test_delivery_notes_are_preserved_with_address_snapshot():
+    tenant = make_tenant()
+    user, customer = make_customer(tenant)
+    product = Product.objects.create(tenant=tenant, name="Pao com Nota", price=Decimal("5.00"))
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.post(
+        "/api/v1/bakery/orders/",
+        {
+            "customer_id": customer.pk,
+            "delivery_date": (timezone.now() + timedelta(days=1)).isoformat(),
+            "payment_method": Order.PaymentMethod.CASH,
+            "delivery_address_text": ", ".join(
+                [
+                    customer.street,
+                    customer.number,
+                    customer.neighborhood,
+                    customer.city,
+                    customer.state,
+                    customer.zip_code,
+                ]
+            ),
+            "notes": "Entregar na portaria.",
+            "shipping_zip_code": customer.zip_code,
+            "shipping_street": customer.street,
+            "shipping_number": customer.number,
+            "shipping_complement": customer.complement,
+            "shipping_neighborhood": customer.neighborhood,
+            "shipping_city": customer.city,
+            "shipping_state": customer.state,
+            "items": [{"product_id": product.pk, "quantity": 1}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    order = Order.objects.get(pk=response.data["id"])
+    assert order.notes == "Entregar na portaria."
+    assert order.delivery_address_text.endswith("Observações de entrega: Entregar na portaria.")
+
+
 def test_customer_sees_only_active_products_from_own_tenant():
     tenant = make_tenant()
     user, _customer = make_customer(tenant)
@@ -262,7 +376,7 @@ def test_bakery_login_embeds_tenant_context_in_jwt(client):
     user, _customer = make_customer(tenant)
 
     response = client.post(
-        "/api/v1/auth/bakery/login/",
+        "/api/v1/auth/bakery/login/customer/",
         {
             "login": user.email,
             "password": "client-pass",
@@ -332,6 +446,8 @@ def test_order_date_filters_include_both_boundary_days():
 def test_admin_order_filters_by_status_customer_and_open_only():
     tenant = make_tenant()
     _customer_user, customer = make_customer(tenant)
+    customer.nickname = "João"
+    customer.save(update_fields=("nickname", "updated_at"))
     pending_order = make_order(
         tenant,
         customer,
@@ -364,7 +480,7 @@ def test_admin_order_filters_by_status_customer_and_open_only():
         "/api/v1/bakery/orders/",
         {
             "status": "PENDING,CONFIRMED",
-            "customer_nickname": customer.nickname,
+            "customer_nickname": "Joao",
             "open_only": "true",
         },
     )

@@ -104,7 +104,7 @@ def test_order_creation_rejects_credit_total_above_available_limit():
     )
 
     serializer.is_valid(raise_exception=True)
-    with pytest.raises(ValidationError, match="Order total exceeds the available credit"):
+    with pytest.raises(ValidationError, match="excede o crédito disponível"):
         serializer.save(tenant=tenant)
 
     assert not Order.objects.filter(customer=customer).exists()

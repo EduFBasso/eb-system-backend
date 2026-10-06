@@ -1,9 +1,9 @@
 import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional
+from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import Appointment
 from apps.authentication.models import Tenant, TenantMembership
 
@@ -29,10 +29,7 @@ def professional():
 @pytest.fixture
 def api(professional):
     c = APIClient()
-    token = AccessToken.for_user(professional)
-    token['tenant_id'] = professional.tenant_memberships.first().tenant_id
-    c.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-    return c
+    return authenticate_clinic_client(c, professional)
 
 
 @pytest.fixture

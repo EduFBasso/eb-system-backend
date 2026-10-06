@@ -39,7 +39,15 @@ def tenant(db, professional):
 @pytest.fixture
 def auth_client(api_client, professional, tenant):
     # Obtem token JWT e seta Authorization header
-    r = api_client.post('/token/', {'email': professional.email, 'password': 'secret123'}, format='json')
+    r = api_client.post(
+        '/token/',
+        {
+            'login': professional.email,
+            'password': 'secret123',
+            'tenant_slug': tenant.slug,
+        },
+        format='json',
+    )
     access = r.json()['access']
     api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
     return api_client

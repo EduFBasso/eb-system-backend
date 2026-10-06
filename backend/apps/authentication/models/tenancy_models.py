@@ -1,5 +1,6 @@
 # backend/apps/authentication/models/tenancy_models.py
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class Tenant(models.Model):
@@ -149,9 +150,10 @@ class TenantMembership(models.Model):
             # Constraint condicional que assegura que o apelido de login rápido 
             # não se repita na mesma clínica (evitando conflitos de login por apelido)
             models.UniqueConstraint(
-                fields=['tenant', 'login_alias'],
+                models.F('tenant'),
+                Lower('login_alias'),
                 condition=models.Q(login_alias__gt=''),
-                name='uq_tenant_membership_login_alias'
+                name='uq_tenant_membership_login_alias_ci'
             ),
         ]
         indexes = [
@@ -162,3 +164,7 @@ class TenantMembership(models.Model):
 
     def __str__(self):
         return f'{self.professional.first_name} @ {self.tenant.name} ({self.get_role_display()})'
+
+    def save(self, *args, **kwargs):
+        self.login_alias = (self.login_alias or '').strip().lower()
+        super().save(*args, **kwargs)

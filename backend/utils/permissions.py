@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 
 from apps.authentication.models import Tenant, TenantMembership
 
@@ -76,6 +77,43 @@ class HasActiveBakeryTenant(permissions.BasePermission):
             return False
         view.active_tenant = membership.tenant
         view.bakery_membership = membership
+        return True
+
+
+class HasActiveClinicTenant(permissions.BasePermission):
+    """Exige um JWT Clinic vinculado a uma membership ativa."""
+
+    message = "Usuário não possui acesso a um tenant Clinic ativo."
+
+    def has_permission(self, request, view) -> bool:
+        auth_token = getattr(request, "auth", None)
+        if auth_token is None:
+            raise PermissionDenied(self.message)
+
+        if auth_token.get("ecosystem") != Tenant.Ecosystem.CLINIC:
+            raise PermissionDenied(self.message)
+
+        tenant_id = auth_token.get("tenant_id")
+        if tenant_id is None:
+            raise PermissionDenied(self.message)
+
+        try:
+            membership = (
+                TenantMembership.objects
+                .select_related("tenant")
+                .get(
+                    professional=request.user,
+                    tenant_id=tenant_id,
+                    is_active=True,
+                    tenant__is_active=True,
+                    tenant__ecosystem=Tenant.Ecosystem.CLINIC,
+                )
+            )
+        except TenantMembership.DoesNotExist:
+            raise PermissionDenied(self.message)
+
+        view.active_tenant = membership.tenant
+        view.clinic_membership = membership
         return True
 
 
@@ -187,4 +225,3 @@ class IsTenantStaffOrReadOnly(permissions.BasePermission):
             return True
         membership = _get_bakery_membership(request)
         return bool(membership and membership.role in (TenantMembership.Role.OWNER, TenantMembership.Role.ADMIN))
-

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -20,8 +21,10 @@ def _validate_client_tenant(client, professional, request=None):
         return
 
     membership = get_tenant_membership_from_request(request, ecosystem="clinic") if request else None
-    tenant = membership.tenant_id if membership else None
-    if tenant is not None and client.tenant_id != tenant:
+    if membership is None:
+        raise PermissionDenied("Usuário não possui um tenant Clinic ativo.")
+
+    if client.tenant_id != membership.tenant_id:
         raise serializers.ValidationError(
             {"client": "Cliente não pertence à clínica (Tenant) do profissional autenticado."}
         )
@@ -29,13 +32,9 @@ def _validate_client_tenant(client, professional, request=None):
 
 def _request_tenant(request, professional):
     membership = get_tenant_membership_from_request(request, ecosystem="clinic") if request else None
-    if membership:
-        return membership.tenant
-    if professional:
-        return professional.tenant_memberships.filter(
-            is_active=True, tenant__is_active=True
-        ).order_by("created_at", "id").select_related("tenant").first().tenant
-    return None
+    if membership is None:
+        raise PermissionDenied("Usuário não possui um tenant Clinic ativo.")
+    return membership.tenant
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -382,12 +381,8 @@ class ChargeSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         professional = getattr(self.context.get("request"), "user", None) or getattr(self.instance, "professional", None)
-        tenant = (
-            getattr(self.instance, "tenant", None)
-            or (
-                professional.tenant_memberships.filter(is_active=True, tenant__is_active=True)
-                .order_by('created_at', 'id').select_related('tenant').first().tenant
-            ) if professional else None
+        tenant = getattr(self.instance, "tenant", None) or _request_tenant(
+            self.context.get("request"), professional
         )
         client = attrs.get("client", getattr(self.instance, "client", None))
         encounter = attrs.get("encounter", getattr(self.instance, "encounter", None))

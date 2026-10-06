@@ -17,6 +17,7 @@ from utils.permissions import (
     IsRelatedCustomer,
     IsTenantStaffOrReadOnly,
 )
+from utils.text import normalize_search_text
 
 from .base import BakeryTenantScopedMixin
 
@@ -75,7 +76,16 @@ class OrderViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(status__in=status_value.split(","))
         customer_nickname = self.request.query_params.get("customer_nickname")
         if customer_nickname:
-            queryset = queryset.filter(customer__nickname__icontains=customer_nickname)
+            normalized_query = normalize_search_text(customer_nickname)
+            matching_customer_ids = [
+                customer_id
+                for customer_id, nickname in queryset.values_list(
+                    "customer_id",
+                    "customer__nickname",
+                ).distinct()
+                if normalized_query in normalize_search_text(nickname)
+            ]
+            queryset = queryset.filter(customer_id__in=matching_customer_ids)
         customer_id = self.request.query_params.get("customer_id")
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)

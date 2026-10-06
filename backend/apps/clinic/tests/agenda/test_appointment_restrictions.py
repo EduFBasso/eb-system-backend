@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
 from apps.authentication.models import Professional, Tenant, TenantMembership
+from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import Appointment
 
 pytestmark = pytest.mark.django_db
@@ -39,8 +40,7 @@ def client2(professional):
 @pytest.fixture
 def api_client(professional):
     c = APIClient()
-    c.force_authenticate(user=professional)
-    return c
+    return authenticate_clinic_client(c, professional)
 
 
 def make_future():
@@ -165,4 +165,3 @@ def test_cancelled_appointment_releases_same_time_slot(api_client, client1, clie
 
     assert replacement.status_code == 201, replacement.content
     assert replacement.json()['status'] == Appointment.Status.SCHEDULED
-

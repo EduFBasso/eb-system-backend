@@ -183,6 +183,19 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         original_address_text = self._format_customer_address(customer)
         delivery_address_text = validated_data.pop("delivery_address_text", "").strip()
+        delivery_notes = str(validated_data.get("notes") or "").strip()
+        shipping_field_names = (
+            "shipping_zip_code",
+            "shipping_street",
+            "shipping_number",
+            "shipping_complement",
+            "shipping_neighborhood",
+            "shipping_city",
+            "shipping_state",
+        )
+        has_structured_shipping_address = all(
+            field in validated_data for field in shipping_field_names
+        )
         validated_data.setdefault("shipping_zip_code", customer.zip_code)
         validated_data.setdefault("shipping_street", customer.street)
         validated_data.setdefault("shipping_number", customer.number)
@@ -190,6 +203,31 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data.setdefault("shipping_neighborhood", customer.neighborhood)
         validated_data.setdefault("shipping_city", customer.city)
         validated_data.setdefault("shipping_state", customer.state)
+        shipping_fields = (
+            ("shipping_zip_code", customer.zip_code),
+            ("shipping_street", customer.street),
+            ("shipping_number", customer.number),
+            ("shipping_complement", customer.complement),
+            ("shipping_neighborhood", customer.neighborhood),
+            ("shipping_city", customer.city),
+            ("shipping_state", customer.state),
+        )
+        address_matches_customer = has_structured_shipping_address and all(
+            str(validated_data.get(field, "")).strip() == str(customer_value or "").strip()
+            for field, customer_value in shipping_fields
+        )
+        delivery_snapshot = (
+            original_address_text if address_matches_customer else delivery_address_text
+        ) or original_address_text
+        if delivery_notes:
+            delivery_snapshot = " | ".join(
+                part
+                for part in (
+                    delivery_address_text,
+                    f"Observações de entrega: {delivery_notes}",
+                )
+                if part
+            )
 
         product_ids = [item["product_id"] for item in item_payloads]
         products = {
@@ -218,13 +256,13 @@ class OrderSerializer(serializers.ModelSerializer):
             and not customer.can_reserve_credit(total)
         ):
             raise serializers.ValidationError(
-                {"items": "Order total exceeds the available credit."}
+                {"items": "O valor total do pedido excede o crédito disponível."}
             )
 
         order = Order.objects.create(
             customer=customer,
             original_address_text=original_address_text,
-            delivery_address_text=delivery_address_text or original_address_text,
+            delivery_address_text=delivery_snapshot,
             **validated_data,
         )
         for item in item_payloads:
