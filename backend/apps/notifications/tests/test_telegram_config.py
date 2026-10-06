@@ -39,3 +39,13 @@ def test_bakery_client_uses_bakery_bot_settings(settings):
 def test_unknown_telegram_ecosystem_is_rejected():
     with pytest.raises(ValueError, match="Ecossistema Telegram não suportado"):
         get_telegram_bot_config("unknown")
+
+
+def test_clinic_client_does_not_fallback_to_legacy_token(settings):
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = ""
+    settings.TELEGRAM_BOT_TOKEN = "legacy-token"
+
+    client = TelegramBotClient(ecosystem="clinic")
+
+    assert client.token == ""
+    assert client.is_configured is False
