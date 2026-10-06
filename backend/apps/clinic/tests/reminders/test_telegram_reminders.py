@@ -88,7 +88,7 @@ def test_dispatch_appointment_reminder_sends_telegram(
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "test-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -124,7 +124,7 @@ def test_dispatch_appointment_reminder_uses_professional_private_bot_token(
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "global-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "global-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -156,7 +156,7 @@ def test_dispatch_appointment_reminder_private_token_auth_failure_does_not_fallb
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "global-fallback-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "global-fallback-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,
@@ -216,12 +216,48 @@ def test_dispatch_appointment_reminder_skips_without_telegram_link(appointment, 
     assert delivery.payload["reason"] == "telegram_not_linked"
 
 
+def test_dispatch_appointment_reminder_uses_link_from_appointment_tenant(
+    appointment,
+    reminder_settings,
+    professional,
+    settings,
+):
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "clinic-token"
+    appointment_tenant = appointment.tenant
+    other_tenant = Tenant.objects.create(name="Other Tenant", slug="other-tenant")
+    TelegramProfessionalLink.objects.create(
+        tenant=appointment_tenant,
+        professional=professional,
+        chat_id="appointment-tenant-chat",
+    )
+    TelegramProfessionalLink.objects.create(
+        tenant=other_tenant,
+        professional=professional,
+        chat_id="other-tenant-chat",
+        bot_token="other-private-token",
+    )
+
+    with patch("apps.notifications.services.telegram_client.requests.post") as mocked_post:
+        mocked_post.return_value.status_code = 200
+        mocked_post.return_value.json.return_value = {
+            "ok": True,
+            "result": {"message_id": 91},
+        }
+
+        delivery = dispatch_appointment_reminder(appointment)
+
+    assert delivery is not None
+    assert delivery.status == ReminderDelivery.Status.SENT
+    assert mocked_post.call_args.kwargs["json"]["chat_id"] == "appointment-tenant-chat"
+    assert "other-private-token" not in mocked_post.call_args.args[0]
+
+
 def test_send_reminders_command_can_force_specific_appointment(
     appointment,
     professional,
     settings,
 ):
-    settings.TELEGRAM_BOT_TOKEN = "test-token"
+    settings.CLINIC_TELEGRAM_BOT_TOKEN = "test-token"
     TelegramProfessionalLink.objects.create(
         tenant=professional.tenant_memberships.first().tenant,
         professional=professional,

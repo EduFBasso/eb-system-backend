@@ -4,9 +4,8 @@ from dataclasses import dataclass
 
 import requests
 
-from django.conf import settings
-
 from .. import models as notifications_models
+from .telegram_config import get_telegram_bot_config
 
 
 class TelegramDeliveryError(Exception):
@@ -30,29 +29,17 @@ class TelegramBotClient:
     ):
         self.ecosystem = ecosystem
         if token is None:
-            token = (
-                settings.BAKERY_TELEGRAM_BOT_TOKEN
-                if ecosystem == "bakery"
-                else settings.CLINIC_TELEGRAM_BOT_TOKEN or settings.TELEGRAM_BOT_TOKEN
-            )
+            token = get_telegram_bot_config(ecosystem).token
         self.token = token
         self.api_base = (
             api_base
             if api_base is not None
-            else (
-                settings.BAKERY_TELEGRAM_BOT_API_BASE
-                if ecosystem == "bakery"
-                else settings.CLINIC_TELEGRAM_BOT_API_BASE
-            )
+            else get_telegram_bot_config(ecosystem).api_base
         ).rstrip("/")
         self.timeout = (
             timeout
             if timeout is not None
-            else (
-                settings.BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS
-                if ecosystem == "bakery"
-                else settings.CLINIC_TELEGRAM_BOT_TIMEOUT_SECONDS
-            )
+            else get_telegram_bot_config(ecosystem).timeout
         )
 
     @property
@@ -190,14 +177,7 @@ def masked_token_fingerprint(token: str) -> str:
 
 
 def _default_bot_token(ecosystem: str) -> tuple[str, str]:
-    ecosystem_token = (
-        settings.BAKERY_TELEGRAM_BOT_TOKEN
-        if ecosystem == "bakery"
-        else settings.CLINIC_TELEGRAM_BOT_TOKEN
-    )
-    if ecosystem_token:
-        return ecosystem_token.strip(), ecosystem
-    return (settings.TELEGRAM_BOT_TOKEN or '').strip(), 'global'
+    return get_telegram_bot_config(ecosystem).token, "global"
 
 
 def resolve_bot_token(link: "notifications_models.TelegramProfessionalLink") -> tuple[str, str]:
