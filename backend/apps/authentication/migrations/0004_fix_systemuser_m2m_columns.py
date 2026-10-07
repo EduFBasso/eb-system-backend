@@ -46,11 +46,21 @@ $$;
 """
 
 
+def fix_systemuser_m2m_columns(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(FORWARD_SQL)
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("authentication", "0003_transition_legacy_professional"),
     ]
 
     operations = [
-        migrations.RunSQL(FORWARD_SQL, migrations.RunSQL.noop),
+        migrations.RunPython(
+            code=fix_systemuser_m2m_columns,
+            reverse_code=migrations.RunPython.noop,
+        ),
     ]

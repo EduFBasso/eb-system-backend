@@ -7,7 +7,7 @@
 > historicas abaixo representam o estado da epoca em que foram escritas.
 >
 > Para o deploy atual, consulte
-> [`backend/docs/RENDER_ENV_CHECKLIST.md`](../backend/docs/RENDER_ENV_CHECKLIST.md).
+> [`RENDER_ENV_CHECKLIST.md`](./RENDER_ENV_CHECKLIST.md).
 > A migracao de uma base legada e feita pelas migrations
 > `authentication.0003_transition_legacy_professional` e
 > `authentication.0004_fix_systemuser_m2m_columns`. A primeira remove

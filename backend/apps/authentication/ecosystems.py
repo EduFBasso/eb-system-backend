@@ -32,7 +32,7 @@ _SPECS: tuple[EcosystemSpec, ...] = (
     EcosystemSpec(
         slug="clinic",
         label="Unidade Clínica (Saúde/Estética)",
-        url_prefix="/",
+        url_prefix="/api/v1/clinic/",
         allowed_capabilities=frozenset({"clinic", "podologia", "odonto"}),
         telegram_token_setting="CLINIC_TELEGRAM_BOT_TOKEN",
         telegram_api_base_setting="CLINIC_TELEGRAM_BOT_API_BASE",

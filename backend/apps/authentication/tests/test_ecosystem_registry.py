@@ -28,6 +28,11 @@ def test_public_self_registration_flags():
     assert REGISTRY["clinic"].public_self_registration is False
 
 
+def test_registry_exposes_canonical_api_prefixes():
+    assert REGISTRY["clinic"].url_prefix == "/api/v1/clinic/"
+    assert REGISTRY["bakery"].url_prefix == "/api/v1/bakery/"
+
+
 @pytest.mark.django_db
 def test_tenant_rejects_capability_from_other_ecosystem():
     with pytest.raises(ValueError, match="não pertence ao ecossistema"):

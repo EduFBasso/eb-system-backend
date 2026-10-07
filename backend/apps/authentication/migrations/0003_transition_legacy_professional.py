@@ -42,11 +42,21 @@ $$;
 """
 
 
+def transition_legacy_professional(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(FORWARD_SQL)
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("authentication", "0002_alter_systemuser_options"),
     ]
 
     operations = [
-        migrations.RunSQL(FORWARD_SQL, migrations.RunSQL.noop),
+        migrations.RunPython(
+            code=transition_legacy_professional,
+            reverse_code=migrations.RunPython.noop,
+        ),
     ]
