@@ -82,7 +82,39 @@ class Tenant(models.Model):
                 "Tenant.ecosystem deve ser um ecossistema válido e explícito; "
                 f"recebido: {self.ecosystem!r}."
             )
+        self._validate_capabilities()
         super().save(*args, **kwargs)
+
+    def _iter_enabled_capabilities(self):
+        """Gera as capabilities marcadas como True (topo e dentro de 'modules')."""
+        capabilities = self.capabilities or {}
+        if not isinstance(capabilities, dict):
+            return
+        for key, value in capabilities.items():
+            if key == "modules":
+                continue
+            if value is True:
+                yield key
+        modules = capabilities.get("modules")
+        if isinstance(modules, dict):
+            for key, value in modules.items():
+                if value is True:
+                    yield key
+
+    def _validate_capabilities(self):
+        """Impede que um tenant habilite capability de outro ecossistema."""
+        from apps.authentication.ecosystems import (
+            KNOWN_CAPABILITIES,
+            allowed_capabilities,
+        )
+
+        allowed = allowed_capabilities(self.ecosystem)
+        for capability in self._iter_enabled_capabilities():
+            if capability in KNOWN_CAPABILITIES and capability not in allowed:
+                raise ValueError(
+                    f"Capability {capability!r} não pertence ao ecossistema "
+                    f"{self.ecosystem!r}."
+                )
 
     def has_capability(self, capability_name: str) -> bool:
         """

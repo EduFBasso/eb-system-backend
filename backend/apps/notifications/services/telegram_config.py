@@ -18,16 +18,15 @@ class TelegramBotConfig:
 
 def get_telegram_bot_config(ecosystem: str) -> TelegramBotConfig:
     """Return the explicit Telegram configuration for one ecosystem."""
-    if ecosystem == "clinic":
-        return TelegramBotConfig(
-            token=(settings.CLINIC_TELEGRAM_BOT_TOKEN or "").strip(),
-            api_base=settings.CLINIC_TELEGRAM_BOT_API_BASE,
-            timeout=settings.CLINIC_TELEGRAM_BOT_TIMEOUT_SECONDS,
-        )
-    if ecosystem == "bakery":
-        return TelegramBotConfig(
-            token=(settings.BAKERY_TELEGRAM_BOT_TOKEN or "").strip(),
-            api_base=settings.BAKERY_TELEGRAM_BOT_API_BASE,
-            timeout=settings.BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS,
-        )
-    raise ValueError(f"Ecossistema Telegram não suportado: {ecosystem}")
+    from apps.authentication.ecosystems import get_ecosystem
+
+    try:
+        spec = get_ecosystem(ecosystem)
+    except ValueError:
+        raise ValueError(f"Ecossistema Telegram não suportado: {ecosystem}")
+
+    return TelegramBotConfig(
+        token=(getattr(settings, spec.telegram_token_setting) or "").strip(),
+        api_base=getattr(settings, spec.telegram_api_base_setting),
+        timeout=getattr(settings, spec.telegram_timeout_setting),
+    )
