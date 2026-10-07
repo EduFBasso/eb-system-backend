@@ -51,7 +51,7 @@ backend/
 │   │   ├── views/                     # Autenticação JWT e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
 │   │   ├── services/                  # Lógica de emissão de tokens JWT
-│   │   └── urls.py                    # Rotas globais, /token/, /sessions/ e /register/auth/
+│   │   └── urls.py                    # Rotas globais, /token/ e /register/auth/
 │   │
 │   ├── notifications/                 # [GLOBAL] Motor Central de Mensageria e Alertas
 │   │   ├── models.py                  # TelegramProfessionalLink (vínculo de bot/chat_id por tenant)
@@ -69,7 +69,7 @@ backend/
 │   │   │   └── odonto.py              # Procedimentos Odontológicos e Notação Dentária FDI
 │   │   ├── views/                     # APIs para agenda, prontuário, catálogo e anamnese pública
 │   │   ├── serializers/               # Serializadores para cada especialidade clínica
-│   │   └── urls.py                    # Rotas clínicas (/agenda/, /clinic/, /inventory/ e /register/)
+│   │   └── urls.py                    # Rotas clínicas: prefixo canônico /api/v1/clinic/ (register/agenda/inventory/treatment) + raiz legada (/agenda/, /clinic/, /inventory/, /register/) em dual-mount
 │   │
 │   └── bakery/                        # [ECOSSISTEMA 2] Gestão de Panificação, Vendas B2B e Crédito
 │       ├── models/
@@ -207,7 +207,7 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
-| **Frontend Clinic** | Vite / React | `5173` | `/token/`, `/sessions/`, `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
+| **Frontend Clinic** | Vite / React | `5173` | `/api/v1/clinic/` (register/agenda/inventory/treatment) + raiz legada (`/register/`, `/agenda/`, `/clinic/`, `/inventory/`) · `/token/` | Bearer JWT (`/token/`) |
 | **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/admin/` e `/api/v1/auth/bakery/login/customer/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.
