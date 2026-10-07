@@ -18,7 +18,7 @@ def catalog_context():
         password='secret123',
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Catalog Delete', slug='catalog-delete')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Catalog Delete', slug='catalog-delete')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,

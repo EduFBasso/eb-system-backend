@@ -24,7 +24,7 @@ def professional():
         last_name='Tester',
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Delete', slug='tenant-delete')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Delete', slug='tenant-delete')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,

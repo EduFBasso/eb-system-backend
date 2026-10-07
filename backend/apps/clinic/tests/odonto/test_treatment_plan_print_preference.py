@@ -17,7 +17,7 @@ def owner():
         first_name='Print',
         last_name='Preference',
     )
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name='Odonto Print Tenant',
         slug='odonto-print-tenant',
         capabilities={'clinic': True, 'odonto': True},

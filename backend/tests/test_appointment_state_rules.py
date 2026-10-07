@@ -9,7 +9,7 @@ from tests.auth_helpers import authenticate_clinic_client
 
 
 def _setup_tenant(professional):
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name=f'Tenant {professional.pk}',
         slug=f'tenant-state-{professional.pk}',
     )

@@ -12,12 +12,12 @@ from apps.authentication.models import Tenant, TenantMembership
 
 class ClientAnamnesisApiTests(APITestCase):
     def setUp(self):
-        self.tenant_a = Tenant.objects.create(
+        self.tenant_a = Tenant.objects.create(ecosystem="clinic",
             name='Tenant A',
             slug='tenant-a',
             capabilities={'clinic': True, 'podologia': True},
         )
-        self.tenant_b = Tenant.objects.create(
+        self.tenant_b = Tenant.objects.create(ecosystem="clinic",
             name='Tenant B',
             slug='tenant-b',
             capabilities={'clinic': True, 'odonto': True},

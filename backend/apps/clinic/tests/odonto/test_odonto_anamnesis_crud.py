@@ -17,7 +17,7 @@ def make_professional(email: str, slug: str):
         last_name=slug,
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name=f'Clínica {slug}',
         slug=slug,
         capabilities={'clinic': True, 'odonto': True},
@@ -210,12 +210,12 @@ def test_secondary_clinic_capability_does_not_authorize_active_clinic():
         last_name='Multiclinic',
     )
     professional.tenant_memberships.all().delete()
-    podologia = Tenant.objects.create(
+    podologia = Tenant.objects.create(ecosystem="clinic",
         name='Clínica Podologia Ativa',
         slug='active-podology-clinic',
         capabilities={'clinic': True, 'podologia': True},
     )
-    odonto = Tenant.objects.create(
+    odonto = Tenant.objects.create(ecosystem="clinic",
         name='Clínica Odonto Secundária',
         slug='secondary-dental-clinic',
         capabilities={'clinic': True, 'odonto': True},

@@ -19,7 +19,7 @@ def owner():
         last_name="Client",
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Owner', slug='tenant-owner')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Owner', slug='tenant-owner')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,
@@ -38,7 +38,7 @@ def other_professional():
         last_name="Client",
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Other', slug='tenant-other')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Other', slug='tenant-other')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,

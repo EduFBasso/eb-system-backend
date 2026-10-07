@@ -34,7 +34,7 @@ def professional():
         last_name="Silva",
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Reminders', slug='tenant-reminders')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Reminders', slug='tenant-reminders')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -224,7 +224,7 @@ def test_dispatch_appointment_reminder_uses_link_from_appointment_tenant(
 ):
     settings.CLINIC_TELEGRAM_BOT_TOKEN = "clinic-token"
     appointment_tenant = appointment.tenant
-    other_tenant = Tenant.objects.create(name="Other Tenant", slug="other-tenant")
+    other_tenant = Tenant.objects.create(ecosystem="clinic", name="Other Tenant", slug="other-tenant")
     TelegramProfessionalLink.objects.create(
         tenant=appointment_tenant,
         professional=professional,

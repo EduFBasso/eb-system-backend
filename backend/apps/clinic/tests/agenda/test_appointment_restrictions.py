@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 def professional():
     pro = Professional.objects.create_user(email='restri@example.com', password='x', first_name='Res', last_name='Tri')
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Restri', slug='tenant-restri')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Restri', slug='tenant-restri')
     TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)
     return pro
 
@@ -22,7 +22,7 @@ def professional():
 def other_professional():
     pro = Professional.objects.create_user(email='other@example.com', password='x', first_name='Other', last_name='Pro')
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Other Restri', slug='tenant-other-restri')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Other Restri', slug='tenant-other-restri')
     TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)
     return pro
 

@@ -24,7 +24,7 @@ def test_online_mutation_lock_blocks_patch_but_not_get(django_user_model):
         first_name='Lock',
         last_name='Tester',
     )
-    tenant = Tenant.objects.create(name='Tenant Lock', slug=f'tenant-lock-{user.pk}')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Lock', slug=f'tenant-lock-{user.pk}')
     TenantMembership.objects.create(tenant=tenant, professional=user, role=TenantMembership.Role.OWNER, is_active=True)
     client_obj = Client.objects.create(
         tenant=tenant,

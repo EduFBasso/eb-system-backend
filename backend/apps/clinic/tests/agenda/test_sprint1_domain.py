@@ -22,7 +22,7 @@ def professional():
         last_name="One",
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Sprint1', slug='tenant-sprint1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Sprint1', slug='tenant-sprint1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -39,7 +39,7 @@ def other_professional():
         last_name="Professional",
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Sprint1 Other', slug='tenant-sprint1-other')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Sprint1 Other', slug='tenant-sprint1-other')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -64,7 +64,7 @@ def staff_professional():
     pro.is_staff = True
     pro.save(update_fields=["is_staff"])
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Staff Sprint1', slug='tenant-staff-sprint1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Staff Sprint1', slug='tenant-staff-sprint1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,

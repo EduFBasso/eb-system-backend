@@ -12,7 +12,7 @@ def professional(db):
         email="pro1@example.com", password="x", first_name="Pro", last_name="One"
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Pro1', slug='tenant-pro1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Pro1', slug='tenant-pro1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -99,8 +99,8 @@ def test_appointments_same_time_different_tenants_allowed(db):
     )
     professional.tenant_memberships.all().delete()
 
-    tenant_a = Tenant.objects.create(name='Tenant A', slug='tenant-a')
-    tenant_b = Tenant.objects.create(name='Tenant B', slug='tenant-b')
+    tenant_a = Tenant.objects.create(ecosystem="clinic", name='Tenant A', slug='tenant-a')
+    tenant_b = Tenant.objects.create(ecosystem="clinic", name='Tenant B', slug='tenant-b')
 
     TenantMembership.objects.create(
         tenant=tenant_a,

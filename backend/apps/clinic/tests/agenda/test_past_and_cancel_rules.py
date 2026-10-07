@@ -16,7 +16,7 @@ def professional():
         email='rules@example.com', password='x', first_name='Regra', last_name='Test'
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Rules', slug='tenant-rules')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Rules', slug='tenant-rules')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,

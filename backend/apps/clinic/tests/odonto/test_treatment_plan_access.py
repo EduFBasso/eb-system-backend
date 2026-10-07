@@ -17,7 +17,7 @@ def make_professional(email: str, specialty: str):
         last_name=specialty,
         specialty=specialty,
     )
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name=f'Tenant {specialty}',
         slug=f'tenant-{specialty.lower()}',
         capabilities={'clinic': True},

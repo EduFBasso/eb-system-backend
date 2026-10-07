@@ -36,7 +36,6 @@ class Tenant(models.Model):
         "Ecossistema / Tipo de Negócio",
         max_length=20,
         choices=Ecosystem.choices,
-        default=Ecosystem.CLINIC,
     )
     
     # Campo dinâmico para ativar/desativar módulos extras via painel administrativo
@@ -66,6 +65,10 @@ class Tenant(models.Model):
                 condition=~models.Q(trade_name=""),
                 name="tenant_trade_name_not_empty",
             ),
+            models.CheckConstraint(
+                condition=~models.Q(ecosystem=""),
+                name="tenant_ecosystem_not_empty",
+            ),
         ]
 
     def __str__(self):
@@ -74,6 +77,11 @@ class Tenant(models.Model):
     def save(self, *args, **kwargs):
         if not self.trade_name:
             self.trade_name = self.name
+        if self.ecosystem not in self.Ecosystem.values:
+            raise ValueError(
+                "Tenant.ecosystem deve ser um ecossistema válido e explícito; "
+                f"recebido: {self.ecosystem!r}."
+            )
         super().save(*args, **kwargs)
 
     def has_capability(self, capability_name: str) -> bool:
