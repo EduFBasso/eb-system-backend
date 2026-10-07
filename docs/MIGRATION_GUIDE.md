@@ -1,5 +1,18 @@
 # 🗺️ MIGRATION_GUIDE - Baseline Técnico (Fase 0)
 
+> **Status do documento:** este arquivo registra o historico das fases
+> iniciais de planejamento e nao e um procedimento atual de deploy. O nucleo
+> atual ja usa `apps.authentication.Tenant`, `TenantMembership` e
+> `SystemUser`; referencias a `apps.tenancy` e `Professional` nas secoes
+> historicas abaixo representam o estado da epoca em que foram escritas.
+>
+> Para o deploy atual, consulte
+> [`backend/docs/RENDER_ENV_CHECKLIST.md`](../backend/docs/RENDER_ENV_CHECKLIST.md).
+> A migracao de uma base legada e feita pelas migrations
+> `authentication.0003_transition_legacy_professional` e
+> `authentication.0004_fix_systemuser_m2m_columns`. A primeira remove
+> `DeviceSession` e exige backup/snapshot antes da execucao.
+
 ## 📌 Objetivo do Documento
 Guiar de forma incremental e controlada a transformação do `clinic-system` em uma arquitetura Multi-Tenant robusta e segura, mitigando riscos de vazamento de dados entre profissionais e clínicas distintas.
 
@@ -8,7 +21,9 @@ Guiar de forma incremental e controlada a transformação do `clinic-system` em 
 ## 🚦 Regras de Ouro e Governança (Gates Técnicos)
 1. **Isolamento Absoluto**: Código que não possui filtro explícito por propriedade de dados (`ownership` ou `tenant_id`) está proibido de ir para produção.
 2. **Estratégia de Branches**: Todas as alterações devem ocorrer em branches baseadas em `feature/multi-tenant-*` e revisadas no GitHub antes do merge.
-3. **Mecanismo de Rollback**: Toda migração de banco de dados (schema) deve possuir um script de reversão testado localmente.
+3. **Mecanismo de recuperacao**: Migracoes destrutivas devem possuir backup ou
+   snapshot verificavel e um procedimento de restauracao testado. A migration
+   de transicao de `DeviceSession` e deliberadamente irreversivel pelo Django.
 4. **Legibilidade para IA**: Manter nomenclatura estrita em inglês, modularização de arquivos abaixo de 700 linhas e comentários concisos sobre regras de negócio sensíveis.
 
 ---

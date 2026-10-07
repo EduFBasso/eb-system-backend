@@ -70,11 +70,10 @@ Nao precisa preencher variaveis para estes itens; `production.py` fixa os valore
 - `SECURE_HSTS_INCLUDE_SUBDOMAINS=True`
 - `SECURE_HSTS_PRELOAD=True`
 
-## JWT, TOTP, WebAuthn e sessoes
+## JWT, TOTP e WebAuthn
 
 - [ ] `ALLOW_OTP_FALLBACK=False`
 - [ ] `OTP_FALLBACK_CODE=`
-- [ ] `MAX_ACTIVE_DEVICE_SESSIONS=2`
 - [ ] `TOTP_ISSUER=ClinicSystem`
 - [ ] `TOTP_VALID_WINDOW=4`
 - [ ] `WEBAUTHN_RP_ID=<dominio do frontend sem https>`
@@ -140,24 +139,48 @@ Depois de validar o cron, ajuste:
 
 - [ ] `APPOINTMENT_REMINDERS_ENABLED=True`
 
-## Multi-Tenant e Backfill
+## Multi-Tenant, migracao legada e backfill
 
-O comando `python manage.py migrate` executa a data migration `tenancy.0002_backfill_existing_tenants`. Ela e conservadora: so preenche `tenant` quando um profissional tem exatamente um `TenantMembership` ativo em um `Tenant` ativo.
+O backend atual usa `SystemUser` como identidade global, `Tenant` como limite
+de isolamento e `TenantMembership` para o vinculo e o papel dentro de cada
+tenant. O campo `Tenant.ecosystem` e obrigatorio e deve ser preenchido
+explicitamente (`clinic` ou `bakery`).
+
+Em uma base legada que ainda possui as tabelas
+`authentication_professional`,
+`authentication_professional_groups`,
+`authentication_professional_user_permissions` e
+`authentication_devicesession`, a sequencia de migrations do backend executa:
+
+1. `authentication.0003_transition_legacy_professional`: renomeia as tabelas
+   de identidade, atualiza o `ContentType` e remove a tabela obsoleta de
+   sessoes de dispositivos;
+2. `authentication.0004_fix_systemuser_m2m_columns`: renomeia as colunas M2M
+   remanescentes de `professional_id` para `systemuser_id`.
+
+A `0003` e uma migracao de transicao destrutiva para `DeviceSession` e nao
+possui reversao automatica. Faca backup/snapshot antes de executa-la e
+preserve o backup ate a validacao pos-deploy. Nao execute essas migrations
+manualmente fora do fluxo normal do Django nem marque-as como aplicadas sem
+conferir o schema.
+
+O núcleo atual não possui uma migration automática de backfill de tenants.
+Depois da migração de schema, confira explicitamente os `Tenant`,
+`TenantMembership` e os registros críticos no Django Admin ou por uma rotina
+operacional revisada. Não use referências antigas a `tenancy.0002` neste
+ambiente.
 
 Ordem segura em producao:
 
-1. Fazer backup/snapshot do Postgres Render.
-2. Deployar a `main` com as ENV VARS acima.
-3. Rodar migrations.
+1. Fazer backup/snapshot do Postgres Render e preservar o backup.
+2. Deployar a branch aprovada/mergeada com as ENV VARS acima.
+3. Confirmar no log do Render que `python manage.py migrate --noinput` foi
+   executado e que `authentication.0003` e `authentication.0004` concluíram.
 4. Criar ou conferir `Tenant` e `TenantMembership` no Django Admin.
-5. Rodar explicitamente:
-
-```bash
-cd backend
-python manage.py backfill_tenants
-```
-
-6. Conferir se os registros criticos esperados ficaram com `tenant` preenchido.
+5. Conferir se os registros críticos esperados ficaram associados ao tenant
+correto.
+6. Executar smoke tests de login e isolamento para Clinic e Bakery antes de
+   remover ou expirar o backup.
 
 ## Protecao Operacional Opcional
 
