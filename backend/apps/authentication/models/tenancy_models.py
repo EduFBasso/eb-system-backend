@@ -152,7 +152,7 @@ class TenantMembership(models.Model):
         verbose_name="Empresa / Clínica"
     )
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.CASCADE,
         related_name='tenant_memberships',
         verbose_name="Profissional Vinculado"

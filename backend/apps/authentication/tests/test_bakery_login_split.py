@@ -4,7 +4,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer
 
 ADMIN_URL = "/api/v1/auth/bakery/login/admin/"
@@ -25,7 +25,7 @@ def make_tenant(slug="padaria-login-split", **extra):
 
 
 def make_user(email, tenant, role, alias=""):
-    user = Professional.objects.create_user(email=email, password=PASSWORD, first_name="Nome")
+    user = SystemUser.objects.create_user(email=email, password=PASSWORD, first_name="Nome")
     TenantMembership.objects.create(
         tenant=tenant,
         professional=user,

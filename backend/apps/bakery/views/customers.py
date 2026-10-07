@@ -15,7 +15,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog, CreditLedgerEntry
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
@@ -339,7 +339,7 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        customer_user, _created = Professional.objects.get_or_create(
+        customer_user, _created = SystemUser.objects.get_or_create(
             email=self._build_customer_email(tenant.id, phone),
             defaults={
                 'first_name': nickname[:50],

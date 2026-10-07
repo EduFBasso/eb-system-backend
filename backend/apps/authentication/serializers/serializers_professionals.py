@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from rest_framework.permissions import BasePermission
 
 class ProfessionalSerializer(serializers.ModelSerializer):
@@ -20,7 +20,7 @@ class ProfessionalSerializer(serializers.ModelSerializer):
         return (value or '').strip().upper()
 
     class Meta:
-        model = Professional
+        model = SystemUser
         fields = [
             'id', 'email', 'first_name', 'last_name', 'display_name', 'register_number',
             'specialty', 'phone', 'city', 'state', 'address', 'number',

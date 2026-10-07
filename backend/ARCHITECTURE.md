@@ -46,7 +46,7 @@ backend/
 │   │
 │   ├── authentication/                # [GLOBAL] Identidade, Permissões e Multi-Tenancy
 │   │   ├── models/
-│   │   │   ├── register_models.py     # Professional (usuário global) e ProfessionalSettings
+│   │   │   ├── register_models.py     # SystemUser (identidade global) e ProfessionalSettings
 │   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
 │   │   ├── views/                     # Autenticação JWT e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
@@ -114,13 +114,13 @@ Centraliza a orquestração do Django. Todas as configurações foram extraídas
 
 ### 3.2 `apps/authentication/` — Identidade e Multi-Tenancy Unificado
 Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
-- **`Professional`**: Modelo de usuário unificado herdado de `AbstractBaseUser`. Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
+- **`SystemUser`**: Modelo de usuário unificado herdado de `AbstractBaseUser` (antes `Professional`). É a identidade global compartilhada por todos os ecossistemas — administradores de unidade, profissionais de saúde (Clinic) e clientes B2B (Bakery). Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
 - **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser.
-- **Governança de Acesso**: O provisionamento de `Tenant` e dos vínculos administrativos é feito via Django Admin ou comando de setup. Exceção: o auto-cadastro público da Bakery (`/api/v1/bakery/customers/register/`) cria automaticamente a identidade do cliente (`Professional` + `TenantMembership` role=member) com status inicial PENDENTE.
+- **Governança de Acesso**: O provisionamento de `Tenant` e dos vínculos administrativos é feito via Django Admin ou comando de setup. Exceção: o auto-cadastro público da Bakery (`/api/v1/bakery/customers/register/`) cria automaticamente a identidade do cliente (`SystemUser` + `TenantMembership` role=member) com status inicial PENDENTE.
 - **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
-- **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `Professional`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
+- **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `SystemUser`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
 - **Identificação e isolamento de filiais**: o `slug` é único e identifica tecnicamente o tenant. Nome fantasia, nome do administrador ou URL pública não concedem autorização; toda leitura e mutação deve continuar vinculada ao `tenant_id` resolvido pela autenticação e pela `TenantMembership`.
-- **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário: `owner` (Dono da Empresa), `admin` (Administrador da Unidade) ou `member` (Membro / Profissional de Saúde), além do apelido de login rápido (`login_alias`).
+- **`TenantMembership`**: Tabela de relacionamento entre `SystemUser` e `Tenant`, definindo a função do usuário: `owner` (Dono da Empresa), `admin` (Administrador da Unidade) ou `member` (Membro / Profissional de Saúde), além do apelido de login rápido (`login_alias`).
 
 ### 3.3 `apps/clinic/` — Domínio de Saúde (Clínica)
 Encapsula toda a lógica de atendimento clínico.
@@ -152,7 +152,7 @@ O sistema utiliza o padrão **Single Database / Multi-Tenant com Particionamento
 ```mermaid
 graph TD
     subgraph "Camada de Identidade Global"
-        P[Professional: Usuário Unificado]
+        P[SystemUser: Identidade Global Unificada]
         TM[TenantMembership: Papel & Login Alias]
         P --> TM
     end

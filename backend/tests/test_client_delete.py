@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='delete-owner@example.com',
         password='secret123',
         first_name='Owner',

@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, CreditLedgerEntry, Order, OrderItem, Product
 
 
@@ -23,8 +23,8 @@ def make_tenant() -> Tenant:
     )
 
 
-def make_customer(tenant: Tenant) -> tuple[Professional, BakeryCustomer]:
-    user = Professional.objects.create_user(email="cliente-ciclo@bakery.test", password="client-pass")
+def make_customer(tenant: Tenant) -> tuple[SystemUser, BakeryCustomer]:
+    user = SystemUser.objects.create_user(email="cliente-ciclo@bakery.test", password="client-pass")
     TenantMembership.objects.create(
         tenant=tenant,
         professional=user,
@@ -463,7 +463,7 @@ def test_admin_order_filters_by_status_customer_and_open_only():
     confirmed_order.status = Order.Status.CONFIRMED
     confirmed_order.paid_at = timezone.now()
     confirmed_order.save(update_fields=("status", "paid_at", "updated_at"))
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email="admin-order-filters@bakery.test",
         password="admin-pass",
     )
@@ -493,7 +493,7 @@ def test_admin_order_filters_by_status_customer_and_open_only():
 def test_customer_can_update_profile_but_not_identity_or_governance_fields():
     tenant = make_tenant()
     user, customer = make_customer(tenant)
-    other_user = Professional.objects.create_user(
+    other_user = SystemUser.objects.create_user(
         email="outro-cliente@bakery.test",
         password="client-pass",
     )
@@ -526,7 +526,7 @@ def test_blocked_customer_cannot_access_orders_or_credit_ledger():
     tenant = make_tenant()
     customer_user, customer = make_customer(tenant)
     order = make_order(tenant, customer, payment_method=Order.PaymentMethod.CASH)
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email="admin-block-customer@bakery.test",
         password="admin-pass",
     )
@@ -561,7 +561,7 @@ def test_admin_status_transition_requires_password():
     tenant = make_tenant()
     _customer_user, customer = make_customer(tenant)
     order = make_order(tenant, customer, payment_method=Order.PaymentMethod.CREDIT)
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email="admin-ciclo@bakery.test",
         password="admin-pass",
     )
@@ -619,7 +619,7 @@ def test_admin_cannot_cancel_confirmed_order():
     order.status = Order.Status.CONFIRMED
     order.paid_at = timezone.now()
     order.save(update_fields=("status", "paid_at", "updated_at"))
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email="admin-cancel-confirmed@bakery.test",
         password="admin-pass",
     )

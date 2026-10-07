@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
-AUTH_USER_MODEL = 'authentication.Professional'
+AUTH_USER_MODEL = 'authentication.SystemUser'
 
 # === Middleware ===
 

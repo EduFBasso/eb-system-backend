@@ -1,6 +1,6 @@
 import pytest
 
-from apps.authentication.models import Professional, Tenant
+from apps.authentication.models import SystemUser, Tenant
 from apps.bakery.models import BakeryCustomer
 from apps.bakery.serializers import BakeryCustomerSerializer
 
@@ -19,7 +19,7 @@ def make_tenant(slug: str) -> Tenant:
 
 
 def make_customer(tenant: Tenant, nickname: str, status: str = BakeryCustomer.ApprovalStatus.PENDING):
-    user = Professional.objects.create_user(
+    user = SystemUser.objects.create_user(
         email=f"{nickname.lower().replace(' ', '-')}@example.test",
         password="test-password",
     )

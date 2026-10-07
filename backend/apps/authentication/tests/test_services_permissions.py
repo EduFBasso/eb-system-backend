@@ -1,7 +1,7 @@
 import pytest
 from types import SimpleNamespace
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.authentication.services import (
     get_active_tenant_membership,
     get_tenant_membership_from_request,
@@ -11,7 +11,7 @@ from apps.authentication.services import (
 
 @pytest.fixture
 def professional(db):
-    return Professional.objects.create_user(
+    return SystemUser.objects.create_user(
         email="permissions@example.com",
         password="secret123",
         first_name="Permission",
@@ -71,7 +71,7 @@ def test_inactive_membership_does_not_grant_capability(professional, clinic_tena
 
 @pytest.mark.django_db
 def test_superuser_bypasses_capability_check(db):
-    superuser = Professional.objects.create_superuser(
+    superuser = SystemUser.objects.create_superuser(
         email="superuser-permissions@example.com",
         password="secret123",
     )

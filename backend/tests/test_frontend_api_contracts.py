@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, Order, Product
 
 pytestmark = pytest.mark.django_db
@@ -42,11 +42,11 @@ def bakery():
         ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={"bakery": True},
     )
-    owner = Professional.objects.create_user(email="dono@contratos.test", password=PASSWORD)
+    owner = SystemUser.objects.create_user(email="dono@contratos.test", password=PASSWORD)
     TenantMembership.objects.create(
         tenant=tenant, professional=owner, role=TenantMembership.Role.OWNER, is_active=True
     )
-    member = Professional.objects.create_user(email="cliente@contratos.test", password=PASSWORD)
+    member = SystemUser.objects.create_user(email="cliente@contratos.test", password=PASSWORD)
     TenantMembership.objects.create(
         tenant=tenant, professional=member, role=TenantMembership.Role.MEMBER, is_active=True
     )

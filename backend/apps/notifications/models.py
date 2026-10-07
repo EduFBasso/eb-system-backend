@@ -19,7 +19,7 @@ class TelegramProfessionalLink(models.Model):
     )
 
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="telegram_links",
         verbose_name="Profissional",

@@ -6,7 +6,7 @@ from apps.clinic.models.anamnesis import (
     AnamnesePodologia,
 )
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -23,13 +23,13 @@ class ClientAnamnesisApiTests(APITestCase):
             capabilities={'clinic': True, 'odonto': True},
         )
 
-        self.prof_a = Professional.objects.create_user(
+        self.prof_a = SystemUser.objects.create_user(
             email='pro.a@example.com',
             password='secret123',
             first_name='Pro',
             last_name='A',
         )
-        self.prof_b = Professional.objects.create_user(
+        self.prof_b = SystemUser.objects.create_user(
             email='pro.b@example.com',
             password='secret123',
             first_name='Pro',

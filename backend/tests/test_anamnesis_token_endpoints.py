@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.clinic.models.clients import Client
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -12,7 +12,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    return Professional.objects.create_user(
+    return SystemUser.objects.create_user(
         email='anamnese-owner@example.com',
         password='secret123',
         first_name='Owner',

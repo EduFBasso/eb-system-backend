@@ -21,7 +21,7 @@ class AnamneseBase(models.Model):
     )
 
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.SET_NULL,  # Se o profissional for deletado, a anamnese continua existindo
         null=True,                  # Permite ficar vazio se o próprio cliente preencher via link público
         blank=True,                 # Permite salvar sem preencher no painel admin
@@ -74,7 +74,7 @@ class AnamnesePodologia(models.Model):
     )
     # Armazena qual profissional de podologia preencheu esta parte técnica
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.CASCADE,
         related_name='anamneses_podologia',
         verbose_name='Podólogo(a)',
@@ -122,7 +122,7 @@ class AnamneseOdontologia(models.Model):
         verbose_name='Anamnese Base',
     )
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.CASCADE,
         related_name='anamneses_odontologia',
         verbose_name='Dentista Responsável',

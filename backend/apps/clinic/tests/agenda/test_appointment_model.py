@@ -3,12 +3,12 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 
 
 @pytest.fixture
 def professional(db):
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="pro1@example.com", password="x", first_name="Pro", last_name="One"
     )
     pro.tenant_memberships.all().delete()
@@ -91,7 +91,7 @@ def test_overlaps_false(db, professional, client):
 
 
 def test_appointments_same_time_different_tenants_allowed(db):
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='shared.pro@example.com',
         password='x',
         first_name='Shared',

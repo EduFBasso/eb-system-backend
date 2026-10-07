@@ -30,7 +30,7 @@ class ReminderDelivery(models.Model):
         verbose_name="Agendamento Relacionado"
     )
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="reminder_deliveries",
         verbose_name="Profissional Solicitante"

@@ -8,7 +8,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, CreditLedgerEntry, Order, Product as BakeryProduct
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Service
@@ -54,7 +54,7 @@ def _rows(response):
 
 
 def _user(email):
-    return Professional.objects.create_user(email=email, password=PASSWORD)
+    return SystemUser.objects.create_user(email=email, password=PASSWORD)
 
 
 def _member(tenant, user, role):

@@ -26,7 +26,7 @@ class TreatmentPlan(models.Model):
 
     tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.CASCADE,
         related_name='treatment_plans',
         verbose_name='Dentista Responsável',

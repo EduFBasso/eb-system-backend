@@ -6,7 +6,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, Order, Product
 from apps.bakery.serializers.orders import OrderSerializer
 from apps.bakery.services.notifications import notify_owner_order_cancelled
@@ -21,14 +21,14 @@ def configure_bakery_telegram(settings):
     settings.BAKERY_TELEGRAM_BOT_TOKEN = "test-bakery-token"
 
 
-def _make_tenant_with_owner(*, link_telegram: bool) -> tuple[Tenant, Professional]:
+def _make_tenant_with_owner(*, link_telegram: bool) -> tuple[Tenant, SystemUser]:
     tenant = Tenant.objects.create(
         name="Padaria Teste",
         slug=f"padaria-teste-{'linked' if link_telegram else 'unlinked'}",
         ecosystem=Tenant.Ecosystem.BAKERY,
         capabilities={"bakery": True},
     )
-    owner = Professional.objects.create_user(
+    owner = SystemUser.objects.create_user(
         email=f"owner-{'linked' if link_telegram else 'unlinked'}@bakery.test",
         first_name="Dono",
         last_name="Padaria",
@@ -44,7 +44,7 @@ def _make_tenant_with_owner(*, link_telegram: bool) -> tuple[Tenant, Professiona
 
 
 def _make_customer(tenant: Tenant) -> BakeryCustomer:
-    user = Professional.objects.create_user(email=f"customer-{tenant.pk}@bakery.test")
+    user = SystemUser.objects.create_user(email=f"customer-{tenant.pk}@bakery.test")
     return BakeryCustomer.objects.create(
         tenant=tenant,
         user=user,

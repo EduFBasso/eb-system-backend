@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -21,7 +21,7 @@ def _client_with_token(professional, *, tenant_id, ecosystem):
 
 
 def test_bakery_token_cannot_access_clinic_agenda():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="bakery-agenda@example.com",
         password="secret123",
     )
@@ -46,7 +46,7 @@ def test_bakery_token_cannot_access_clinic_agenda():
 
 
 def test_clinic_agenda_requires_ecosystem_claim():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="missing-ecosystem@example.com",
         password="secret123",
     )
@@ -71,7 +71,7 @@ def test_clinic_agenda_requires_ecosystem_claim():
 
 
 def test_clinic_agenda_rejects_inactive_membership():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="inactive-clinic@example.com",
         password="secret123",
     )

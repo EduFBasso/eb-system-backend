@@ -6,7 +6,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils import timezone
 
 
-class ProfessionalManager(BaseUserManager):
+class SystemUserManager(BaseUserManager):
     """
     Gerenciador customizado para a criação de instâncias de Profissionais/Usuários.
     Garante o fluxo correto de criação de usuários com senha utilizável.
@@ -35,7 +35,7 @@ class ProfessionalManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-class Professional(AbstractBaseUser, PermissionsMixin):
+class SystemUser(AbstractBaseUser, PermissionsMixin):
     """
     [SOLID - Single Responsibility Principle]
     Esta classe é o modelo de Usuário Customizado (Auth User) unificado do sistema.
@@ -71,7 +71,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     specialty = models.CharField("Especialidade Atendida", max_length=100, blank=True)
 
     # Administração global: o superuser define profissionais, tenants e memberships.
-    # Capabilities de Odonto, Podologia e Bakery pertencem ao Tenant, não ao Professional.
+    # Capabilities de Odonto, Podologia e Bakery pertencem ao Tenant, não ao SystemUser.
     can_manage_professionals = models.BooleanField(
         default=False,
         verbose_name="Pode gerenciar profissionais / Admin global"
@@ -120,7 +120,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         "Motivo do Desligamento", max_length=120, blank=True
     )
 
-    objects = ProfessionalManager()
+    objects = SystemUserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
@@ -163,7 +163,7 @@ class ProfessionalSettings(models.Model):
         OUTRO = "outro", "Outro compromisso"
 
     professional = models.OneToOneField(
-        Professional,
+        SystemUser,
         on_delete=models.CASCADE,
         related_name="settings",
         verbose_name="Profissional",

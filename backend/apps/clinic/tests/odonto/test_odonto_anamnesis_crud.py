@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.clinic.models.anamnesis import AnamneseBase, AnamneseOdontologia
 from apps.clinic.models.clients import Client
 
@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 
 def make_professional(email: str, slug: str):
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email=email,
         password='secret123',
         first_name='Dentista',
@@ -152,7 +152,7 @@ def test_dental_anamnesis_rejects_tenant_without_odonto_capability():
 
 
 def test_dental_anamnesis_ignores_bakery_membership_when_selecting_clinic():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='clinic-after-bakery@example.com',
         password='secret123',
         first_name='Dentista',
@@ -203,7 +203,7 @@ def test_dental_anamnesis_ignores_bakery_membership_when_selecting_clinic():
 
 
 def test_secondary_clinic_capability_does_not_authorize_active_clinic():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='two-clinics@example.com',
         password='secret123',
         first_name='Profissional',

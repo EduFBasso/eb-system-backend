@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import Appointment
 
@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    pro = Professional.objects.create_user(email='restri@example.com', password='x', first_name='Res', last_name='Tri')
+    pro = SystemUser.objects.create_user(email='restri@example.com', password='x', first_name='Res', last_name='Tri')
     pro.tenant_memberships.all().delete()
     tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Restri', slug='tenant-restri')
     TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)
@@ -20,7 +20,7 @@ def professional():
 
 @pytest.fixture
 def other_professional():
-    pro = Professional.objects.create_user(email='other@example.com', password='x', first_name='Other', last_name='Pro')
+    pro = SystemUser.objects.create_user(email='other@example.com', password='x', first_name='Other', last_name='Pro')
     pro.tenant_memberships.all().delete()
     tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Other Restri', slug='tenant-other-restri')
     TenantMembership.objects.create(tenant=tenant, professional=pro, role=TenantMembership.Role.OWNER, is_active=True)

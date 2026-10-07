@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from tests.auth_helpers import authenticate_clinic_client
 from apps.clinic.models.agenda import Appointment
 from apps.authentication.models import Tenant, TenantMembership
@@ -12,7 +12,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='rules@example.com', password='x', first_name='Regra', last_name='Test'
     )
     professional.tenant_memberships.all().delete()

@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from tests.auth_helpers import authenticate_clinic_client
 
 
@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def owner():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="agenda-owner@example.com",
         password="secret123",
         first_name="Owner",
@@ -30,7 +30,7 @@ def owner():
 
 @pytest.fixture
 def other_professional():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="agenda-other@example.com",
         password="secret123",
         first_name="Other",

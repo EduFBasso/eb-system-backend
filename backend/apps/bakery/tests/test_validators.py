@@ -1,12 +1,12 @@
 import pytest
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.validators import has_duplicate_bakery_owner_name
 
 
 @pytest.mark.django_db
 def test_bakery_owner_name_is_unique_across_bakery_memberships():
-    first_owner = Professional.objects.create_user(
+    first_owner = SystemUser.objects.create_user(
         email="first-owner@bakery.test",
         password="secret123",
         first_name="Ana",
@@ -34,7 +34,7 @@ def test_bakery_owner_name_is_unique_across_bakery_memberships():
 
 @pytest.mark.django_db
 def test_same_owner_name_is_allowed_in_clinic_tenant():
-    clinic_owner = Professional.objects.create_user(
+    clinic_owner = SystemUser.objects.create_user(
         email="clinic-owner@clinic.test",
         password="secret123",
         first_name="Ana",

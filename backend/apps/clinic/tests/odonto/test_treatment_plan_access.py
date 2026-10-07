@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.clinic.models.clients import Client
 from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
 
@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 
 def make_professional(email: str, specialty: str):
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email=email,
         password='secret123',
         first_name='Test',

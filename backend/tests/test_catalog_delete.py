@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
 from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def catalog_context():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='catalog-delete@example.com',
         password='secret123',
     )

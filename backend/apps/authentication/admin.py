@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import AdminPasswordChangeForm, UserCreationForm
 from django.utils.html import format_html
-from .models import Professional, ProfessionalSettings, Tenant, TenantMembership
+from .models import SystemUser, ProfessionalSettings, Tenant, TenantMembership
 from apps.bakery.validators import has_duplicate_bakery_owner_name as _has_duplicate_bakery_owner_name
 
 
@@ -11,7 +11,7 @@ def _normalize_secret_token(value: str) -> str:
     return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
 
 
-def _password_uses_identity(raw_password: str, professional: Professional, login_alias: str = '') -> bool:
+def _password_uses_identity(raw_password: str, professional: SystemUser, login_alias: str = '') -> bool:
     if not raw_password:
         return False
 
@@ -33,10 +33,10 @@ def _password_uses_identity(raw_password: str, professional: Professional, login
     return normalized_password in normalized_candidates
 
 
-def _is_password_reused(raw_password: str, current_user: Professional | None = None) -> bool:
+def _is_password_reused(raw_password: str, current_user: SystemUser | None = None) -> bool:
     if not raw_password:
         return False
-    queryset = Professional.objects.all()
+    queryset = SystemUser.objects.all()
     if current_user and current_user.pk:
         queryset = queryset.exclude(pk=current_user.pk)
     for professional in queryset.iterator():
@@ -47,7 +47,7 @@ def _is_password_reused(raw_password: str, current_user: Professional | None = N
 
 class ProfessionalCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
-        model = Professional
+        model = SystemUser
         fields = ("email", "first_name", "last_name", "phone", "specialty")
 
     def clean(self):
@@ -55,7 +55,7 @@ class ProfessionalCreationForm(UserCreationForm):
         password2 = cleaned_data.get("password2")
         if _is_password_reused(password2):
             raise forms.ValidationError("Esta senha já está em uso por outro profissional.")
-        professional = Professional(
+        professional = SystemUser(
             email=(self.cleaned_data.get('email') or '').strip().lower(),
             first_name=(self.cleaned_data.get('first_name') or '').strip(),
             last_name=(self.cleaned_data.get('last_name') or '').strip(),
@@ -105,7 +105,7 @@ class TenantMembershipAdminForm(forms.ModelForm):
         return cleaned
 
 
-@admin.register(Professional)
+@admin.register(SystemUser)
 class ProfessionalAdmin(UserAdmin):
     add_form = ProfessionalCreationForm
     change_password_form = ProfessionalAdminPasswordChangeForm

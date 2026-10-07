@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, ProfessionalSettings, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, ProfessionalSettings, Tenant, TenantMembership
 from apps.clinic.models.reminders import ReminderDelivery
 from apps.notifications.models import TelegramProfessionalLink
 from apps.clinic.services.reminders import (
@@ -27,7 +27,7 @@ def enable_reminders(settings):
 
 @pytest.fixture
 def professional():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="telegram@example.com",
         password="secret123",
         first_name="Ana",
