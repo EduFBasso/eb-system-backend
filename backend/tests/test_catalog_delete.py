@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import DeviceSession, Professional, Tenant, TenantMembership
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
 from apps.clinic.models.treatment import TreatmentPlan, TreatmentPlanItem
@@ -38,14 +38,8 @@ def catalog_context():
     )
     api_client = APIClient()
     token = AccessToken.for_user(professional)
-    device_id = f"test-device-{professional.pk}"
-    DeviceSession.objects.create(
-        professional=professional,
-        device_id=device_id,
-    )
     token['tenant_id'] = tenant.id
     token['ecosystem'] = 'clinic'
-    token['device_id'] = device_id
     api_client.credentials(
         HTTP_AUTHORIZATION=f'Bearer {token}',
     )

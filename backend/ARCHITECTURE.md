@@ -46,9 +46,9 @@ backend/
 │   │
 │   ├── authentication/                # [GLOBAL] Identidade, Permissões e Multi-Tenancy
 │   │   ├── models/
-│   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession
+│   │   │   ├── register_models.py     # Professional (usuário global) e ProfessionalSettings
 │   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
-│   │   ├── views/                     # Autenticação JWT, sessões ativas e perfil
+│   │   ├── views/                     # Autenticação JWT e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
 │   │   ├── services/                  # Lógica de emissão de tokens JWT
 │   │   └── urls.py                    # Rotas globais, /token/, /sessions/ e /register/auth/
@@ -116,8 +116,7 @@ Centraliza a orquestração do Django. Todas as configurações foram extraídas
 Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
 - **`Professional`**: Modelo de usuário unificado herdado de `AbstractBaseUser`. Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
 - **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser.
-- **Governança Estrita de Acesso**: Nenhum `Tenant` ou `TenantMembership` é provisionado automaticamente. O provisionamento é 100% manual via Django Admin ou comando de setup, garantindo controle total dos profissionais e empresas cadastradas.
-- **Sessões e Dispositivos (`DeviceSession`)**: Rastreamento de sessões ativas por dispositivo físico, com limite configurável de conexões simultâneas para mitigar compartilhamento indevido de contas.
+- **Governança de Acesso**: O provisionamento de `Tenant` e dos vínculos administrativos é feito via Django Admin ou comando de setup. Exceção: o auto-cadastro público da Bakery (`/api/v1/bakery/customers/register/`) cria automaticamente a identidade do cliente (`Professional` + `TenantMembership` role=member) com status inicial PENDENTE.
 - **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
 - **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `Professional`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
 - **Identificação e isolamento de filiais**: o `slug` é único e identifica tecnicamente o tenant. Nome fantasia, nome do administrador ou URL pública não concedem autorização; toda leitura e mutação deve continuar vinculada ao `tenant_id` resolvido pela autenticação e pela `TenantMembership`.

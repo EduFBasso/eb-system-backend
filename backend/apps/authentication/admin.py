@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import AdminPasswordChangeForm, UserCreationForm
 from django.utils.html import format_html
-from .models import Professional, DeviceSession, ProfessionalSettings, Tenant, TenantMembership
+from .models import Professional, ProfessionalSettings, Tenant, TenantMembership
 from apps.bakery.validators import has_duplicate_bakery_owner_name as _has_duplicate_bakery_owner_name
 
 
@@ -169,14 +169,6 @@ class ProfessionalAdmin(UserAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.exclude(is_superuser=True).exclude(email__iendswith='@local.invalid')
-
-
-@admin.register(DeviceSession)
-class DeviceSessionAdmin(admin.ModelAdmin):
-    list_display = ("professional", "device_id", "is_active", "created_at", "last_seen_at", "terminated_at")
-    list_filter = ("is_active", "professional")
-    search_fields = ("professional__email", "device_id")
-    readonly_fields = ("created_at", "last_seen_at", "terminated_at")
 
 
 class TenantMembershipInline(admin.TabularInline):

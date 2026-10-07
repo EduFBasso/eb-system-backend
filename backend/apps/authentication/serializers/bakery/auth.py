@@ -14,10 +14,6 @@ from apps.authentication.services.bakery_auth import (
     build_professional_snapshot,
     build_tenant_snapshot,
 )
-from apps.authentication.services.device_sessions import (
-    activate_login_session,
-    resolve_device_id,
-)
 from apps.bakery.models import BakeryCustomer
 
 
@@ -33,12 +29,6 @@ class BakeryLoginSerializer(TokenObtainPairSerializer):
 
     login = serializers.CharField(write_only=True)
     tenant_slug = serializers.SlugField(write_only=True)
-    device_id = serializers.CharField(
-        write_only=True,
-        required=False,
-        allow_blank=True,
-        max_length=64,
-    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -54,13 +44,10 @@ class BakeryLoginSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         tenant = getattr(self, "_login_tenant", None)
         membership = getattr(self, "_login_membership", None)
-        device_id = getattr(self, "_login_device_id", None)
         if tenant is not None and membership is not None:
             token["tenant_id"] = tenant.id
             token["ecosystem"] = "bakery"
             token["role"] = membership.role
-        if device_id:
-            token["device_id"] = device_id
         return token
 
     def validate(self, attrs):
@@ -71,26 +58,12 @@ class BakeryLoginSerializer(TokenObtainPairSerializer):
             tenant_slug=attrs.get("tenant_slug", ""),
             request=request,
         )
-        # As regras de perfil rodam antes de criar a sessão de dispositivo.
         self.validate_profile(context)
 
         user = context.user
-        device_id = resolve_device_id(attrs.get("device_id", ""), user)
-        user_agent = ""
-        ip_address = None
-        if request is not None:
-            user_agent = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
-            ip_address = request.META.get("REMOTE_ADDR")
-        active_count = activate_login_session(
-            user,
-            device_id,
-            user_agent=user_agent,
-            ip_address=ip_address,
-        )
 
         self._login_tenant = context.tenant
         self._login_membership = context.membership
-        self._login_device_id = device_id
         self.user = user
         refresh = self.get_token(user)
 
@@ -103,8 +76,6 @@ class BakeryLoginSerializer(TokenObtainPairSerializer):
             "tenant_id": context.tenant.id,
             "ecosystem": "bakery",
             "role": context.membership.role,
-            "device_id": device_id,
-            "active_sessions_count": active_count,
             "tenant": build_tenant_snapshot(context.tenant),
             **self.profile_payload(context),
         }

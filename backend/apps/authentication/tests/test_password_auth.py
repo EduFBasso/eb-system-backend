@@ -2,7 +2,6 @@ from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from apps.authentication.models import Professional, Tenant, TenantMembership
 
@@ -44,10 +43,6 @@ def test_clinic_authentication_uses_password_without_totp():
         "clinic": True,
         "podologia": True,
     }
-    assert AccessToken(response.data["access"])["device_id"]
-    assert RefreshToken(response.data["refresh"])["device_id"] == AccessToken(
-        response.data["access"]
-    )["device_id"]
     assert "totp_secret" not in {field.name for field in Professional._meta.fields}
 
 
@@ -128,10 +123,6 @@ def test_bakery_login_authenticates_password_once():
     assert response.data["tenant"]["slug"] == tenant.slug
     assert "access" in response.data
     assert "refresh" in response.data
-    assert AccessToken(response.data["access"])["device_id"]
-    assert RefreshToken(response.data["refresh"])["device_id"] == AccessToken(
-        response.data["access"]
-    )["device_id"]
 
 
 @pytest.mark.django_db

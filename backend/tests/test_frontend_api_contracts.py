@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import DeviceSession, Professional, Tenant, TenantMembership
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, Order, Product
 
 pytestmark = pytest.mark.django_db
@@ -20,12 +20,6 @@ CUSTOMER_LOGIN_URL = "/api/v1/auth/bakery/login/customer/"
 
 # Espelha frontend-bakery/src/services/authExpiry.ts
 EXPIRED_TOKEN_DETAIL = re.compile(r"token not valid|token inválido|token expirado", re.I)
-# Espelha frontend-clinic/src/utils/apiFetch.ts
-DEVICE_SESSION_FRAGMENTS = (
-    "sessão de dispositivo revogada",
-    "sessão de dispositivo inativa",
-    "sessão de dispositivo não encontrada",
-)
 
 
 def _login(url, login, tenant_slug):
@@ -142,15 +136,6 @@ def test_wrong_admin_password_is_not_reported_as_expired_token(bakery):
     assert response.status_code == 401
     assert body.get("code") != "token_not_valid"
     assert not EXPIRED_TOKEN_DETAIL.search(body["detail"])
-
-
-def test_revoked_device_session_message_matches_clinic_frontend_fragments(bakery):
-    DeviceSession.objects.filter(professional=bakery["member"]).update(is_active=False)
-
-    response = bakery["customer_client"].get("/sessions/summary")
-
-    assert response.status_code == 401
-    assert any(fragment in response.content.decode().lower() for fragment in DEVICE_SESSION_FRAGMENTS)
 
 
 def test_customer_list_exposes_fields_used_to_bootstrap_customer_session(bakery):

@@ -4,7 +4,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import DeviceSession, Professional, Tenant, TenantMembership
+from apps.authentication.models import Professional, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer
 
 ADMIN_URL = "/api/v1/auth/bakery/login/admin/"
@@ -102,7 +102,6 @@ def test_admin_login_rejects_member_without_issuing_tokens_or_session():
     assert response.status_code == 400
     assert "login de cliente" in str(response.data)
     assert "access" not in response.data
-    assert not DeviceSession.objects.filter(professional=user).exists()
 
 
 @pytest.mark.django_db
@@ -122,7 +121,6 @@ def test_customer_login_accepts_approved_member():
     assert token["tenant_id"] == tenant.id
     assert token["ecosystem"] == "bakery"
     assert token["role"] == TenantMembership.Role.MEMBER
-    assert token["device_id"]
 
 
 @pytest.mark.django_db
@@ -143,7 +141,6 @@ def test_customer_login_rejects_pending_and_blocked(status, message):
     assert response.status_code == 400
     assert message in str(response.data)
     assert "access" not in response.data
-    assert not DeviceSession.objects.filter(professional=user).exists()
 
 
 @pytest.mark.django_db
