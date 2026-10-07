@@ -19,7 +19,7 @@ Este README é a visão geral. Regras específicas ficam em READMEs separados:
 
 O backend compartilha identidade e tenancy, mas mantém os domínios separados:
 
-- Clinic: `/token/`, `/sessions/`, `/register/`, `/agenda/`, `/inventory/` e `/clinic/`;
+- Clinic: `/token/`, `/register/`, `/agenda/`, `/inventory/` e `/clinic/`;
 - Bakery: `/api/v1/auth/bakery/` e `/api/v1/bakery/`;
 - infraestrutura: `/health/` e `/health/full` são endpoints públicos de liveness/readiness.
 

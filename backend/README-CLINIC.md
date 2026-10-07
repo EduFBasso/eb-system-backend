@@ -86,7 +86,7 @@ Em desenvolvimento local:
 - **Porta**: `5173`
 - **URL**: `http://localhost:5173/?tenant=consultorio-podologia` ou com
    `VITE_CLINIC_TENANT_SLUG` configurado explicitamente.
-- **Prefixos de API**: `/token/`, `/sessions/`, `/register/`, `/agenda/`,
+- **Prefixos de API**: `/token/`, `/register/`, `/agenda/`,
    `/clinic/` e `/inventory/`.
 - Em produção, o hostname/subdomínio seleciona o tenant. Hostname Clinic
    desconhecido deve ser bloqueado, sem fallback silencioso.

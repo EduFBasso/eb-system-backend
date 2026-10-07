@@ -127,8 +127,8 @@ class SystemUser(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         app_label = 'authentication'
-        verbose_name = "Profissional"
-        verbose_name_plural = "Profissionais"
+        verbose_name = "Usuário do Sistema"
+        verbose_name_plural = "Usuários do Sistema"
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
@@ -206,4 +206,3 @@ class ProfessionalSettings(models.Model):
         start = f"{self.work_start_hour:02d}:{self.work_start_minute:02d}"
         end = f"{self.work_end_hour:02d}:{self.work_end_minute:02d}"
         return f"Configurações Clínicas de {self.professional.email} ({start} - {end})"
-
