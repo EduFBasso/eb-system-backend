@@ -5,7 +5,11 @@ from typing import Any
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
+from apps.authentication.ecosystems import get_ecosystem
 from apps.authentication.models import Tenant, TenantMembership
+from apps.authentication.services.permissions import (
+    get_tenant_membership_from_request,
+)
 
 
 def get_active_tenant(user: Any, capability_name: str | None = None) -> Tenant | None:
@@ -80,8 +84,46 @@ class HasActiveBakeryTenant(permissions.BasePermission):
         return True
 
 
+def HasActiveTenant(ecosystem: str):
+    """Permissão genérica por ecossistema (suporta JWT e sessão).
+
+    Resolve a ``TenantMembership`` ativa do ecossistema via
+    ``get_tenant_membership_from_request`` (que, com JWT, usa o ``tenant_id`` do
+    token filtrado pelo ecossistema; sem JWT, cai na membership ativa daquele
+    ecossistema). Mantém isolamento cross-ecossistema devolvendo 403, e 401 para
+    requisições anônimas. É a base dirigida pelo registro central.
+    """
+    get_ecosystem(ecosystem)  # falha cedo se o ecossistema não existe
+
+    class _HasActiveTenant(permissions.BasePermission):
+        message = f"Usuário não possui acesso a um tenant {ecosystem} ativo."
+
+        def has_permission(self, request, view) -> bool:
+            user = getattr(request, "user", None)
+            if not user or not getattr(user, "is_authenticated", False):
+                return False  # DRF converte em 401 para anônimos
+
+            membership = get_tenant_membership_from_request(
+                request,
+                ecosystem=ecosystem,
+            )
+            if membership is None:
+                raise PermissionDenied(self.message)
+
+            view.active_tenant = membership.tenant
+            view.tenant_membership = membership
+            return True
+
+    _HasActiveTenant.__name__ = f"HasActiveTenant_{ecosystem}"
+    return _HasActiveTenant
+
+
 class HasActiveClinicTenant(permissions.BasePermission):
-    """Exige um JWT Clinic vinculado a uma membership ativa."""
+    """Isolamento estrito para endpoints Clinic JWT-only (ex.: agenda).
+
+    Exige explicitamente o claim ``ecosystem='clinic'`` no token, além da
+    membership ativa. Mais rígido que ``HasActiveTenant`` (defense-in-depth).
+    """
 
     message = "Usuário não possui acesso a um tenant Clinic ativo."
 
@@ -113,7 +155,7 @@ class HasActiveClinicTenant(permissions.BasePermission):
             raise PermissionDenied(self.message)
 
         view.active_tenant = membership.tenant
-        view.clinic_membership = membership
+        view.tenant_membership = membership
         return True
 
 
