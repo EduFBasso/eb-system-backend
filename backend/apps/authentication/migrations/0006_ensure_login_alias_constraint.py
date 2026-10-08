@@ -15,6 +15,10 @@ def normalize_and_ensure_login_alias_constraint(apps, schema_editor):
     updates = []
     for membership in memberships.iterator():
         normalized = membership.login_alias.strip().lower()
+        if not normalized:
+            if membership.login_alias:
+                updates.append((membership.id, ""))
+            continue
         key = (membership.tenant_id, normalized)
         previous_id = seen.get(key)
         if previous_id is not None and previous_id != membership.id:

@@ -53,3 +53,15 @@ def test_tenant_accepts_native_capabilities():
         capabilities={"clinic": True, "modules": {"podologia": True}},
     )
     assert tenant.pk is not None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("capabilities", [[], "clinic"])
+def test_tenant_rejects_non_object_capabilities(capabilities):
+    with pytest.raises(ValueError, match="deve ser um objeto JSON"):
+        Tenant.objects.create(
+            name="Invalid Capabilities",
+            slug=f"invalid-capabilities-{type(capabilities).__name__}",
+            ecosystem=Tenant.Ecosystem.CLINIC,
+            capabilities=capabilities,
+        )

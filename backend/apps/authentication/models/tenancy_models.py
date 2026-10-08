@@ -108,6 +108,12 @@ class Tenant(models.Model):
             allowed_capabilities,
         )
 
+        if not isinstance(self.capabilities, dict):
+            raise ValueError(
+                "Tenant.capabilities deve ser um objeto JSON (dict); "
+                f"recebido: {type(self.capabilities).__name__}."
+            )
+
         allowed = allowed_capabilities(self.ecosystem)
         for capability in self._iter_enabled_capabilities():
             if capability in KNOWN_CAPABILITIES and capability not in allowed:
