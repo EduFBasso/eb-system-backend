@@ -156,7 +156,12 @@ Em uma base legada que ainda possui as tabelas
    de identidade, atualiza o `ContentType` e remove a tabela obsoleta de
    sessoes de dispositivos;
 2. `authentication.0004_fix_systemuser_m2m_columns`: renomeia as colunas M2M
-   remanescentes de `professional_id` para `systemuser_id`.
+   remanescentes de `professional_id` para `systemuser_id`;
+3. `authentication.0005_ensure_tenant_ecosystem_constraint`: garante a
+   constraint de `ecosystem` também na base legada;
+4. `authentication.0006_ensure_login_alias_constraint`: normaliza aliases e
+   garante a constraint case-insensitive, inclusive quando a base já possui a
+   migration anterior aplicada.
 
 A `0003` e uma migracao de transicao destrutiva para `DeviceSession` e nao
 possui reversao automatica. Faca backup/snapshot antes de executa-la e
@@ -175,7 +180,8 @@ Ordem segura em producao:
 1. Fazer backup/snapshot do Postgres Render e preservar o backup.
 2. Deployar a branch aprovada/mergeada com as ENV VARS acima.
 3. Confirmar no log do Render que `python manage.py migrate --noinput` foi
-   executado e que `authentication.0003` e `authentication.0004` concluíram.
+   executado e que `authentication.0003` até `authentication.0006`
+   concluíram.
 4. Criar ou conferir `Tenant` e `TenantMembership` no Django Admin.
 5. Conferir se os registros críticos esperados ficaram associados ao tenant
 correto.

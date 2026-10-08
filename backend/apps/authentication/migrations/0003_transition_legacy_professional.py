@@ -36,6 +36,15 @@ BEGIN
         WHERE app_label = 'authentication' AND model = 'professional';
     END IF;
 
+    UPDATE auth_permission
+    SET codename = replace(codename, '_professional', '_systemuser')
+    WHERE content_type_id IN (
+        SELECT id
+        FROM django_content_type
+        WHERE app_label = 'authentication' AND model = 'systemuser'
+    )
+      AND codename LIKE '%_professional';
+
     DROP TABLE IF EXISTS public.authentication_devicesession;
 END
 $$;
