@@ -6,14 +6,14 @@ from django.contrib.auth import authenticate
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.authentication.services.login_identity import resolve_login_email
 from apps.bakery.models import BakeryCustomer
 
 
 @dataclass(frozen=True)
 class BakeryLoginContext:
-    user: Professional
+    user: SystemUser
     tenant: Tenant
     membership: TenantMembership
     customer: BakeryCustomer | None
@@ -81,7 +81,7 @@ def build_tenant_snapshot(tenant: Tenant) -> dict:
     }
 
 
-def build_professional_snapshot(user: Professional) -> dict:
+def build_professional_snapshot(user: SystemUser) -> dict:
     return {
         "id": user.id,
         "first_name": user.first_name,

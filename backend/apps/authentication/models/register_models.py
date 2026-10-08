@@ -6,7 +6,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils import timezone
 
 
-class ProfessionalManager(BaseUserManager):
+class SystemUserManager(BaseUserManager):
     """
     Gerenciador customizado para a criação de instâncias de Profissionais/Usuários.
     Garante o fluxo correto de criação de usuários com senha utilizável.
@@ -35,7 +35,7 @@ class ProfessionalManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-class Professional(AbstractBaseUser, PermissionsMixin):
+class SystemUser(AbstractBaseUser, PermissionsMixin):
     """
     [SOLID - Single Responsibility Principle]
     Esta classe é o modelo de Usuário Customizado (Auth User) unificado do sistema.
@@ -71,7 +71,7 @@ class Professional(AbstractBaseUser, PermissionsMixin):
     specialty = models.CharField("Especialidade Atendida", max_length=100, blank=True)
 
     # Administração global: o superuser define profissionais, tenants e memberships.
-    # Capabilities de Odonto, Podologia e Bakery pertencem ao Tenant, não ao Professional.
+    # Capabilities de Odonto, Podologia e Bakery pertencem ao Tenant, não ao SystemUser.
     can_manage_professionals = models.BooleanField(
         default=False,
         verbose_name="Pode gerenciar profissionais / Admin global"
@@ -120,15 +120,15 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         "Motivo do Desligamento", max_length=120, blank=True
     )
 
-    objects = ProfessionalManager()
+    objects = SystemUserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
     class Meta:
         app_label = 'authentication'
-        verbose_name = "Profissional"
-        verbose_name_plural = "Profissionais"
+        verbose_name = "Usuário do Sistema"
+        verbose_name_plural = "Usuários do Sistema"
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
@@ -149,48 +149,6 @@ class Professional(AbstractBaseUser, PermissionsMixin):
         self.save(update_fields=["is_active", "deactivated_at", "deactivation_reason"])
 
 
-class DeviceSession(models.Model):
-    """
-    [SOLID - Single Responsibility Principle]
-    Audita e controla as sessões de login ativas por dispositivo físico (Mesa/Mobile).
-    Garante que tokens locais antigos possam ser invalidados remotamente.
-    """
-    professional = models.ForeignKey(Professional, on_delete=models.CASCADE, related_name="sessions")
-    device_id = models.CharField("Identificador Único do Aparelho", max_length=64)
-    user_agent = models.CharField("Navegador / App", max_length=255, blank=True)
-    ip_address = models.GenericIPAddressField("Endereço IP", null=True, blank=True)
-    is_active = models.BooleanField("Sessão Válida?", default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_seen_at = models.DateTimeField(auto_now=True)
-    terminated_at = models.DateTimeField(null=True, blank=True)
-    termination_reason = models.CharField(max_length=32, blank=True)
-
-    class Meta:
-        app_label = 'authentication'
-        verbose_name = "Auditoria - Sessão de Dispositivo"
-        verbose_name_plural = "Auditoria - Sessões de Dispositivos"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['professional', 'device_id'],
-                name='uniq_professional_device_session'
-            )
-        ]
-        indexes = [
-            models.Index(fields=["professional", "is_active"]),
-            models.Index(fields=["professional", "device_id"]),
-        ]
-
-    def __str__(self):
-        status = "Ativa" if self.is_active else "Encerrada"
-        return f"{self.professional.email} — Dispositivo: {self.device_id} ({status})"
-
-    def terminate(self, reason: str = "logout"):
-        self.is_active = False
-        self.terminated_at = timezone.now()
-        self.termination_reason = reason[:32]
-        self.save(update_fields=["is_active", "terminated_at", "termination_reason"])
-
-
 class ProfessionalSettings(models.Model):
     """
     [SOLID - Single Responsibility Principle]
@@ -205,7 +163,7 @@ class ProfessionalSettings(models.Model):
         OUTRO = "outro", "Outro compromisso"
 
     professional = models.OneToOneField(
-        Professional,
+        SystemUser,
         on_delete=models.CASCADE,
         related_name="settings",
         verbose_name="Profissional",
@@ -248,4 +206,3 @@ class ProfessionalSettings(models.Model):
         start = f"{self.work_start_hour:02d}:{self.work_start_minute:02d}"
         end = f"{self.work_end_hour:02d}:{self.work_end_minute:02d}"
         return f"Configurações Clínicas de {self.professional.email} ({start} - {end})"
-

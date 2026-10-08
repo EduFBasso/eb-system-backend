@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.clinic.models.clients import Client
-from apps.authentication.models import DeviceSession, Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -12,14 +12,14 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def owner():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="clients-owner@example.com",
         password="secret123",
         first_name="Owner",
         last_name="Client",
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Owner', slug='tenant-owner')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Owner', slug='tenant-owner')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,
@@ -31,14 +31,14 @@ def owner():
 
 @pytest.fixture
 def other_professional():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="clients-other@example.com",
         password="secret123",
         first_name="Other",
         last_name="Client",
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Other', slug='tenant-other')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Other', slug='tenant-other')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,
@@ -72,11 +72,8 @@ def other_client(other_professional):
 def api_client(owner):
     client = APIClient()
     token = AccessToken.for_user(owner)
-    device_id = f"test-device-{owner.pk}"
-    DeviceSession.objects.create(professional=owner, device_id=device_id)
     token['tenant_id'] = owner.tenant_memberships.first().tenant_id
     token['ecosystem'] = 'clinic'
-    token['device_id'] = device_id
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 

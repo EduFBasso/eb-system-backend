@@ -13,12 +13,14 @@ from django.db import transaction
 from django.db import IntegrityError
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.clinic.models.clients import Client
 from apps.clinic.serializers.clients import ClientSerializer, ClientBasicSerializer
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.authentication.services.permissions import get_tenant_membership_from_request
+from utils.permissions import HasActiveTenant
+from apps.authentication.models import Tenant
 
 
 ANAMNESIS_LINK_SALT = 'anamnesis-link-v1'
@@ -64,7 +66,7 @@ def _get_active_tenant(request):
 
 class ClientViewSet(ModelViewSet):
     serializer_class = ClientSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasActiveTenant(Tenant.Ecosystem.CLINIC)]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['first_name', 'last_name', 'city', 'state']
     ordering = ['first_name']
@@ -325,7 +327,7 @@ class ClientViewSet(ModelViewSet):
 
 class ClientBasicViewSet(ReadOnlyModelViewSet):
     serializer_class = ClientBasicSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasActiveTenant(Tenant.Ecosystem.CLINIC)]
 
     def get_queryset(self): # type: ignore
         nome = self.request.query_params.get('nome', '').strip() # type: ignore

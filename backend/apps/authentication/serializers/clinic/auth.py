@@ -7,10 +7,6 @@ from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import TenantMembership
 from apps.authentication.models import Tenant
-from apps.authentication.services.device_sessions import (
-    activate_login_session,
-    resolve_device_id,
-)
 from apps.authentication.services.login_identity import resolve_login_email
 
 
@@ -23,7 +19,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     username_field = 'login'
     login = serializers.CharField(write_only=True)
-    device_id = serializers.CharField(required=False, allow_blank=True, max_length=64)
     tenant_slug = serializers.SlugField(max_length=140)
 
     def __init__(self, *args, **kwargs):
@@ -46,20 +41,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         tenant = getattr(self, '_login_tenant', None)
         membership = getattr(self, '_login_membership', None)
-        device_id = getattr(self, "_login_device_id", None)
         if tenant is not None and membership is not None:
             token['tenant_id'] = tenant.id
             token['tenant_slug'] = tenant.slug
             token['ecosystem'] = 'clinic'
             token['role'] = membership.role
-        if device_id:
-            token["device_id"] = device_id
         return token
 
     def validate(self, attrs):
         login = attrs.get("login", "").strip()
         password = attrs.get("password")
-        device_id = (attrs.get("device_id") or "").strip()[:64]
         tenant_slug = (attrs.get("tenant_slug") or "").strip()
         request = self.context.get("request")
 
@@ -116,20 +107,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         self._login_tenant = tenant
         self._login_membership = membership
 
-        device_id = resolve_device_id(device_id, user)
-        ua = ""
-        ip = None
-        if request is not None:
-            ua = (request.META.get("HTTP_USER_AGENT", "") or "")[:255]
-            ip = request.META.get("REMOTE_ADDR")
-        active_count = activate_login_session(
-            user,
-            device_id,
-            user_agent=ua,
-            ip_address=ip,
-        )
-
-        self._login_device_id = device_id
         self.user = user
         refresh = self.get_token(user)
         data = {
@@ -165,7 +142,5 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['ecosystem'] = 'clinic'
         data['role'] = membership.role
         data['capabilities'] = membership.tenant.capabilities
-        data['active_sessions_count'] = active_count
-        data['device_id'] = device_id
 
         return data

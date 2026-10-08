@@ -10,7 +10,7 @@ from apps.clinic.views.clients import ClientBasicViewSet, ClientViewSet
 router = DefaultRouter()
 router.register(r'clients', ClientViewSet, basename='client')
 router.register(r'clients-basic', ClientBasicViewSet, basename='client-basic')
-router.register(r'professionals', ProfessionalViewSet)
+router.register(r'professionals', ProfessionalViewSet, basename='professional')
 
 urlpatterns = [
     path('', include(router.urls)),

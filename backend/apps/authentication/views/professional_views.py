@@ -1,7 +1,7 @@
 # backend/apps/authentication/views/professional_views.py
 from rest_framework.permissions import IsAuthenticated, BasePermission, IsAdminUser
 from rest_framework.viewsets import ModelViewSet
-from apps.authentication.models import Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.serializers.serializers import (
     ProfessionalSerializer,
 )
@@ -56,13 +56,13 @@ def professional_create(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if Professional.objects.filter(email__iexact=email).exists():
+    if SystemUser.objects.filter(email__iexact=email).exists():
         return Response(
             {"message": "Já existe um profissional com este e-mail."},
             status=status.HTTP_409_CONFLICT,
         )
 
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email=email,
         password=password,
         first_name=first_name,
@@ -82,17 +82,17 @@ def professional_create(request):
 
 
 class ProfessionalViewSet(ClinicProfessionalActionsMixin, ModelViewSet):
-    queryset = Professional.objects.all()
+    queryset = SystemUser.objects.all()
     serializer_class = ProfessionalSerializer
     permission_classes = [IsAuthenticated, CanManageProfessionalDirectory]
 
     def get_queryset(self):
         user = self.request.user
         if getattr(user, "is_superuser", False) or getattr(user, "can_manage_professionals", False):
-            return Professional.objects.all()
-        return Professional.objects.none()
+            return SystemUser.objects.all()
+        return SystemUser.objects.none()
 
-    def perform_destroy(self, instance: Professional):
+    def perform_destroy(self, instance: SystemUser):
         # Soft delete: mark as inactive/deactivated instead of removing rows
         instance.deactivate("desativado via API")
 

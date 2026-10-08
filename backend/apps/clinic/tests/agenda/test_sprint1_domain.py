@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Product, Service
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from tests.auth_helpers import authenticate_clinic_client
 
 
@@ -15,14 +15,14 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="sprint1@example.com",
         password="secret123",
         first_name="Sprint",
         last_name="One",
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Sprint1', slug='tenant-sprint1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Sprint1', slug='tenant-sprint1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -32,14 +32,14 @@ def professional():
 
 @pytest.fixture
 def other_professional():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="other-sprint1@example.com",
         password="secret123",
         first_name="Other",
-        last_name="Professional",
+        last_name="SystemUser",
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Sprint1 Other', slug='tenant-sprint1-other')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Sprint1 Other', slug='tenant-sprint1-other')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -55,7 +55,7 @@ def auth_client(professional):
 
 @pytest.fixture
 def staff_professional():
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="staff-sprint1@example.com",
         password="secret123",
         first_name="Staff",
@@ -64,7 +64,7 @@ def staff_professional():
     pro.is_staff = True
     pro.save(update_fields=["is_staff"])
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Staff Sprint1', slug='tenant-staff-sprint1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Staff Sprint1', slug='tenant-staff-sprint1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,

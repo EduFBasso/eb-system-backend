@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.authentication.models.register_models import Professional
+from apps.authentication.models.register_models import SystemUser
 from apps.authentication.models.tenancy_models import Tenant, TenantMembership
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
@@ -57,10 +57,10 @@ class Command(BaseCommand):
             f"Clínica (Tenant): {tenant.name} ({tenant.slug}) {'[CRIADA]' if tenant_created else '[EXISTENTE]'}"
         ))
 
-        professional = Professional.objects.filter(email=email).first()
+        professional = SystemUser.objects.filter(email=email).first()
         professional_created = False
         if not professional:
-            professional = Professional.objects.create_user(
+            professional = SystemUser.objects.create_user(
                 email=email,
                 password=password,
                 first_name=options["first_name"],

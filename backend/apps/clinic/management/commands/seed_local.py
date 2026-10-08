@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
-from apps.authentication.models.register_models import Professional
+from apps.authentication.models.register_models import SystemUser
 from apps.authentication.models.tenancy_models import Tenant, TenantMembership
 from apps.clinic.models.clients import Client
 
@@ -37,7 +37,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(f"Tenant pronto: {tenant.name} ({tenant.slug})"))
 
-        professional, created = Professional.objects.get_or_create(
+        professional, created = SystemUser.objects.get_or_create(
             email=email,
             defaults={
                 "first_name": first_name,
@@ -50,7 +50,7 @@ class Command(BaseCommand):
         professional.set_password(password)
         professional.save(update_fields=["password"])
 
-        message = "Professional dev criado" if created else "Professional já existente; senha redefinida"
+        message = "Usuário dev criado" if created else "Usuário dev já existente; senha redefinida"
         self.stdout.write(self.style.SUCCESS(f"{message}: {email} / {password}"))
 
         TenantMembership.objects.get_or_create(

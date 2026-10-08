@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.clinic.models.agenda import Appointment, Charge, ClinicalRecord, Encounter
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.clinic.models.clients import Client
-from apps.authentication.models import DeviceSession, Professional
+from apps.authentication.models import SystemUser
 from apps.authentication.models import Tenant, TenantMembership
 
 
@@ -17,14 +17,14 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def professional():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='delete-owner@example.com',
         password='secret123',
         first_name='Owner',
         last_name='Tester',
     )
     professional.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Delete', slug='tenant-delete')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Delete', slug='tenant-delete')
     TenantMembership.objects.create(
         tenant=tenant,
         professional=professional,
@@ -38,14 +38,8 @@ def professional():
 def auth_client(professional):
     client = APIClient()
     token = AccessToken.for_user(professional)
-    device_id = f"test-device-{professional.pk}"
-    DeviceSession.objects.create(
-        professional=professional,
-        device_id=device_id,
-    )
     token['tenant_id'] = professional.tenant_memberships.first().tenant_id
     token['ecosystem'] = 'clinic'
-    token['device_id'] = device_id
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return client
 

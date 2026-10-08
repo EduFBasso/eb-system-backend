@@ -9,7 +9,6 @@ from ._helpers import DEBUG
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'apps.authentication.services.auth_device.JWTDeviceAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
@@ -30,9 +29,3 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-
-# === Sessões de Dispositivo ===
-
-MAX_ACTIVE_DEVICE_SESSIONS: int = config(
-    "MAX_ACTIVE_DEVICE_SESSIONS", default=2, cast=int
-)

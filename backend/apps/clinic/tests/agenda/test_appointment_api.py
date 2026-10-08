@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.clinic.models.agenda import Appointment
 
 
@@ -13,7 +13,7 @@ def api_client():
 
 @pytest.fixture
 def professional(db):
-    return Professional.objects.create_user( # type: ignore
+    return SystemUser.objects.create_user( # type: ignore
         email='agendaapi@example.com', password='secret123', first_name='Agenda', last_name='API'
     )
 

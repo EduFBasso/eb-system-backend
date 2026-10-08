@@ -34,7 +34,7 @@ class Appointment(models.Model):
     )
     
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="appointments",
         verbose_name="Profissional",
@@ -135,7 +135,7 @@ class Encounter(models.Model):
 
     tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="encounters",
         verbose_name="Profissional",
@@ -255,7 +255,7 @@ class ClinicalRecord(models.Model):
     tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="clinical_records",
         verbose_name="Profissional",
@@ -347,7 +347,7 @@ class Charge(models.Model):
     tenant = models.ForeignKey('authentication.Tenant', on_delete=models.CASCADE, null=False, blank=False)
     
     professional = models.ForeignKey(
-        "authentication.Professional",
+        "authentication.SystemUser",
         on_delete=models.CASCADE,
         related_name="charges",
         verbose_name="Profissional Responsável",

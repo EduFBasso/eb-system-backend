@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from django.core.cache import cache
 from rest_framework.test import APIClient
 
@@ -62,7 +62,7 @@ def test_bakery_register_customer_uses_admin_token_and_creates_pending_customer(
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -111,7 +111,7 @@ def test_bakery_register_customer_allows_multiple_customers_for_same_admin_tenan
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin2@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -190,7 +190,7 @@ def test_bakery_approve_customer_returns_json_and_updates_status():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin3@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -248,7 +248,7 @@ def test_bakery_approve_customer_rejects_invalid_admin_password_with_json_error(
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin4@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -304,7 +304,7 @@ def test_bakery_customer_can_login_with_nickname_after_approval():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin5@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -375,7 +375,7 @@ def test_bakery_customer_pending_cannot_login_with_nickname():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin6@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -431,7 +431,7 @@ def test_bakery_admin_can_login_with_first_name_alias():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin7@bakery.test',
         password='secret123',
         first_name='Dono',
@@ -473,7 +473,7 @@ def test_bakery_reveal_password_generates_new_password_when_missing():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin8@bakery.test',
         password='secret123',
         first_name='Admin',
@@ -575,7 +575,7 @@ def test_bakery_block_and_unblock_require_owner_password():
         capabilities={'bakery': True},
         is_active=True,
     )
-    admin = Professional.objects.create_user(
+    admin = SystemUser.objects.create_user(
         email='admin-security@bakery.test',
         password='secret123',
         first_name='Admin',

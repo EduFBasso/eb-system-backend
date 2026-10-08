@@ -2,14 +2,13 @@ from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 
 
 @pytest.mark.django_db
 def test_clinic_authentication_uses_password_without_totp():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="podologia@example.com",
         password="senha-segura-123",
         first_name="Profissional",
@@ -44,16 +43,12 @@ def test_clinic_authentication_uses_password_without_totp():
         "clinic": True,
         "podologia": True,
     }
-    assert AccessToken(response.data["access"])["device_id"]
-    assert RefreshToken(response.data["refresh"])["device_id"] == AccessToken(
-        response.data["access"]
-    )["device_id"]
-    assert "totp_secret" not in {field.name for field in Professional._meta.fields}
+    assert "totp_secret" not in {field.name for field in SystemUser._meta.fields}
 
 
 @pytest.mark.django_db
 def test_clinic_login_authenticates_password_once():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="single-auth@example.com",
         password="senha-segura-123",
     )
@@ -86,7 +81,7 @@ def test_clinic_login_authenticates_password_once():
 
 @pytest.mark.django_db
 def test_bakery_login_authenticates_password_once():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="single-auth-bakery@example.com",
         password="senha-segura-123",
         first_name="Profissional",
@@ -128,15 +123,11 @@ def test_bakery_login_authenticates_password_once():
     assert response.data["tenant"]["slug"] == tenant.slug
     assert "access" in response.data
     assert "refresh" in response.data
-    assert AccessToken(response.data["access"])["device_id"]
-    assert RefreshToken(response.data["refresh"])["device_id"] == AccessToken(
-        response.data["access"]
-    )["device_id"]
 
 
 @pytest.mark.django_db
 def test_admin_creates_professional_without_totp_contract():
-    admin = Professional.objects.create_superuser(
+    admin = SystemUser.objects.create_superuser(
         email="admin@example.com",
         password="senha-admin-123",
         first_name="Admin",
@@ -172,7 +163,7 @@ def test_totp_route_is_unavailable():
 
 @pytest.mark.django_db
 def test_clinic_login_selects_tenant_by_slug():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="multi-tenant@example.com",
         password="senha-segura-123",
     )
@@ -208,7 +199,7 @@ def test_clinic_login_selects_tenant_by_slug():
 
 @pytest.mark.django_db
 def test_clinic_login_accepts_membership_alias():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="alias-clinic@example.com",
         password="senha-segura-123",
     )
@@ -241,7 +232,7 @@ def test_clinic_login_accepts_membership_alias():
 
 @pytest.mark.django_db
 def test_clinic_login_alias_is_scoped_to_tenant():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="scoped-alias@example.com",
         password="senha-segura-123",
     )
@@ -278,7 +269,7 @@ def test_clinic_login_alias_is_scoped_to_tenant():
 
 @pytest.mark.django_db
 def test_clinic_login_requires_tenant_slug():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="ambiguous@example.com",
         password="senha-segura-123",
     )
@@ -303,7 +294,7 @@ def test_clinic_login_requires_tenant_slug():
 
 @pytest.mark.django_db
 def test_clinic_login_rejects_unknown_slug_and_conflicting_capabilities():
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email="invalid-context@example.com",
         password="senha-segura-123",
     )

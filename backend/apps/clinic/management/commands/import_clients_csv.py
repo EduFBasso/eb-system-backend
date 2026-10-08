@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.authentication.models.register_models import Professional
+from apps.authentication.models.register_models import SystemUser
 from apps.authentication.models.tenancy_models import Tenant
 from apps.clinic.models.anamnesis import AnamneseBase, AnamnesePodologia
 from apps.clinic.models.clients import Client
@@ -61,7 +61,7 @@ class Command(BaseCommand):
 
         professional = None
         if target_email:
-            professional = Professional.objects.filter(email=target_email, is_active=True).first()
+            professional = SystemUser.objects.filter(email=target_email, is_active=True).first()
             if not professional:
                 raise CommandError(f"Profissional com o e-mail '{target_email}' não foi encontrado ou está inativo.")
         else:

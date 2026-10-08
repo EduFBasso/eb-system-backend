@@ -1,10 +1,10 @@
-import django.db.models.deletion
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("notifications", "0001_initial"),
+        ("authentication", "0003_transition_legacy_professional"),
+        ("notifications", "0002_telegram_link_per_tenant"),
     ]
 
     operations = [
@@ -12,17 +12,10 @@ class Migration(migrations.Migration):
             model_name="telegramprofessionallink",
             name="professional",
             field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
+                on_delete=models.CASCADE,
                 related_name="telegram_links",
                 to="authentication.systemuser",
                 verbose_name="Profissional",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="telegramprofessionallink",
-            constraint=models.UniqueConstraint(
-                fields=("professional", "tenant"),
-                name="uniq_telegram_link_professional_tenant",
             ),
         ),
     ]

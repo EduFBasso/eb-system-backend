@@ -3,16 +3,16 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 
 
 @pytest.fixture
 def professional(db):
-    pro = Professional.objects.create_user(
+    pro = SystemUser.objects.create_user(
         email="pro1@example.com", password="x", first_name="Pro", last_name="One"
     )
     pro.tenant_memberships.all().delete()
-    tenant = Tenant.objects.create(name='Tenant Pro1', slug='tenant-pro1')
+    tenant = Tenant.objects.create(ecosystem="clinic", name='Tenant Pro1', slug='tenant-pro1')
     TenantMembership.objects.create(
         tenant=tenant, professional=pro,
         role=TenantMembership.Role.OWNER, is_active=True,
@@ -91,7 +91,7 @@ def test_overlaps_false(db, professional, client):
 
 
 def test_appointments_same_time_different_tenants_allowed(db):
-    professional = Professional.objects.create_user(
+    professional = SystemUser.objects.create_user(
         email='shared.pro@example.com',
         password='x',
         first_name='Shared',
@@ -99,8 +99,8 @@ def test_appointments_same_time_different_tenants_allowed(db):
     )
     professional.tenant_memberships.all().delete()
 
-    tenant_a = Tenant.objects.create(name='Tenant A', slug='tenant-a')
-    tenant_b = Tenant.objects.create(name='Tenant B', slug='tenant-b')
+    tenant_a = Tenant.objects.create(ecosystem="clinic", name='Tenant A', slug='tenant-a')
+    tenant_b = Tenant.objects.create(ecosystem="clinic", name='Tenant B', slug='tenant-b')
 
     TenantMembership.objects.create(
         tenant=tenant_a,

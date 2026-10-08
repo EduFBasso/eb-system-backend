@@ -46,12 +46,12 @@ backend/
 │   │
 │   ├── authentication/                # [GLOBAL] Identidade, Permissões e Multi-Tenancy
 │   │   ├── models/
-│   │   │   ├── register_models.py     # Professional (usuário global), DeviceSession
+│   │   │   ├── register_models.py     # SystemUser (identidade global) e ProfessionalSettings
 │   │   │   └── tenancy_models.py      # Tenant (empresa/clínica) e TenantMembership (papéis)
-│   │   ├── views/                     # Autenticação JWT, sessões ativas e perfil
+│   │   ├── views/                     # Autenticação JWT e perfil
 │   │   ├── serializers/               # Serialização de login, tenants, membros e credenciais
 │   │   ├── services/                  # Lógica de emissão de tokens JWT
-│   │   └── urls.py                    # Rotas globais, /token/, /sessions/ e /register/auth/
+│   │   └── urls.py                    # Rotas globais, /token/ e /register/auth/
 │   │
 │   ├── notifications/                 # [GLOBAL] Motor Central de Mensageria e Alertas
 │   │   ├── models.py                  # TelegramProfessionalLink (vínculo de bot/chat_id por tenant)
@@ -69,7 +69,7 @@ backend/
 │   │   │   └── odonto.py              # Procedimentos Odontológicos e Notação Dentária FDI
 │   │   ├── views/                     # APIs para agenda, prontuário, catálogo e anamnese pública
 │   │   ├── serializers/               # Serializadores para cada especialidade clínica
-│   │   └── urls.py                    # Rotas clínicas (/agenda/, /clinic/, /inventory/ e /register/)
+│   │   └── urls.py                    # Rotas clínicas: prefixo canônico /api/v1/clinic/ (register/agenda/inventory/treatment) + raiz legada (/agenda/, /clinic/, /inventory/, /register/) em dual-mount
 │   │
 │   └── bakery/                        # [ECOSSISTEMA 2] Gestão de Panificação, Vendas B2B e Crédito
 │       ├── models/
@@ -114,14 +114,13 @@ Centraliza a orquestração do Django. Todas as configurações foram extraídas
 
 ### 3.2 `apps/authentication/` — Identidade e Multi-Tenancy Unificado
 Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
-- **`Professional`**: Modelo de usuário unificado herdado de `AbstractBaseUser`. Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
+- **`SystemUser`**: Modelo de usuário unificado herdado de `AbstractBaseUser` (antes `Professional`). É a identidade global compartilhada por todos os ecossistemas — administradores de unidade, profissionais de saúde (Clinic) e clientes B2B (Bakery). Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
 - **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser.
-- **Governança Estrita de Acesso**: Nenhum `Tenant` ou `TenantMembership` é provisionado automaticamente. O provisionamento é 100% manual via Django Admin ou comando de setup, garantindo controle total dos profissionais e empresas cadastradas.
-- **Sessões e Dispositivos (`DeviceSession`)**: Rastreamento de sessões ativas por dispositivo físico, com limite configurável de conexões simultâneas para mitigar compartilhamento indevido de contas.
+- **Governança de Acesso**: O provisionamento de `Tenant` e dos vínculos administrativos é feito via Django Admin ou comando de setup. Exceção: o auto-cadastro público da Bakery (`/api/v1/bakery/customers/register/`) cria automaticamente a identidade do cliente (`SystemUser` + `TenantMembership` role=member) com status inicial PENDENTE.
 - **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
-- **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `Professional`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
+- **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `SystemUser`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.
 - **Identificação e isolamento de filiais**: o `slug` é único e identifica tecnicamente o tenant. Nome fantasia, nome do administrador ou URL pública não concedem autorização; toda leitura e mutação deve continuar vinculada ao `tenant_id` resolvido pela autenticação e pela `TenantMembership`.
-- **`TenantMembership`**: Tabela de relacionamento entre `Professional` e `Tenant`, definindo a função do usuário: `owner` (Dono da Empresa), `admin` (Administrador da Unidade) ou `member` (Membro / Profissional de Saúde), além do apelido de login rápido (`login_alias`).
+- **`TenantMembership`**: Tabela de relacionamento entre `SystemUser` e `Tenant`, definindo a função do usuário: `owner` (Dono da Empresa), `admin` (Administrador da Unidade) ou `member` (Membro / Profissional de Saúde), além do apelido de login rápido (`login_alias`).
 
 ### 3.3 `apps/clinic/` — Domínio de Saúde (Clínica)
 Encapsula toda a lógica de atendimento clínico.
@@ -153,7 +152,7 @@ O sistema utiliza o padrão **Single Database / Multi-Tenant com Particionamento
 ```mermaid
 graph TD
     subgraph "Camada de Identidade Global"
-        P[Professional: Usuário Unificado]
+        P[SystemUser: Identidade Global Unificada]
         TM[TenantMembership: Papel & Login Alias]
         P --> TM
     end
@@ -208,7 +207,7 @@ Em ambiente local de desenvolvimento, os frontends e o backend operam simultanea
 | Aplicação | Tecnologia | Porta Local | Prefixo de Rotas Backend | Autenticação Utilizada |
 | :--- | :--- | :--- | :--- | :--- |
 | **Backend Django** | Python / DRF | `8000` | `/` e `/admin/` | Sessão Django / JWT |
-| **Frontend Clinic** | Vite / React | `5173` | `/token/`, `/sessions/`, `/register/`, `/agenda/`, `/clinic/`, `/inventory/` | Bearer JWT (`/token/`) |
+| **Frontend Clinic** | Vite / React | `5173` | `/api/v1/clinic/` (register/agenda/inventory/treatment) + raiz legada (`/register/`, `/agenda/`, `/clinic/`, `/inventory/`) · `/token/` | Bearer JWT (`/token/`) |
 | **Frontend Bakery** | Vite / React | `5174` | `/api/v1/bakery/`, `/api/v1/auth/bakery/` | Bearer JWT (`/api/v1/auth/bakery/login/admin/` e `/api/v1/auth/bakery/login/customer/`) |
 
 Ambos os frontends usam proxies internos no `vite.config.ts` apontando para `http://localhost:8000`, eliminando a necessidade de expor credenciais no cliente e mantendo conformidade com as regras de CORS.

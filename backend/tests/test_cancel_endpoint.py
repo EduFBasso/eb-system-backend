@@ -8,7 +8,7 @@ from apps.authentication.models import Tenant, TenantMembership
 
 
 def _setup_tenant(professional):
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name=f'Tenant {professional.pk}',
         slug=f'tenant-cancel-{professional.pk}',
     )

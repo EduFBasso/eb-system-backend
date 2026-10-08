@@ -15,7 +15,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog, CreditLedgerEntry
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
@@ -213,31 +213,36 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
             except Exception:
                 pass
 
+        # Cadastro público exige tenant_slug explícito. Nunca escolhemos um
+        # tenant arbitrário por conveniência: isso quebraria o isolamento assim
+        # que existir mais de um tenant/ecossistema com auto-cadastro.
         tenant_slug = (
             request.data.get("tenant_slug")
             or request.headers.get("X-Tenant-Slug")
             or request.query_params.get("tenant_slug")
         )
-        if tenant_slug:
-            tenant = (
-                Tenant.objects.filter(
-                    slug=str(tenant_slug).strip(),
-                    is_active=True,
-                )
-                .first()
-            )
-            if tenant and (
-                tenant.ecosystem == Tenant.Ecosystem.BAKERY
-                or tenant.has_capability(self.capability_name)
-            ):
-                return tenant
+        if not tenant_slug:
+            return None
 
-        bakery_tenants = Tenant.objects.filter(
-            is_active=True,
-            ecosystem=Tenant.Ecosystem.BAKERY,
+        tenant = (
+            Tenant.objects.filter(
+                slug=str(tenant_slug).strip(),
+                is_active=True,
+            )
+            .first()
         )
-        if bakery_tenants.count() == 1:
-            return bakery_tenants.first()
+        if tenant is None:
+            return None
+
+        from apps.authentication.ecosystems import REGISTRY
+
+        spec = REGISTRY.get(tenant.ecosystem)
+        if spec is None or not spec.public_self_registration:
+            return None
+        if tenant.ecosystem == Tenant.Ecosystem.BAKERY or tenant.has_capability(
+            self.capability_name
+        ):
+            return tenant
 
         return None
 
@@ -334,7 +339,7 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        customer_user, _created = Professional.objects.get_or_create(
+        customer_user, _created = SystemUser.objects.get_or_create(
             email=self._build_customer_email(tenant.id, phone),
             defaults={
                 'first_name': nickname[:50],

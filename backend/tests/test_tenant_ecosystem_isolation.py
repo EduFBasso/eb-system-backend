@@ -8,7 +8,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.authentication.models import Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.bakery.models import BakeryCustomer, CreditLedgerEntry, Order, Product as BakeryProduct
 from apps.clinic.models.clients import Client
 from apps.clinic.models.inventory import Service
@@ -35,6 +35,13 @@ CLINIC_ROUTES = [
     "/inventory/products/",
     "/clinic/treatment/plans/",
     "/agenda/appointments/",
+    # Novo prefixo canônico (dual-mount) — mesma matriz de isolamento.
+    "/api/v1/clinic/register/clients/",
+    "/api/v1/clinic/register/clients-basic/",
+    "/api/v1/clinic/inventory/services/",
+    "/api/v1/clinic/inventory/products/",
+    "/api/v1/clinic/treatment/plans/",
+    "/api/v1/clinic/agenda/appointments/",
 ]
 
 
@@ -54,7 +61,7 @@ def _rows(response):
 
 
 def _user(email):
-    return Professional.objects.create_user(email=email, password=PASSWORD)
+    return SystemUser.objects.create_user(email=email, password=PASSWORD)
 
 
 def _member(tenant, user, role):
@@ -293,6 +300,23 @@ def test_clinic_inventory_and_clients_are_scoped_to_token_tenant(world):
     assert client_c.delete(f"/inventory/services/{world.service_d.pk}/").status_code == 404
     world.service_d.refresh_from_db()
     assert world.service_d.name == "Servico D"
+
+
+def test_clinic_canonical_prefix_is_scoped_like_legacy_root(world):
+    """O novo prefixo /api/v1/clinic/ deve respeitar o mesmo escopo do legado."""
+    client_c = world.dual_clinic
+
+    clients = {row["id"] for row in _rows(client_c.get("/api/v1/clinic/register/clients/"))}
+    assert world.client_c.pk in clients and world.client_d.pk not in clients
+
+    # Escrita pelo novo prefixo usa o tenant do token, nunca o do payload.
+    response = client_c.post(
+        "/api/v1/clinic/inventory/services/",
+        {"name": "Servico Canonico", "tenant": world.clinic_d.pk},
+        format="json",
+    )
+    assert response.status_code == 201, response.content
+    assert Service.objects.get(pk=response.data["id"]).tenant_id == world.clinic_c.pk
 
 
 def test_clinic_write_uses_token_tenant_not_payload_tenant(world):

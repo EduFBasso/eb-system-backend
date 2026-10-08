@@ -36,7 +36,6 @@ class Tenant(models.Model):
         "Ecossistema / Tipo de Negócio",
         max_length=20,
         choices=Ecosystem.choices,
-        default=Ecosystem.CLINIC,
     )
     
     # Campo dinâmico para ativar/desativar módulos extras via painel administrativo
@@ -66,6 +65,10 @@ class Tenant(models.Model):
                 condition=~models.Q(trade_name=""),
                 name="tenant_trade_name_not_empty",
             ),
+            models.CheckConstraint(
+                condition=~models.Q(ecosystem=""),
+                name="tenant_ecosystem_not_empty",
+            ),
         ]
 
     def __str__(self):
@@ -74,7 +77,50 @@ class Tenant(models.Model):
     def save(self, *args, **kwargs):
         if not self.trade_name:
             self.trade_name = self.name
+        if self.ecosystem not in self.Ecosystem.values:
+            raise ValueError(
+                "Tenant.ecosystem deve ser um ecossistema válido e explícito; "
+                f"recebido: {self.ecosystem!r}."
+            )
+        self._validate_capabilities()
         super().save(*args, **kwargs)
+
+    def _iter_enabled_capabilities(self):
+        """Gera as capabilities marcadas como True (topo e dentro de 'modules')."""
+        capabilities = self.capabilities or {}
+        if not isinstance(capabilities, dict):
+            return
+        for key, value in capabilities.items():
+            if key == "modules":
+                continue
+            if value is True:
+                yield key
+        modules = capabilities.get("modules")
+        if isinstance(modules, dict):
+            for key, value in modules.items():
+                if value is True:
+                    yield key
+
+    def _validate_capabilities(self):
+        """Impede que um tenant habilite capability de outro ecossistema."""
+        from apps.authentication.ecosystems import (
+            KNOWN_CAPABILITIES,
+            allowed_capabilities,
+        )
+
+        if not isinstance(self.capabilities, dict):
+            raise ValueError(
+                "Tenant.capabilities deve ser um objeto JSON (dict); "
+                f"recebido: {type(self.capabilities).__name__}."
+            )
+
+        allowed = allowed_capabilities(self.ecosystem)
+        for capability in self._iter_enabled_capabilities():
+            if capability in KNOWN_CAPABILITIES and capability not in allowed:
+                raise ValueError(
+                    f"Capability {capability!r} não pertence ao ecossistema "
+                    f"{self.ecosystem!r}."
+                )
 
     def has_capability(self, capability_name: str) -> bool:
         """
@@ -112,7 +158,7 @@ class TenantMembership(models.Model):
         verbose_name="Empresa / Clínica"
     )
     professional = models.ForeignKey(
-        'authentication.Professional',
+        'authentication.SystemUser',
         on_delete=models.CASCADE,
         related_name='tenant_memberships',
         verbose_name="Profissional Vinculado"

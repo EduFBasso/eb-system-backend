@@ -2,7 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.authentication.models import DeviceSession, Professional, Tenant, TenantMembership
+from apps.authentication.models import SystemUser, Tenant, TenantMembership
 
 
 pytestmark = pytest.mark.django_db
@@ -18,20 +18,17 @@ def make_tenant(slug: str) -> Tenant:
     )
 
 
-def authenticated_client(user: Professional, tenant: Tenant) -> APIClient:
+def authenticated_client(user: SystemUser, tenant: Tenant) -> APIClient:
     token = AccessToken.for_user(user)
-    device_id = f"test-device-{user.pk}"
-    DeviceSession.objects.create(professional=user, device_id=device_id)
     token["tenant_id"] = tenant.id
     token["ecosystem"] = "bakery"
-    token["device_id"] = device_id
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return client
 
 
-def make_member(tenant: Tenant, email: str, role: str) -> Professional:
-    user = Professional.objects.create_user(email=email, password="test-password")
+def make_member(tenant: Tenant, email: str, role: str) -> SystemUser:
+    user = SystemUser.objects.create_user(email=email, password="test-password")
     TenantMembership.objects.create(
         tenant=tenant,
         professional=user,

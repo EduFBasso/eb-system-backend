@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db
 
 
 def test_import_uses_phone_when_emails_are_repeated(tmp_path):
-    tenant = Tenant.objects.create(
+    tenant = Tenant.objects.create(ecosystem="clinic",
         name="Clinica Importacao",
         trade_name="Clinica Importacao",
         slug="clinica-importacao",

@@ -13,6 +13,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.authentication.urls')),
     path('', include('apps.clinic.urls_root')),
+    path('api/v1/clinic/', include('apps.clinic.urls_api_v1', namespace='clinic-v1')),
     path('', include('apps.bakery.urls_root')),
 ]
 

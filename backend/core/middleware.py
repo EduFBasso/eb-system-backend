@@ -105,7 +105,7 @@ class OnlineMutationLockMiddleware:
             '/anamnesis/',
             '/clinic/treatment/',
             '/api/v1/bakery/',
-            '/sessions/',
+            '/api/v1/clinic/',
             '/token/',
         )
         return path.startswith(prefixes)
