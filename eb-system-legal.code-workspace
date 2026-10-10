@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "name": "backend",
+      "path": "backend",
+    },
+    {
+      "name": "legal-system-backend",
+      "path": "legal-system/backend",
+    },
+    {
+      "name": "legal-system-frontend",
+      "path": "legal-system/frontend",
+    },
+  ],
+}
