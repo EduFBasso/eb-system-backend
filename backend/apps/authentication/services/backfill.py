@@ -81,14 +81,17 @@ def backfill_existing_tenants(
             tenant_id = tenant_by_professional.get(professional_id)
             if not tenant_id:
                 continue
-            inferred_tenants[(model_label, instance.pk)] = tenant_id
             if dry_run:
+                inferred_tenants[(model_label, instance.pk)] = tenant_id
                 updated_count += 1
             else:
-                updated_count += Model.objects.filter(
+                changed_count = Model.objects.filter(
                     pk=instance.pk,
                     tenant__isnull=True,
                 ).update(tenant_id=tenant_id)
+                updated_count += changed_count
+                if changed_count:
+                    inferred_tenants[(model_label, instance.pk)] = tenant_id
 
         summary[f'{app_label}.{model_name}'] = updated_count
 
@@ -106,14 +109,17 @@ def backfill_existing_tenants(
                 tenant_id = inferred_tenants.get((parent_model_label, parent.pk))
             if not tenant_id:
                 continue
-            inferred_tenants[(model_label, instance.pk)] = tenant_id
             if dry_run:
+                inferred_tenants[(model_label, instance.pk)] = tenant_id
                 updated_count += 1
             else:
-                updated_count += Model.objects.filter(
+                changed_count = Model.objects.filter(
                     pk=instance.pk,
                     tenant__isnull=True,
                 ).update(tenant_id=tenant_id)
+                updated_count += changed_count
+                if changed_count:
+                    inferred_tenants[(model_label, instance.pk)] = tenant_id
 
         summary[f'{app_label}.{model_name}'] = updated_count
 
