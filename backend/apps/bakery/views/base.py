@@ -1,6 +1,6 @@
 from rest_framework.exceptions import PermissionDenied
 
-from utils.permissions import get_active_tenant
+from apps.authentication.services.permissions import get_active_tenant_from_request
 
 
 class BakeryTenantScopedMixin:
@@ -11,7 +11,10 @@ class BakeryTenantScopedMixin:
     def get_active_tenant(self):
         tenant = getattr(self, "active_tenant", None)
         if tenant is None:
-            tenant = get_active_tenant(self.request.user, self.capability_name)
+            tenant = get_active_tenant_from_request(
+                self.request,
+                ecosystem=self.capability_name,
+            )
         if tenant is None:
             raise PermissionDenied("No active Bakery tenant is available.")
         return tenant

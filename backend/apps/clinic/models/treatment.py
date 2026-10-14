@@ -88,7 +88,7 @@ class TreatmentPlan(models.Model):
                 name='uniq_treatment_plan_migration_control',
             ),
             models.CheckConstraint(
-                check=~Q(status='completed') | Q(completed_at__isnull=False),
+                condition=~Q(status='completed') | Q(completed_at__isnull=False),
                 name='treatment_plan_completed_requires_completed_at',
             ),
         ]
@@ -208,7 +208,7 @@ class TreatmentPlanItem(models.Model):
                 name='uniq_treatment_item_migration_control',
             ),
             models.CheckConstraint(
-                check=~Q(status='completed') | Q(completed_at__isnull=False),
+                condition=~Q(status='completed') | Q(completed_at__isnull=False),
                 name='treatment_item_completed_requires_completed_at',
             ),
         ]

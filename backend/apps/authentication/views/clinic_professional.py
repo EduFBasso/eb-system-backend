@@ -11,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.authentication.models import ProfessionalSettings, TenantMembership
+from apps.authentication.services.permissions import get_active_tenant_from_request
 from apps.authentication.serializers.clinic.settings import ProfessionalSettingsSerializer
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import (
@@ -18,9 +19,6 @@ from apps.notifications.services.telegram_client import (
     TelegramDeliveryError,
     send_via_link,
 )
-from utils.permissions import get_active_tenant
-
-
 TELEGRAM_LINK_TOKEN_TTL_SECONDS = 15 * 60
 
 
@@ -82,25 +80,7 @@ def _parse_telegram_link_token(token: str) -> dict | None:
 
 
 def _get_request_tenant(request):
-    user = request.user
-    auth_token = getattr(request, "auth", None)
-    if auth_token is not None:
-        tenant_id = auth_token.get("tenant_id")
-        if tenant_id is None:
-            return None
-        membership = (
-            TenantMembership.objects
-            .select_related("tenant")
-            .filter(
-                professional=user,
-                tenant_id=tenant_id,
-                is_active=True,
-                tenant__is_active=True,
-            )
-            .first()
-        )
-        return membership.tenant if membership else None
-    return get_active_tenant(user)
+    return get_active_tenant_from_request(request, ecosystem="clinic")
 
 
 class ClinicProfessionalActionsMixin:

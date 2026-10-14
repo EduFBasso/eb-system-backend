@@ -8,32 +8,25 @@ from rest_framework.exceptions import PermissionDenied
 from apps.authentication.ecosystems import get_ecosystem
 from apps.authentication.models import Tenant, TenantMembership
 from apps.authentication.services.permissions import (
+    get_active_tenant_membership,
+    get_active_tenant_from_request,
     get_tenant_membership_from_request,
 )
 
 
 def get_active_tenant(user: Any, capability_name: str | None = None) -> Tenant | None:
-    """Resolve deterministicamente o primeiro tenant ativo do usuario.
+    """Compatibilidade para scripts e testes sem contexto de requisição.
 
-    Quando uma capability e informada, ignora memberships de tenants que nao
-    habilitam aquele ecossistema.
+    Requisições HTTP devem usar ``get_active_tenant_from_request`` para
+    respeitar o tenant selecionado no token.
     """
 
-    if not user or not getattr(user, "is_authenticated", False):
-        return None
-
-    memberships = (
-        TenantMembership.objects.select_related("tenant")
-        .filter(
-            professional=user,
-            is_active=True,
-            tenant__is_active=True,
-        )
-        .order_by("created_at", "id")
-    )
-    for membership in memberships:
-        if capability_name and not membership.tenant.has_capability(capability_name):
-            continue
+    ecosystem = capability_name if capability_name in {"clinic", "bakery"} else None
+    membership = get_active_tenant_membership(user, ecosystem=ecosystem)
+    if membership and (
+        capability_name is None
+        or membership.tenant.has_capability(capability_name)
+    ):
         return membership.tenant
     return None
 
@@ -49,7 +42,7 @@ def _get_bakery_membership(request) -> TenantMembership | None:
                 return None
         else:
             # Compatibilidade com SessionAuthentication e testes sem JWT.
-            tenant = get_active_tenant(request.user, "bakery")
+            tenant = get_active_tenant_from_request(request, ecosystem="bakery")
             if tenant is None:
                 return None
             tenant_id = tenant.id

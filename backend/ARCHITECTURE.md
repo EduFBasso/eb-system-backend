@@ -95,7 +95,7 @@ backend/
 │   ├── reset_database_loc.md          # Passo a passo de reset e bootstrap local do banco
 │   ├── anamnesis-field-maintenance-guide.md # Guia de campos e formulários de anamnese
 │   ├── local-lan-vercel-tenant-domains-guide.md # Tenants por domínio/subdomínio (LAN e Vercel)
-│   └── plano-migracao-identidade-profissional-para-tenant.md # Plano ativo de migração de dados comerciais Professional -> Tenant
+│   └── Revisao_Modulos/app_authentication/ # Revisão conceitual e operacional da autenticação
 │
 └── tests/                             # Suíte de Testes Automatizados de Integração
     ├── test_appointment_state_rules.py # Validações de máquina de estados de agendamentos
@@ -114,8 +114,9 @@ Centraliza a orquestração do Django. Todas as configurações foram extraídas
 
 ### 3.2 `apps/authentication/` — Identidade e Multi-Tenancy Unificado
 Responsável por responder: **"Quem é você e a qual empresa você tem acesso?"**.
-- **`SystemUser`**: Modelo de usuário unificado herdado de `AbstractBaseUser` (antes `Professional`). É a identidade global compartilhada por todos os ecossistemas — administradores de unidade, profissionais de saúde (Clinic) e clientes B2B (Bakery). Armazena credenciais (e-mail, senha criptografada), dados pessoais e telefone celular para contato.
-- **Autenticação Simplificada e Controlada**: Login por e-mail e senha fixa gerenciada diretamente pelo administrador/superuser.
+- **`SystemUser`**: Modelo de usuário unificado herdado de `AbstractBaseUser` (antes `Professional`). É a única identidade global compartilhada por todos os ecossistemas — administradores de unidade, profissionais de saúde (Clinic) e clientes B2B (Bakery). Armazena credenciais (e-mail, senha armazenada pelo mecanismo de hash do Django), dados pessoais e telefone celular para contato.
+- **`Professional` no Clinic**: Papel de domínio exercido por um `SystemUser`. Não é uma segunda identidade, não possui credenciais próprias e não substitui `TenantMembership`.
+- **Autenticação Simplificada e Controlada**: O login usa e-mail ou alias contextual, senha validada pelo mecanismo de autenticação do Django e `TenantMembership` ativo no tenant informado.
 - **Governança de Acesso**: O provisionamento de `Tenant` e dos vínculos administrativos é feito via Django Admin ou comando de setup. Exceção: o auto-cadastro público da Bakery (`/api/v1/bakery/customers/register/`) cria automaticamente a identidade do cliente (`SystemUser` + `TenantMembership` role=member) com status inicial PENDENTE.
 - **`Tenant`**: Entidade central de multi-tenancy. Representa uma empresa, unidade ou filial isolada. Possui `name` (identificação cadastral), `trade_name` (nome fantasia exibido ao usuário), `slug` (identificador técnico na URL), `ecosystem` (`clinic`, `bakery`, etc.) e `capabilities` (dicionário JSON que liga/desliga funcionalidades).
 - **Identidade comercial versus identidade pessoal**: `trade_name` pertence ao `Tenant` e não ao `SystemUser`. O nome do administrador representa uma pessoa; o nome fantasia representa a empresa ou unidade acessada. Filiais diferentes podem compartilhar o mesmo `trade_name`, mas nunca compartilham o mesmo `Tenant`.

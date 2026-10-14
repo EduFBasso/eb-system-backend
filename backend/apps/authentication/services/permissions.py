@@ -53,6 +53,19 @@ def get_tenant_membership_from_request(
     return memberships.order_by('created_at', 'id').first()
 
 
+def get_active_tenant_from_request(
+    request: Any,
+    *,
+    ecosystem: str | None = None,
+):
+    """Resolve o tenant ativo selecionado para a requisição."""
+    membership = get_tenant_membership_from_request(
+        request,
+        ecosystem=ecosystem,
+    )
+    return membership.tenant if membership else None
+
+
 def user_has_tenant_capability(
     user: Any,
     capability_name: str,
