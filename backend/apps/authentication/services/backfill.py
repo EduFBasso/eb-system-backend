@@ -12,15 +12,12 @@ DIRECT_MODEL_SPECS = [
     ('clinic', 'ClinicalRecord', 'professional_id'),
     ('clinic', 'Charge', 'professional_id'),
     ('clinic', 'AnamneseBase', 'professional_id'),
-    ('clinic', 'AnamnesePodologia', 'professional_id'),
-    ('clinic', 'AnamneseOdontologia', 'professional_id'),
     ('clinic', 'ReminderDelivery', 'professional_id'),
     ('clinic', 'TreatmentPlan', 'professional_id'),
 ]
 
 DERIVED_MODEL_SPECS = [
     ('clinic', 'ChargeItem', 'charge'),
-    ('clinic', 'DentalProcedureContext', 'item__plan'),
     ('clinic', 'PodologyProcedureContext', 'treatment_plan_item__plan'),
 ]
 
@@ -57,7 +54,16 @@ def _nested_attr(obj: Any, attr_path: str) -> Any:
     return value
 
 
-def backfill_existing_tenants(registry: Any | None = None) -> dict[str, int]:
+def backfill_existing_tenants(
+    registry: Any | None = None,
+    *,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Preenche tenants legados sem reatribuir registros ambíguos.
+
+    Em ``dry_run`` retorna a quantidade de registros elegíveis, mas não
+    executa atualizações.
+    """
     registry = registry or django_apps
     tenant_by_professional = _tenant_by_professional(registry)
     summary: dict[str, int] = {}
@@ -72,10 +78,13 @@ def backfill_existing_tenants(registry: Any | None = None) -> dict[str, int]:
             tenant_id = tenant_by_professional.get(professional_id)
             if not tenant_id:
                 continue
-            updated_count += Model.objects.filter(
-                pk=instance.pk,
-                tenant__isnull=True,
-            ).update(tenant_id=tenant_id)
+            if dry_run:
+                updated_count += 1
+            else:
+                updated_count += Model.objects.filter(
+                    pk=instance.pk,
+                    tenant__isnull=True,
+                ).update(tenant_id=tenant_id)
 
         summary[f'{app_label}.{model_name}'] = updated_count
 
@@ -89,10 +98,13 @@ def backfill_existing_tenants(registry: Any | None = None) -> dict[str, int]:
             tenant_id = getattr(parent, 'tenant_id', None)
             if not tenant_id:
                 continue
-            updated_count += Model.objects.filter(
-                pk=instance.pk,
-                tenant__isnull=True,
-            ).update(tenant_id=tenant_id)
+            if dry_run:
+                updated_count += 1
+            else:
+                updated_count += Model.objects.filter(
+                    pk=instance.pk,
+                    tenant__isnull=True,
+                ).update(tenant_id=tenant_id)
 
         summary[f'{app_label}.{model_name}'] = updated_count
 

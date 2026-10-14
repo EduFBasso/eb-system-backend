@@ -16,11 +16,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps.authentication.models import SystemUser, Tenant, TenantMembership
+from apps.authentication.services.permissions import get_active_tenant_from_request
 from apps.bakery.models import BakeryCustomer, BakeryCustomerAuditLog, CreditLedgerEntry
 from apps.bakery.serializers import BakeryCustomerSerializer
 from utils.cep_lookup import lookup_via_cep
 from utils.pagination import StandardResultsSetPagination
-from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin, get_active_tenant
+from utils.permissions import HasActiveBakeryTenant, IsBakeryOwner, IsCustomerOrAdmin
 from utils.text import normalize_search_text
 
 from .base import BakeryTenantScopedMixin
@@ -207,7 +208,10 @@ class BakeryCustomerViewSet(BakeryTenantScopedMixin, viewsets.ModelViewSet):
     def _resolve_registration_tenant(self, request) -> Tenant | None:
         if getattr(request, "user", None) and request.user.is_authenticated:
             try:
-                tenant = get_active_tenant(request.user, self.capability_name)
+                tenant = get_active_tenant_from_request(
+                    request,
+                    ecosystem=self.capability_name,
+                )
                 if tenant:
                     return tenant
             except Exception:

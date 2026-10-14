@@ -60,7 +60,8 @@ lerna-debug.log*
 frontend/.vercel/
 
 # Static, media, and local databases
-backend/staticfiles/
+backend/staticfiles/*
+!backend/staticfiles/.gitkeep
 backend/media/
 *.sqlite3
 db.sqlite3

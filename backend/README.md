@@ -17,7 +17,10 @@ Este README é a visão geral. Regras específicas ficam em READMEs separados:
 - `apps.bakery`: clientes, catálogo, pedidos e lançamentos da padaria
 - `core`: settings, urls e middleware
 
-O backend compartilha identidade e tenancy, mas mantém os domínios separados:
+O backend compartilha uma identidade única (`SystemUser`) e tenancy, mas
+mantém os domínios separados. No Clinic, `Professional` descreve o papel de
+domínio exercido por um `SystemUser`; não é um segundo modelo de usuário.
+O acesso a cada unidade depende de `TenantMembership` ativo:
 
 - Clinic: `/api/v1/clinic/` (canônico), com mounts legados em
   `/token/`, `/register/`, `/agenda/`, `/inventory/` e `/clinic/`;

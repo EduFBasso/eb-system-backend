@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.authentication.services import (
     get_active_tenant_membership,
+    get_active_tenant_from_request,
     get_tenant_membership_from_request,
     user_has_tenant_capability,
 )
@@ -131,6 +132,60 @@ def test_request_resolver_rejects_jwt_tenant_without_active_membership(
     )
 
     assert get_tenant_membership_from_request(
+        request,
+        ecosystem="clinic",
+    ) is None
+
+
+@pytest.mark.django_db
+def test_tenant_resolver_returns_the_tenant_selected_in_request(professional):
+    first_tenant = Tenant.objects.create(
+        name="First Bakery",
+        slug="first-bakery",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={"bakery": True},
+    )
+    selected_tenant = Tenant.objects.create(
+        name="Selected Bakery",
+        slug="selected-bakery",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={"bakery": True},
+    )
+    TenantMembership.objects.create(
+        tenant=first_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+    TenantMembership.objects.create(
+        tenant=selected_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+
+    request = SimpleNamespace(
+        user=professional,
+        auth={"tenant_id": selected_tenant.id},
+    )
+
+    assert get_active_tenant_from_request(
+        request,
+        ecosystem="bakery",
+    ) == selected_tenant
+
+
+@pytest.mark.django_db
+def test_tenant_resolver_rejects_authenticated_request_without_tenant_claim(
+    professional,
+    clinic_tenant,
+):
+    TenantMembership.objects.create(
+        tenant=clinic_tenant,
+        professional=professional,
+        role=TenantMembership.Role.MEMBER,
+    )
+    request = SimpleNamespace(user=professional, auth={})
+
+    assert get_active_tenant_from_request(
         request,
         ecosystem="clinic",
     ) is None

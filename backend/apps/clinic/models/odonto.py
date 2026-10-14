@@ -95,15 +95,15 @@ class DentalProcedureContext(models.Model):
         verbose_name_plural = 'Contextos Anatômicos Dentários'
         constraints = [
             models.CheckConstraint(
-                check=_FDI_VALID_CHECK,
+                condition=_FDI_VALID_CHECK,
                 name='dental_context_valid_fdi_tooth_number',
             ),
             models.CheckConstraint(
-                check=~Q(scope='tooth') | Q(tooth_number__isnull=False),
+                condition=~Q(scope='tooth') | Q(tooth_number__isnull=False),
                 name='dental_context_tooth_scope_requires_number',
             ),
             models.CheckConstraint(
-                check=~Q(scope='arch') | Q(arcade_arch__isnull=False),
+                condition=~Q(scope='arch') | Q(arcade_arch__isnull=False),
                 name='dental_context_arch_scope_requires_arch',
             ),
         ]
