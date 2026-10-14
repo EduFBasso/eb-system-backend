@@ -56,9 +56,17 @@ def test_tenant_by_professional_maps_only_unambiguous_active_memberships():
         ecosystem=Tenant.Ecosystem.CLINIC,
         capabilities={"clinic": True},
     )
+    bakery_tenant = Tenant.objects.create(
+        name="Bakery Tenant",
+        trade_name="Bakery Tenant",
+        slug="bakery-tenant-backfill",
+        ecosystem=Tenant.Ecosystem.BAKERY,
+        capabilities={"bakery": True},
+    )
     TenantMembership.objects.create(tenant=tenant_a, professional=professional)
     TenantMembership.objects.create(tenant=tenant_a, professional=ambiguous)
     TenantMembership.objects.create(tenant=tenant_b, professional=ambiguous)
+    TenantMembership.objects.create(tenant=bakery_tenant, professional=professional)
 
     mapping = _tenant_by_professional(apps)
 

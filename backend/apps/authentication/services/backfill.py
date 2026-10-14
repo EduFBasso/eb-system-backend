@@ -33,6 +33,7 @@ def _tenant_by_professional(registry: Any) -> dict[int, int]:
     memberships = TenantMembership.objects.filter(
         is_active=True,
         tenant__is_active=True,
+        tenant__ecosystem='clinic',
     ).values_list('professional_id', 'tenant_id')
 
     for professional_id, tenant_id in memberships:
@@ -67,9 +68,11 @@ def backfill_existing_tenants(
     registry = registry or django_apps
     tenant_by_professional = _tenant_by_professional(registry)
     summary: dict[str, int] = {}
+    inferred_tenants: dict[tuple[str, int], int] = {}
 
     for app_label, model_name, professional_field in DIRECT_MODEL_SPECS:
         Model = _model(registry, app_label, model_name)
+        model_label = f'{app_label}.{model_name}'.lower()
         updated_count = 0
         queryset = Model.objects.filter(tenant__isnull=True).only('id', professional_field)
 
@@ -78,6 +81,7 @@ def backfill_existing_tenants(
             tenant_id = tenant_by_professional.get(professional_id)
             if not tenant_id:
                 continue
+            inferred_tenants[(model_label, instance.pk)] = tenant_id
             if dry_run:
                 updated_count += 1
             else:
@@ -90,14 +94,19 @@ def backfill_existing_tenants(
 
     for app_label, model_name, parent_path in DERIVED_MODEL_SPECS:
         Model = _model(registry, app_label, model_name)
+        model_label = f'{app_label}.{model_name}'.lower()
         updated_count = 0
         queryset = Model.objects.filter(tenant__isnull=True).select_related(parent_path)
 
         for instance in queryset.iterator():
             parent = _nested_attr(instance, parent_path)
             tenant_id = getattr(parent, 'tenant_id', None)
+            if tenant_id is None and parent is not None:
+                parent_model_label = parent._meta.label_lower
+                tenant_id = inferred_tenants.get((parent_model_label, parent.pk))
             if not tenant_id:
                 continue
+            inferred_tenants[(model_label, instance.pk)] = tenant_id
             if dry_run:
                 updated_count += 1
             else:
