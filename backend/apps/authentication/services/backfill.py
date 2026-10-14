@@ -7,21 +7,21 @@ from django.apps import apps as django_apps
 
 
 DIRECT_MODEL_SPECS = [
-    ('clients', 'Client', 'professional_id'),
-    ('agenda', 'Appointment', 'professional_id'),
-    ('agenda', 'Encounter', 'professional_id'),
-    ('agenda', 'ClinicalRecord', 'professional_id'),
-    ('agenda', 'Charge', 'professional_id'),
-    ('odonto', 'DentalArcade', 'professional_id'),
-    ('odonto', 'ProcedureNameSuggestion', 'professional_id'),
-    ('odonto', 'ProductCatalogItem', 'professional_id'),
+    ('clinic', 'Appointment', 'professional_id'),
+    ('clinic', 'Encounter', 'professional_id'),
+    ('clinic', 'ClinicalRecord', 'professional_id'),
+    ('clinic', 'Charge', 'professional_id'),
+    ('clinic', 'AnamneseBase', 'professional_id'),
+    ('clinic', 'AnamnesePodologia', 'professional_id'),
+    ('clinic', 'AnamneseOdontologia', 'professional_id'),
+    ('clinic', 'ReminderDelivery', 'professional_id'),
+    ('clinic', 'TreatmentPlan', 'professional_id'),
 ]
 
 DERIVED_MODEL_SPECS = [
-    ('agenda', 'ChargeItem', 'charge'),
-    ('odonto', 'Tooth', 'arcade'),
-    ('odonto', 'Surface', 'tooth__arcade'),
-    ('odonto', 'Procedure', 'arcade'),
+    ('clinic', 'ChargeItem', 'charge'),
+    ('clinic', 'DentalProcedureContext', 'item__plan'),
+    ('clinic', 'PodologyProcedureContext', 'treatment_plan_item__plan'),
 ]
 
 
@@ -30,7 +30,7 @@ def _model(registry: Any, app_label: str, model_name: str) -> Any:
 
 
 def _tenant_by_professional(registry: Any) -> dict[int, int]:
-    TenantMembership = _model(registry, 'tenancy', 'TenantMembership')
+    TenantMembership = _model(registry, 'authentication', 'TenantMembership')
     memberships_by_professional: dict[int, set[int]] = defaultdict(set)
 
     memberships = TenantMembership.objects.filter(
