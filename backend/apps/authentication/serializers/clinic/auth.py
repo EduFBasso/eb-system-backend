@@ -7,19 +7,22 @@ from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import TenantMembership
 from apps.authentication.models import Tenant
+from apps.authentication.ecosystems import ecosystem_slugs
 from apps.authentication.services.login_identity import resolve_login_email
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Login do Clinic com contexto explícito de tenant.
-
-    Cada tenant Clinic deve representar uma única especialidade. O slug
-    identifica a empresa na URL; as capabilities identificam a especialidade.
-    """
+    """Login contextualizado por Tenant para os ecossistemas operacionais."""
 
     username_field = 'login'
     login = serializers.CharField(write_only=True)
     tenant_slug = serializers.SlugField(max_length=140)
+    ecosystem = serializers.ChoiceField(
+        choices=ecosystem_slugs(),
+        default=Tenant.Ecosystem.CLINIC,
+        required=False,
+        write_only=True,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,7 +47,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if tenant is not None and membership is not None:
             token['tenant_id'] = tenant.id
             token['tenant_slug'] = tenant.slug
-            token['ecosystem'] = 'clinic'
+            token['ecosystem'] = tenant.ecosystem
             token['role'] = membership.role
         return token
 
@@ -57,14 +60,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not login or not password:
             raise serializers.ValidationError(_("login e password são obrigatórios."))
 
+        ecosystem = attrs.get("ecosystem", Tenant.Ecosystem.CLINIC)
         try:
             tenant = Tenant.objects.get(
                 slug=tenant_slug,
                 is_active=True,
-                ecosystem=Tenant.Ecosystem.CLINIC,
+                ecosystem=ecosystem,
             )
         except Tenant.DoesNotExist:
-            raise serializers.ValidationError(_("Tenant Clinic não encontrado ou inativo."))
+            raise serializers.ValidationError(
+                _(f"Tenant {ecosystem} não encontrado ou inativo.")
+            )
 
         memberships = (
             TenantMembership.objects
@@ -72,7 +78,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             .filter(
                 is_active=True,
                 tenant__is_active=True,
-                tenant__ecosystem=Tenant.Ecosystem.CLINIC,
+                tenant__ecosystem=ecosystem,
             )
         )
         memberships = memberships.filter(tenant=tenant)
@@ -99,7 +105,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             pk=membership.pk,
         )
         tenant = membership.tenant
-        if self._has_conflicting_clinic_capabilities(tenant.capabilities):
+        if (
+            ecosystem == Tenant.Ecosystem.CLINIC
+            and self._has_conflicting_clinic_capabilities(tenant.capabilities)
+        ):
             raise serializers.ValidationError(
                 _("O tenant Clinic possui especialidades conflitantes.")
             )
@@ -139,7 +148,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
         data['tenant_id'] = membership.tenant.id
         data['tenant_slug'] = membership.tenant.slug
-        data['ecosystem'] = 'clinic'
+        data['ecosystem'] = tenant.ecosystem
         data['role'] = membership.role
         data['capabilities'] = membership.tenant.capabilities
 

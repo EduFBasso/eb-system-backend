@@ -6,7 +6,7 @@ from typing import Literal
 from django.conf import settings
 
 
-TelegramEcosystem = Literal["clinic", "bakery"]
+TelegramEcosystem = Literal["clinic", "bakery", "legal"]
 
 
 @dataclass(frozen=True)

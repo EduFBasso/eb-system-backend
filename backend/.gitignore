@@ -33,3 +33,5 @@ scripts/seed_common_anamnesis_fields.py
 clients_export.csv
 docs/
 docs/2026-09-18T19_17Z.dir.tar.gz
+# Local-only Legal tribunal research; never commit adapters, fixtures or captures.
+apps/legal/lab/
