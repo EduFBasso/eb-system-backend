@@ -1,6 +1,7 @@
 from typing import Any, cast
 
 from django.utils import timezone
+from apps.clinic.services.professionals import get_active_clinic_profile
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -116,7 +117,14 @@ class TreatmentPlanViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
     def mark_printed(self, request, pk=None):
         """Registra a impressão e aplica a preferência de bloqueio da profissional."""
         plan = self.get_object()
-        should_lock = bool(getattr(request.user, 'lock_odonto_plan_after_print', True))
+        profile = get_active_clinic_profile(request)
+        should_lock = bool(
+            getattr(
+                getattr(profile, "settings", None),
+                "lock_odonto_plan_after_print",
+                True,
+            )
+        )
         if should_lock and not plan.is_printed:
             plan.is_printed = True
             plan.printed_at = timezone.now()
@@ -234,5 +242,4 @@ class TreatmentPlanItemViewSet(ProfessionalScopedMixin, viewsets.ModelViewSet):
             _refresh_plan_status(plan)
 
         return Response({'updated': updated_count, 'status': new_status}, status=status.HTTP_200_OK)
-
 

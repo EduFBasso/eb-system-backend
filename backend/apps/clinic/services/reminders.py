@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.authentication.models import ProfessionalSettings
+from apps.clinic.models import ClinicProfessionalSettings
 from apps.clinic.models.reminders import ReminderDelivery
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import (
@@ -53,7 +54,7 @@ def _is_auth_error(message: str) -> bool:
     )
 
 
-def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
+def _get_work_window_bounds(now, prof_settings):
     local_now = timezone.localtime(now)
     work_start = local_now.replace(
         hour=prof_settings.work_start_hour,
@@ -78,12 +79,12 @@ def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
     return local_now, work_start, work_end
 
 
-def _is_within_work_window(now, prof_settings: ProfessionalSettings) -> bool:
+def _is_within_work_window(now, prof_settings) -> bool:
     local_now, work_start, work_end = _get_work_window_bounds(now, prof_settings)
     return work_start <= local_now < work_end
 
 
-def _get_catch_up_window_end(now, prof_settings: ProfessionalSettings):
+def _get_catch_up_window_end(now, prof_settings):
     local_now, work_start, _ = _get_work_window_bounds(now, prof_settings)
     catch_up_window_end = work_start + timedelta(
         minutes=prof_settings.reminder_minutes_before
@@ -170,21 +171,39 @@ def build_reply_markup(appointment: Appointment) -> dict | None:
     }
 
 
+def _iter_reminder_settings(*, professional_email: str | None = None):
+    """Use Clinic settings and fall back to legacy rows during migration."""
+    current = ClinicProfessionalSettings.objects.filter(
+        reminder_enabled=True,
+        professional__system_user__is_active=True,
+    ).select_related("professional__system_user")
+    seen_user_ids = set()
+    for prof_settings in current:
+        professional = prof_settings.professional.system_user
+        if professional_email and professional.email.lower() != professional_email.lower():
+            continue
+        seen_user_ids.add(professional.id)
+        yield prof_settings, professional
+
+    legacy = ProfessionalSettings.objects.filter(
+        reminder_enabled=True,
+        professional__is_active=True,
+    ).select_related("professional")
+    if professional_email:
+        legacy = legacy.filter(professional__email__iexact=professional_email)
+    for prof_settings in legacy:
+        if prof_settings.professional_id not in seen_user_ids:
+            yield prof_settings, prof_settings.professional
+
+
 def get_due_appointments(*, now=None, professional_email: str | None = None):
     if not settings.APPOINTMENT_REMINDERS_ENABLED:
         return
 
     now = now or timezone.now()
-    prof_settings_qs = ProfessionalSettings.objects.filter(
-        reminder_enabled=True,
-        professional__is_active=True,
-    ).select_related("professional")
-    if professional_email:
-        prof_settings_qs = prof_settings_qs.filter(
-            professional__email__iexact=professional_email
-        )
-
-    for prof_settings in prof_settings_qs:
+    for prof_settings, professional in _iter_reminder_settings(
+        professional_email=professional_email
+    ):
         if not _is_within_work_window(now, prof_settings):
             continue
 
@@ -215,7 +234,7 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
 
         appointments = (
             Appointment.objects.filter(
-                professional=prof_settings.professional,
+                professional=professional,
                 status=Appointment.Status.SCHEDULED,
                 reminder_sent=False,
             )
@@ -287,7 +306,10 @@ def dispatch_appointment_reminder(
         )
 
     resolved_token, bot_origin = resolve_bot_token(link)
-    resolved_client = TelegramBotClient(token=resolved_token)
+    resolved_client = TelegramBotClient(
+        token=resolved_token,
+        ecosystem=appointment.tenant.ecosystem,
+    )
 
     payload = {
         "text": build_telegram_text(appointment),

@@ -8,6 +8,8 @@ from .models import (
     Charge,
     ChargeItem,
     Client,
+    ClinicProfessionalProfile,
+    ClinicProfessionalSettings,
     ClinicalRecord,
     DentalProcedureContext,
     Encounter,
@@ -21,6 +23,28 @@ from .models import (
     TreatmentPlan,
     TreatmentPlanItem,
 )
+
+
+@admin.register(ClinicProfessionalProfile)
+class ClinicProfessionalProfileAdmin(admin.ModelAdmin):
+    list_display = ("system_user", "tenant", "register_number", "specialty", "is_active")
+    list_filter = ("tenant", "specialty", "is_active")
+    search_fields = ("system_user__email", "system_user__first_name", "system_user__last_name")
+    autocomplete_fields = ("system_user", "tenant")
+
+
+@admin.register(ClinicProfessionalSettings)
+class ClinicProfessionalSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "professional",
+        "work_start_hour",
+        "work_end_hour",
+        "reminder_enabled",
+        "lock_odonto_plan_after_print",
+    )
+    list_filter = ("reminder_enabled", "lock_odonto_plan_after_print")
+    search_fields = ("professional__system_user__email",)
+    autocomplete_fields = ("professional",)
 
 
 @admin.register(Client)

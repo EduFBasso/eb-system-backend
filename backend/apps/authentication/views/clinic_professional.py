@@ -11,8 +11,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.authentication.models import ProfessionalSettings, TenantMembership
+from apps.clinic.serializers.professionals import ClinicProfessionalSettingsSerializer
+from apps.clinic.services.professionals import get_active_clinic_profile
 from apps.authentication.services.permissions import get_active_tenant_from_request
-from apps.authentication.serializers.clinic.settings import ProfessionalSettingsSerializer
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import (
     TelegramBotClient,
@@ -91,7 +92,10 @@ class ClinicProfessionalActionsMixin:
         user = request.user
         if not user or not user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=401)
-        obj, _ = ProfessionalSettings.objects.get_or_create(professional_id=user.id)
+        profile = get_active_clinic_profile(request)
+        if profile is None:
+            return Response({"detail": "Perfil Clinic não localizado."}, status=403)
+        obj = profile.settings
 
         def with_runtime_flags(payload: dict):
             data = dict(payload)
@@ -110,14 +114,16 @@ class ClinicProfessionalActionsMixin:
             return data
 
         if request.method.lower() == "patch":
-            serializer = ProfessionalSettingsSerializer(obj, data=request.data, partial=True)
+            serializer = ClinicProfessionalSettingsSerializer(
+                obj, data=request.data, partial=True
+            )
             serializer.is_valid(raise_exception=True)
             try:
                 serializer.save()
             except Exception as exc:
                 return Response({"detail": str(exc)}, status=400)
             return Response(with_runtime_flags(serializer.data))
-        return Response(with_runtime_flags(ProfessionalSettingsSerializer(obj).data))
+        return Response(with_runtime_flags(ClinicProfessionalSettingsSerializer(obj).data))
 
     @action(detail=False, methods=["get"], url_path="telegram/link-start")
     def telegram_link_start(self, request):

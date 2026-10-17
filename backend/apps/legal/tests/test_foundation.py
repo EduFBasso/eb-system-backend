@@ -2,7 +2,14 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.authentication.models import SystemUser, Tenant, TenantMembership
-from apps.legal.models import LegalCase, LegalClient, LegalLawyerProfile
+from apps.legal.models import (
+    LegalCase,
+    LegalCaseParty,
+    LegalClient,
+    LegalLawyerProfile,
+    LegalPerson,
+    LegalRepresentation,
+)
 
 
 @pytest.fixture
@@ -52,14 +59,47 @@ def test_legal_profile_and_case_allow_process_without_client(legal_context):
 @pytest.mark.django_db
 def test_legal_client_belongs_to_tenant(legal_context):
     user, tenant, _, _ = legal_context
+    person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Cliente Legal",
+    )
 
     client = LegalClient.objects.create(
         tenant=tenant,
         created_by=user,
-        name="Cliente Legal",
+        person=person,
     )
 
     assert client.tenant_id == tenant.id
+    assert client.person_id == person.id
+
+
+@pytest.mark.django_db
+def test_legal_party_role_is_separate_from_client_relationship(legal_context):
+    user, tenant, _, lawyer = legal_context
+    person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Pessoa Processual",
+    )
+    case = LegalCase.objects.create(
+        tenant=tenant,
+        created_by=user,
+        title="Processo com partes",
+    )
+    party = LegalCaseParty.objects.create(
+        case=case,
+        person=person,
+        role=LegalCaseParty.Role.DEFENDANT,
+    )
+    representation = LegalRepresentation.objects.create(
+        party=party,
+        lawyer=lawyer,
+    )
+
+    assert party.role == LegalCaseParty.Role.DEFENDANT
+    assert representation.lawyer_id == lawyer.id
 
 
 @pytest.mark.django_db

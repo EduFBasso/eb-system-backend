@@ -6,6 +6,7 @@ from .odonto import DentalProcedureContext
 from .reminders import ReminderDelivery
 from .podologia import PodologyProcedureContext
 from .clients import Client
+from .professionals import ClinicProfessionalProfile, ClinicProfessionalSettings
 
 __all__ = [
 	'Appointment',
@@ -17,6 +18,8 @@ __all__ = [
 	'AnamneseOdontologia',
 	'AnamnesePodologia',
 	'Client',
+	'ClinicProfessionalProfile',
+	'ClinicProfessionalSettings',
 	'Product',
 	'ProductType',
 	'Service',
