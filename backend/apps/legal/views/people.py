@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.legal.models import LegalClient, LegalLawyerProfile, LegalPerson
@@ -34,7 +35,13 @@ class LegalClientViewSet(LegalTenantViewSet):
             raise ValidationError({"person": "Pessoa é obrigatória."})
         if person.tenant_id != tenant.id:
             raise ValidationError({"person": "Pessoa não pertence ao Tenant Legal ativo."})
-        serializer.save(tenant=tenant, created_by=self.request.user)
+        try:
+            with transaction.atomic():
+                serializer.save(tenant=tenant, created_by=self.request.user)
+        except IntegrityError:
+            raise ValidationError(
+                {"person": "Esta pessoa já possui uma relação de cliente neste Tenant."}
+            )
 
 
 class LegalLawyerProfileViewSet(LegalTenantViewSet):
@@ -45,7 +52,18 @@ class LegalLawyerProfileViewSet(LegalTenantViewSet):
         return super().get_queryset().filter(tenant=self.get_tenant())
 
     def perform_create(self, serializer):
-        serializer.save(
-            tenant=self.get_tenant(),
-            system_user=self.request.user,
-        )
+        try:
+            with transaction.atomic():
+                serializer.save(
+                    tenant=self.get_tenant(),
+                    system_user=self.request.user,
+                )
+        except IntegrityError:
+            raise ValidationError(
+                {
+                    "detail": (
+                        "Já existe um perfil de advogado para este usuário "
+                        "neste Tenant ou para esta OAB."
+                    )
+                }
+            )

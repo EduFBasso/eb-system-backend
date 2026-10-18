@@ -1,3 +1,5 @@
+from django.db import transaction
+
 from apps.authentication.models import ProfessionalSettings
 from apps.authentication.services.permissions import (
     get_tenant_membership_from_request,
@@ -6,24 +8,28 @@ from apps.clinic.models import ClinicProfessionalProfile, ClinicProfessionalSett
 
 
 def get_or_create_clinic_profile(user, tenant):
-    profile, created = ClinicProfessionalProfile.objects.get_or_create(
-        system_user=user,
-        tenant=tenant,
-        defaults={
-            "register_number": user.register_number,
-            "specialty": user.specialty,
-        },
-    )
-    if created:
+    with transaction.atomic():
+        profile, _profile_created = ClinicProfessionalProfile.objects.get_or_create(
+            system_user=user,
+            tenant=tenant,
+            defaults={
+                "register_number": user.register_number,
+                "specialty": user.specialty,
+            },
+        )
         legacy_settings = ProfessionalSettings.objects.filter(
             professional_id=user.id
         ).first()
-        settings = ClinicProfessionalSettings.objects.create(
-            professional=profile,
-            lock_odonto_plan_after_print=user.lock_odonto_plan_after_print,
-            odonto_quote_validity_days=user.odonto_quote_validity_days,
+        profile_settings, settings_created = (
+            ClinicProfessionalSettings.objects.get_or_create(
+                professional=profile,
+                defaults={
+                    "lock_odonto_plan_after_print": user.lock_odonto_plan_after_print,
+                    "odonto_quote_validity_days": user.odonto_quote_validity_days,
+                },
+            )
         )
-        if legacy_settings:
+        if settings_created and legacy_settings:
             for field in (
                 "work_start_hour",
                 "work_start_minute",
@@ -38,7 +44,7 @@ def get_or_create_clinic_profile(user, tenant):
                 "reminder_minutes_before",
             ):
                 setattr(settings, field, getattr(legacy_settings, field))
-            settings.save()
+            profile_settings.save()
     return profile
 
 

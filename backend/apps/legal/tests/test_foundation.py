@@ -1,4 +1,5 @@
 import pytest
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.authentication.models import SystemUser, Tenant, TenantMembership
@@ -16,7 +17,7 @@ from apps.legal.serializers import (
     LegalLawyerProfileSerializer,
     LegalRepresentationSerializer,
 )
-from apps.legal.views.people import LegalLawyerProfileViewSet
+from apps.legal.views.people import LegalClientViewSet, LegalLawyerProfileViewSet
 
 
 @pytest.fixture
@@ -332,3 +333,53 @@ def test_legal_lawyer_creation_assigns_active_tenant_and_user(legal_context):
 
     assert serializer.instance.tenant_id == tenant.id
     assert serializer.instance.system_user_id == user.id
+
+
+@pytest.mark.django_db
+def test_duplicate_legal_client_returns_validation_error(legal_context):
+    user, tenant, _, _ = legal_context
+    person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Cliente Único",
+    )
+    LegalClient.objects.create(
+        tenant=tenant,
+        created_by=user,
+        person=person,
+    )
+    request = _legal_request(user, tenant)
+    view = LegalClientViewSet()
+    view.request = request
+    serializer = LegalClientSerializer(
+        data={"person": person.id},
+        context={"request": request},
+    )
+
+    assert serializer.is_valid(), serializer.errors
+    with pytest.raises(ValidationError) as error:
+        view.perform_create(serializer)
+
+    assert "cliente" in str(error.value).lower()
+
+
+@pytest.mark.django_db
+def test_duplicate_legal_lawyer_returns_validation_error(legal_context):
+    user, tenant, _, _ = legal_context
+    request = _legal_request(user, tenant)
+    view = LegalLawyerProfileViewSet()
+    view.request = request
+    serializer = LegalLawyerProfileSerializer(
+        data={
+            "oab_number": "123456",
+            "oab_state": "SP",
+            "official_name": "Advogado Duplicado",
+        },
+        context={"request": request},
+    )
+
+    assert serializer.is_valid(), serializer.errors
+    with pytest.raises(ValidationError) as error:
+        view.perform_create(serializer)
+
+    assert "perfil de advogado" in str(error.value).lower()
