@@ -1,5 +1,9 @@
 import pytest
 
+from apps.authentication.models import SystemUser
+from apps.authentication.serializers.clinic.professional import (
+    ClinicProfessionalSerializer,
+)
 from apps.authentication.serializers.clinic.settings import ProfessionalSettingsSerializer
 
 
@@ -40,3 +44,30 @@ def test_settings_serializer_rejects_unsupported_slot_minutes(slot_minutes):
 
     assert not serializer.is_valid()
     assert "slot_minutes" in serializer.errors
+
+
+@pytest.mark.django_db
+def test_clinic_professional_serializer_protects_administrative_fields():
+    user = SystemUser.objects.create_user(
+        email="professional-fields@example.com",
+        password="senha-segura-123",
+    )
+
+    serializer = ClinicProfessionalSerializer(
+        user,
+        data={
+            "is_superuser": True,
+            "is_staff": True,
+            "can_manage_professionals": True,
+            "is_active": False,
+        },
+        partial=True,
+    )
+
+    assert serializer.is_valid(), serializer.errors
+    serializer.save()
+    user.refresh_from_db()
+    assert user.is_superuser is False
+    assert user.is_staff is False
+    assert user.can_manage_professionals is False
+    assert user.is_active is True

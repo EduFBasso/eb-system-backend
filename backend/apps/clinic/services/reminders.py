@@ -7,11 +7,12 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.authentication.models import ProfessionalSettings
+from apps.clinic.models import ClinicProfessionalSettings
 from apps.clinic.models.reminders import ReminderDelivery
 from apps.notifications.models import TelegramProfessionalLink
 from apps.notifications.services.telegram_client import (
@@ -53,7 +54,7 @@ def _is_auth_error(message: str) -> bool:
     )
 
 
-def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
+def _get_work_window_bounds(now, prof_settings):
     local_now = timezone.localtime(now)
     work_start = local_now.replace(
         hour=prof_settings.work_start_hour,
@@ -78,12 +79,12 @@ def _get_work_window_bounds(now, prof_settings: ProfessionalSettings):
     return local_now, work_start, work_end
 
 
-def _is_within_work_window(now, prof_settings: ProfessionalSettings) -> bool:
+def _is_within_work_window(now, prof_settings) -> bool:
     local_now, work_start, work_end = _get_work_window_bounds(now, prof_settings)
     return work_start <= local_now < work_end
 
 
-def _get_catch_up_window_end(now, prof_settings: ProfessionalSettings):
+def _get_catch_up_window_end(now, prof_settings):
     local_now, work_start, _ = _get_work_window_bounds(now, prof_settings)
     catch_up_window_end = work_start + timedelta(
         minutes=prof_settings.reminder_minutes_before
@@ -170,21 +171,54 @@ def build_reply_markup(appointment: Appointment) -> dict | None:
     }
 
 
+def _iter_reminder_settings(*, professional_email: str | None = None):
+    """Use Clinic settings and fall back to legacy rows during migration."""
+    current = ClinicProfessionalSettings.objects.select_related(
+        "professional__system_user",
+    ).filter(
+        professional__system_user__is_active=True,
+        professional__tenant__is_active=True,
+        professional__tenant__ecosystem="clinic",
+        professional__system_user__tenant_memberships__is_active=True,
+        professional__system_user__tenant_memberships__tenant_id=F("professional__tenant_id"),
+        professional__system_user__tenant_memberships__tenant__is_active=True,
+        professional__system_user__tenant_memberships__tenant__ecosystem="clinic",
+    ).distinct()
+    seen_profile_keys = set()
+    for prof_settings in current:
+        professional = prof_settings.professional.system_user
+        tenant_id = prof_settings.professional.tenant_id
+        if professional_email and professional.email.lower() != professional_email.lower():
+            continue
+        seen_profile_keys.add((professional.id, tenant_id))
+        if prof_settings.reminder_enabled:
+            yield prof_settings, professional, tenant_id
+
+    legacy = ProfessionalSettings.objects.filter(
+        reminder_enabled=True,
+        professional__is_active=True,
+    ).select_related("professional")
+    if professional_email:
+        legacy = legacy.filter(professional__email__iexact=professional_email)
+    for prof_settings in legacy:
+        memberships = prof_settings.professional.tenant_memberships.filter(
+            is_active=True,
+            tenant__is_active=True,
+            tenant__ecosystem="clinic",
+        ).values_list("tenant_id", flat=True)
+        for tenant_id in memberships:
+            if (prof_settings.professional_id, tenant_id) not in seen_profile_keys:
+                yield prof_settings, prof_settings.professional, tenant_id
+
+
 def get_due_appointments(*, now=None, professional_email: str | None = None):
     if not settings.APPOINTMENT_REMINDERS_ENABLED:
         return
 
     now = now or timezone.now()
-    prof_settings_qs = ProfessionalSettings.objects.filter(
-        reminder_enabled=True,
-        professional__is_active=True,
-    ).select_related("professional")
-    if professional_email:
-        prof_settings_qs = prof_settings_qs.filter(
-            professional__email__iexact=professional_email
-        )
-
-    for prof_settings in prof_settings_qs:
+    for prof_settings, professional, tenant_id in _iter_reminder_settings(
+        professional_email=professional_email
+    ):
         if not _is_within_work_window(now, prof_settings):
             continue
 
@@ -215,7 +249,8 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
 
         appointments = (
             Appointment.objects.filter(
-                professional=prof_settings.professional,
+                professional=professional,
+                tenant_id=tenant_id,
                 status=Appointment.Status.SCHEDULED,
                 reminder_sent=False,
             )
@@ -287,7 +322,10 @@ def dispatch_appointment_reminder(
         )
 
     resolved_token, bot_origin = resolve_bot_token(link)
-    resolved_client = TelegramBotClient(token=resolved_token)
+    resolved_client = TelegramBotClient(
+        token=resolved_token,
+        ecosystem=appointment.tenant.ecosystem,
+    )
 
     payload = {
         "text": build_telegram_text(appointment),

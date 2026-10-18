@@ -12,6 +12,7 @@ class Tenant(models.Model):
     class Ecosystem(models.TextChoices):
         CLINIC = 'clinic', 'Unidade Clínica (Saúde/Estética)'
         BAKERY = 'bakery', 'Unidade Padaria (Alimentação/Varejo)'
+        LEGAL = 'legal', 'Unidade Jurídica'
 
     name = models.CharField("Nome da Empresa / Unidade", max_length=120)
     trade_name = models.CharField(

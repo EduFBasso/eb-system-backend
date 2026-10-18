@@ -49,6 +49,16 @@ _SPECS: tuple[EcosystemSpec, ...] = (
         telegram_timeout_setting="BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS",
         public_self_registration=True,
     ),
+    EcosystemSpec(
+        slug="legal",
+        label="Unidade Jurídica",
+        url_prefix="/api/v1/legal/",
+        allowed_capabilities=frozenset({"legal"}),
+        telegram_token_setting="LEGAL_TELEGRAM_BOT_TOKEN",
+        telegram_api_base_setting="LEGAL_TELEGRAM_BOT_API_BASE",
+        telegram_timeout_setting="LEGAL_TELEGRAM_BOT_TIMEOUT_SECONDS",
+        public_self_registration=False,
+    ),
 )
 
 REGISTRY: dict[str, EcosystemSpec] = {spec.slug: spec for spec in _SPECS}

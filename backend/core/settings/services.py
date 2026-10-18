@@ -19,6 +19,14 @@ BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS: int = config(
     "BAKERY_TELEGRAM_BOT_TIMEOUT_SECONDS", default=10, cast=int
 )
 
+LEGAL_TELEGRAM_BOT_TOKEN: str = config("LEGAL_TELEGRAM_BOT_TOKEN", default="")
+LEGAL_TELEGRAM_BOT_API_BASE: str = config(
+    "LEGAL_TELEGRAM_BOT_API_BASE", default="https://api.telegram.org"
+)
+LEGAL_TELEGRAM_BOT_TIMEOUT_SECONDS: int = config(
+    "LEGAL_TELEGRAM_BOT_TIMEOUT_SECONDS", default=10, cast=int
+)
+
 TELEGRAM_BOT_TOKEN: str = config(
     "TELEGRAM_BOT_TOKEN", default=CLINIC_TELEGRAM_BOT_TOKEN
 )
