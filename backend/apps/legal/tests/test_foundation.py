@@ -13,8 +13,10 @@ from apps.legal.models import (
 from apps.legal.serializers import (
     LegalCasePartySerializer,
     LegalClientSerializer,
+    LegalLawyerProfileSerializer,
     LegalRepresentationSerializer,
 )
+from apps.legal.views.people import LegalLawyerProfileViewSet
 
 
 @pytest.fixture
@@ -287,3 +289,46 @@ def test_legal_representation_update_rejects_foreign_lawyer(legal_context):
 
     assert not serializer.is_valid()
     assert "lawyer" in serializer.errors
+
+
+@pytest.mark.django_db
+def test_legal_client_requires_person(legal_context):
+    user, tenant, _, _ = legal_context
+    serializer = LegalClientSerializer(
+        data={},
+        context={"request": _legal_request(user, tenant)},
+    )
+
+    assert not serializer.is_valid()
+    assert "person" in serializer.errors
+
+
+@pytest.mark.django_db
+def test_legal_lawyer_creation_assigns_active_tenant_and_user(legal_context):
+    _, tenant, _, _ = legal_context
+    user = SystemUser.objects.create_user(
+        email="novo-advogado@example.com",
+        password="senha-segura-123",
+    )
+    TenantMembership.objects.create(
+        tenant=tenant,
+        professional=user,
+        role=TenantMembership.Role.MEMBER,
+    )
+    request = _legal_request(user, tenant)
+    view = LegalLawyerProfileViewSet()
+    view.request = request
+    serializer = LegalLawyerProfileSerializer(
+        data={
+            "oab_number": "789012",
+            "oab_state": "SP",
+            "official_name": "Novo Advogado",
+        },
+        context={"request": request},
+    )
+
+    assert serializer.is_valid(), serializer.errors
+    view.perform_create(serializer)
+
+    assert serializer.instance.tenant_id == tenant.id
+    assert serializer.instance.system_user_id == user.id

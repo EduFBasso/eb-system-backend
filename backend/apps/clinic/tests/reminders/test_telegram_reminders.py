@@ -508,3 +508,28 @@ def test_disabled_current_settings_do_not_fallback_to_legacy(
     due_ids = [item.id for item in get_due_appointments(now=timezone.now())]
 
     assert due_ids == []
+
+
+def test_due_reminders_require_active_clinic_membership(
+    appointment,
+    professional,
+):
+    profile = ClinicProfessionalProfile.objects.create(
+        system_user=professional,
+        tenant=appointment.tenant,
+    )
+    ClinicProfessionalSettings.objects.create(
+        professional=profile,
+        reminder_enabled=True,
+        reminder_minutes_before=10,
+        work_start_hour=0,
+        work_end_hour=24,
+    )
+    TenantMembership.objects.filter(
+        professional=professional,
+        tenant=appointment.tenant,
+    ).update(is_active=False)
+
+    due_ids = [item.id for item in get_due_appointments(now=timezone.now())]
+
+    assert due_ids == []

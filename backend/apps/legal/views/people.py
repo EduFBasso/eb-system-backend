@@ -28,8 +28,10 @@ class LegalClientViewSet(LegalTenantViewSet):
         return super().get_queryset().filter(tenant=self.get_tenant())
 
     def perform_create(self, serializer):
-        person = serializer.validated_data["person"]
+        person = serializer.validated_data.get("person")
         tenant = self.get_tenant()
+        if person is None:
+            raise ValidationError({"person": "Pessoa é obrigatória."})
         if person.tenant_id != tenant.id:
             raise ValidationError({"person": "Pessoa não pertence ao Tenant Legal ativo."})
         serializer.save(tenant=tenant, created_by=self.request.user)
@@ -41,3 +43,9 @@ class LegalLawyerProfileViewSet(LegalTenantViewSet):
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant=self.get_tenant())
+
+    def perform_create(self, serializer):
+        serializer.save(
+            tenant=self.get_tenant(),
+            system_user=self.request.user,
+        )

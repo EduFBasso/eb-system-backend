@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
@@ -177,15 +177,22 @@ def _iter_reminder_settings(*, professional_email: str | None = None):
         "professional__system_user",
     ).filter(
         professional__system_user__is_active=True,
-    )
-    seen_user_ids = set()
+        professional__tenant__is_active=True,
+        professional__tenant__ecosystem="clinic",
+        professional__system_user__tenant_memberships__is_active=True,
+        professional__system_user__tenant_memberships__tenant_id=F("professional__tenant_id"),
+        professional__system_user__tenant_memberships__tenant__is_active=True,
+        professional__system_user__tenant_memberships__tenant__ecosystem="clinic",
+    ).distinct()
+    seen_profile_keys = set()
     for prof_settings in current:
         professional = prof_settings.professional.system_user
+        tenant_id = prof_settings.professional.tenant_id
         if professional_email and professional.email.lower() != professional_email.lower():
             continue
-        seen_user_ids.add(professional.id)
+        seen_profile_keys.add((professional.id, tenant_id))
         if prof_settings.reminder_enabled:
-            yield prof_settings, professional, prof_settings.professional.tenant_id
+            yield prof_settings, professional, tenant_id
 
     legacy = ProfessionalSettings.objects.filter(
         reminder_enabled=True,
@@ -194,13 +201,13 @@ def _iter_reminder_settings(*, professional_email: str | None = None):
     if professional_email:
         legacy = legacy.filter(professional__email__iexact=professional_email)
     for prof_settings in legacy:
-        if prof_settings.professional_id not in seen_user_ids:
-            memberships = prof_settings.professional.tenant_memberships.filter(
-                is_active=True,
-                tenant__is_active=True,
-                tenant__ecosystem="clinic",
-            ).values_list("tenant_id", flat=True)
-            for tenant_id in memberships:
+        memberships = prof_settings.professional.tenant_memberships.filter(
+            is_active=True,
+            tenant__is_active=True,
+            tenant__ecosystem="clinic",
+        ).values_list("tenant_id", flat=True)
+        for tenant_id in memberships:
+            if (prof_settings.professional_id, tenant_id) not in seen_profile_keys:
                 yield prof_settings, prof_settings.professional, tenant_id
 
 

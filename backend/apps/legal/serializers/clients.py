@@ -1,10 +1,15 @@
 from rest_framework import serializers
 
 from apps.authentication.services.permissions import get_active_tenant_from_request
-from apps.legal.models import LegalClient
+from apps.legal.models import LegalClient, LegalPerson
 
 
 class LegalClientSerializer(serializers.ModelSerializer):
+    person = serializers.PrimaryKeyRelatedField(
+        queryset=LegalPerson.objects.all(),
+        required=True,
+        allow_null=False,
+    )
     person_name = serializers.CharField(source="person.name", read_only=True)
 
     class Meta:
