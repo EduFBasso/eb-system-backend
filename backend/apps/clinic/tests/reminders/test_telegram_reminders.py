@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.clinic.models.agenda import Appointment
 from apps.clinic.models.clients import Client
+from apps.clinic.models import ClinicProfessionalProfile, ClinicProfessionalSettings
 from apps.authentication.models import SystemUser, ProfessionalSettings, Tenant, TenantMembership
 from apps.clinic.models.reminders import ReminderDelivery
 from apps.notifications.models import TelegramProfessionalLink
@@ -432,6 +433,77 @@ def test_dispatch_due_reminders_is_disabled_by_global_flag(
     settings,
 ):
     settings.APPOINTMENT_REMINDERS_ENABLED = False
+
+    due_ids = [item.id for item in get_due_appointments(now=timezone.now())]
+
+    assert due_ids == []
+
+
+def test_due_reminders_are_scoped_to_the_profile_tenant(
+    appointment,
+    professional,
+    settings,
+):
+    tenant = appointment.tenant
+    other_tenant = Tenant.objects.create(
+        ecosystem=Tenant.Ecosystem.CLINIC,
+        name="Other Tenant",
+        slug="reminder-scope-other",
+    )
+    TenantMembership.objects.create(
+        tenant=other_tenant,
+        professional=professional,
+        role=TenantMembership.Role.OWNER,
+        is_active=True,
+    )
+    other_client = Client.objects.create(
+        tenant=other_tenant,
+        first_name="Outro",
+        last_name="Cliente",
+    )
+    other_appointment = Appointment.objects.create(
+        tenant=other_tenant,
+        professional=professional,
+        client=other_client,
+        title="Consulta de outro tenant",
+        visit_type=Appointment.VisitType.CONSULTA,
+        start_at=appointment.start_at,
+        end_at=appointment.end_at,
+        status=Appointment.Status.SCHEDULED,
+    )
+    profile = ClinicProfessionalProfile.objects.create(
+        system_user=professional,
+        tenant=tenant,
+    )
+    ClinicProfessionalSettings.objects.create(
+        professional=profile,
+        reminder_enabled=True,
+        reminder_minutes_before=10,
+        work_start_hour=0,
+        work_start_minute=0,
+        work_end_hour=24,
+        work_end_minute=0,
+    )
+
+    due_ids = [item.id for item in get_due_appointments(now=timezone.now())]
+
+    assert appointment.id in due_ids
+    assert other_appointment.id not in due_ids
+
+
+def test_disabled_current_settings_do_not_fallback_to_legacy(
+    appointment,
+    professional,
+    reminder_settings,
+):
+    profile = ClinicProfessionalProfile.objects.create(
+        system_user=professional,
+        tenant=appointment.tenant,
+    )
+    ClinicProfessionalSettings.objects.create(
+        professional=profile,
+        reminder_enabled=False,
+    )
 
     due_ids = [item.id for item in get_due_appointments(now=timezone.now())]
 

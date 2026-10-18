@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.authentication.services.permissions import get_active_tenant_from_request
 from apps.legal.models import LegalClient
 
 
@@ -20,3 +21,16 @@ class LegalClientSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("tenant", "created_by", "created_at", "updated_at")
+
+    def validate_person(self, person):
+        request = self.context.get("request")
+        tenant = (
+            get_active_tenant_from_request(request, ecosystem="legal")
+            if request
+            else None
+        )
+        if tenant and person.tenant_id != tenant.id:
+            raise serializers.ValidationError(
+                "Pessoa não pertence ao Tenant Legal ativo."
+            )
+        return person

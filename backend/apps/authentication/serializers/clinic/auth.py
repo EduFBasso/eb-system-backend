@@ -61,6 +61,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError(_("login e password são obrigatórios."))
 
         ecosystem = attrs.get("ecosystem", Tenant.Ecosystem.CLINIC)
+        if ecosystem == Tenant.Ecosystem.BAKERY:
+            raise serializers.ValidationError(
+                _(
+                    "Use o endpoint de login Bakery para validar o status "
+                    "específico do cliente."
+                )
+            )
         try:
             tenant = Tenant.objects.get(
                 slug=tenant_slug,

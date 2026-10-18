@@ -173,17 +173,19 @@ def build_reply_markup(appointment: Appointment) -> dict | None:
 
 def _iter_reminder_settings(*, professional_email: str | None = None):
     """Use Clinic settings and fall back to legacy rows during migration."""
-    current = ClinicProfessionalSettings.objects.filter(
-        reminder_enabled=True,
+    current = ClinicProfessionalSettings.objects.select_related(
+        "professional__system_user",
+    ).filter(
         professional__system_user__is_active=True,
-    ).select_related("professional__system_user")
+    )
     seen_user_ids = set()
     for prof_settings in current:
         professional = prof_settings.professional.system_user
         if professional_email and professional.email.lower() != professional_email.lower():
             continue
         seen_user_ids.add(professional.id)
-        yield prof_settings, professional
+        if prof_settings.reminder_enabled:
+            yield prof_settings, professional, prof_settings.professional.tenant_id
 
     legacy = ProfessionalSettings.objects.filter(
         reminder_enabled=True,
@@ -193,7 +195,13 @@ def _iter_reminder_settings(*, professional_email: str | None = None):
         legacy = legacy.filter(professional__email__iexact=professional_email)
     for prof_settings in legacy:
         if prof_settings.professional_id not in seen_user_ids:
-            yield prof_settings, prof_settings.professional
+            memberships = prof_settings.professional.tenant_memberships.filter(
+                is_active=True,
+                tenant__is_active=True,
+                tenant__ecosystem="clinic",
+            ).values_list("tenant_id", flat=True)
+            for tenant_id in memberships:
+                yield prof_settings, prof_settings.professional, tenant_id
 
 
 def get_due_appointments(*, now=None, professional_email: str | None = None):
@@ -201,7 +209,7 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
         return
 
     now = now or timezone.now()
-    for prof_settings, professional in _iter_reminder_settings(
+    for prof_settings, professional, tenant_id in _iter_reminder_settings(
         professional_email=professional_email
     ):
         if not _is_within_work_window(now, prof_settings):
@@ -235,6 +243,7 @@ def get_due_appointments(*, now=None, professional_email: str | None = None):
         appointments = (
             Appointment.objects.filter(
                 professional=professional,
+                tenant_id=tenant_id,
                 status=Appointment.Status.SCHEDULED,
                 reminder_sent=False,
             )

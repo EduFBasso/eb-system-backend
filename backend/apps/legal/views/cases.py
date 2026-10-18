@@ -17,6 +17,9 @@ class LegalCaseViewSet(LegalTenantViewSet):
     queryset = LegalCase.objects.select_related("client", "created_by")
     serializer_class = LegalCaseSerializer
 
+    def get_queryset(self):
+        return super().get_queryset().filter(tenant=self.get_tenant())
+
     def perform_create(self, serializer):
         tenant = self.get_tenant()
         client = serializer.validated_data.get("client")

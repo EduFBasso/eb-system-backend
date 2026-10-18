@@ -1,5 +1,5 @@
 import pytest
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.authentication.models import SystemUser, Tenant, TenantMembership
 from apps.legal.models import (
@@ -9,6 +9,11 @@ from apps.legal.models import (
     LegalLawyerProfile,
     LegalPerson,
     LegalRepresentation,
+)
+from apps.legal.serializers import (
+    LegalCasePartySerializer,
+    LegalClientSerializer,
+    LegalRepresentationSerializer,
 )
 
 
@@ -121,3 +126,164 @@ def test_legal_login_uses_shared_token_endpoint(legal_context):
     assert response.data["ecosystem"] == "legal"
     assert response.data["tenant_id"] == tenant.id
     assert response.data["role"] == TenantMembership.Role.OWNER
+
+
+def _legal_request(user, tenant):
+    request = APIRequestFactory().patch("/")
+    request.user = user
+    request.auth = {"tenant_id": tenant.id, "ecosystem": Tenant.Ecosystem.LEGAL}
+    return request
+
+
+@pytest.mark.django_db
+def test_legal_client_update_rejects_person_from_another_tenant(legal_context):
+    user, tenant, _, _ = legal_context
+    other_tenant = Tenant.objects.create(
+        name="Outro Escritorio",
+        slug="outro-escritorio",
+        ecosystem=Tenant.Ecosystem.LEGAL,
+        capabilities={"legal": True},
+    )
+    TenantMembership.objects.create(
+        tenant=other_tenant,
+        professional=user,
+        role=TenantMembership.Role.MEMBER,
+    )
+    local_person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Pessoa Local",
+    )
+    foreign_person = LegalPerson.objects.create(
+        tenant=other_tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Pessoa Estrangeira",
+    )
+    client = LegalClient.objects.create(
+        tenant=tenant,
+        created_by=user,
+        person=local_person,
+    )
+
+    serializer = LegalClientSerializer(
+        client,
+        data={"person": foreign_person.id},
+        partial=True,
+        context={"request": _legal_request(user, tenant)},
+    )
+
+    assert not serializer.is_valid()
+    assert "person" in serializer.errors
+
+
+@pytest.mark.django_db
+def test_legal_case_party_update_rejects_foreign_case_and_person(legal_context):
+    user, tenant, _, _ = legal_context
+    other_tenant = Tenant.objects.create(
+        name="Outro Escritorio",
+        slug="outro-escritorio-party",
+        ecosystem=Tenant.Ecosystem.LEGAL,
+        capabilities={"legal": True},
+    )
+    TenantMembership.objects.create(
+        tenant=other_tenant,
+        professional=user,
+        role=TenantMembership.Role.MEMBER,
+    )
+    local_person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Pessoa Local",
+    )
+    foreign_person = LegalPerson.objects.create(
+        tenant=other_tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Pessoa Estrangeira",
+    )
+    local_case = LegalCase.objects.create(
+        tenant=tenant,
+        created_by=user,
+        title="Processo Local",
+    )
+    foreign_case = LegalCase.objects.create(
+        tenant=other_tenant,
+        created_by=user,
+        title="Processo Estrangeiro",
+    )
+    party = LegalCaseParty.objects.create(
+        case=local_case,
+        person=local_person,
+        role=LegalCaseParty.Role.PLAINTIFF,
+    )
+
+    serializer = LegalCasePartySerializer(
+        party,
+        data={"case": foreign_case.id, "person": foreign_person.id},
+        partial=True,
+        context={"request": _legal_request(user, tenant)},
+    )
+
+    assert not serializer.is_valid()
+    assert "case" in serializer.errors
+
+    person_serializer = LegalCasePartySerializer(
+        party,
+        data={"person": foreign_person.id},
+        partial=True,
+        context={"request": _legal_request(user, tenant)},
+    )
+
+    assert not person_serializer.is_valid()
+    assert "person" in person_serializer.errors
+
+
+@pytest.mark.django_db
+def test_legal_representation_update_rejects_foreign_lawyer(legal_context):
+    user, tenant, _, local_lawyer = legal_context
+    other_tenant = Tenant.objects.create(
+        name="Outro Escritorio",
+        slug="outro-escritorio-representation",
+        ecosystem=Tenant.Ecosystem.LEGAL,
+        capabilities={"legal": True},
+    )
+    TenantMembership.objects.create(
+        tenant=other_tenant,
+        professional=user,
+        role=TenantMembership.Role.MEMBER,
+    )
+    foreign_lawyer = LegalLawyerProfile.objects.create(
+        tenant=other_tenant,
+        system_user=user,
+        oab_number="654321",
+        oab_state="RJ",
+        official_name="Advogado Estrangeiro",
+    )
+    person = LegalPerson.objects.create(
+        tenant=tenant,
+        person_type=LegalPerson.PersonType.INDIVIDUAL,
+        name="Parte Local",
+    )
+    case = LegalCase.objects.create(
+        tenant=tenant,
+        created_by=user,
+        title="Processo Local",
+    )
+    party = LegalCaseParty.objects.create(
+        case=case,
+        person=person,
+        role=LegalCaseParty.Role.DEFENDANT,
+    )
+    representation = LegalRepresentation.objects.create(
+        party=party,
+        lawyer=local_lawyer,
+    )
+
+    serializer = LegalRepresentationSerializer(
+        representation,
+        data={"lawyer": foreign_lawyer.id},
+        partial=True,
+        context={"request": _legal_request(user, tenant)},
+    )
+
+    assert not serializer.is_valid()
+    assert "lawyer" in serializer.errors

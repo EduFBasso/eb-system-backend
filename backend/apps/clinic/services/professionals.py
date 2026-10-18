@@ -1,5 +1,7 @@
 from apps.authentication.models import ProfessionalSettings
-from apps.authentication.services.permissions import get_active_tenant_membership
+from apps.authentication.services.permissions import (
+    get_tenant_membership_from_request,
+)
 from apps.clinic.models import ClinicProfessionalProfile, ClinicProfessionalSettings
 
 
@@ -41,7 +43,10 @@ def get_or_create_clinic_profile(user, tenant):
 
 
 def get_active_clinic_profile(request):
-    membership = get_active_tenant_membership(request.user, ecosystem="clinic")
+    auth_token = getattr(request, "auth", None)
+    if auth_token is not None and auth_token.get("ecosystem") != "clinic":
+        return None
+    membership = get_tenant_membership_from_request(request, ecosystem="clinic")
     if not membership:
         return None
     return get_or_create_clinic_profile(request.user, membership.tenant)

@@ -260,3 +260,24 @@ def test_legacy_single_login_endpoint_is_gone():
     user = make_user("staff@bakery.test", tenant, TenantMembership.Role.OWNER)
 
     assert post(LEGACY_URL, user.email, tenant.slug).status_code == 404
+
+
+@pytest.mark.django_db
+def test_shared_token_rejects_bakery_customer_without_bakery_profile_validation():
+    tenant = make_tenant("shared-token-bakery")
+    user = make_user("pending@bakery.test", tenant, TenantMembership.Role.MEMBER)
+    make_customer(user, tenant, status=BakeryCustomer.ApprovalStatus.PENDING)
+
+    response = APIClient().post(
+        "/token/",
+        {
+            "login": user.email,
+            "password": PASSWORD,
+            "tenant_slug": tenant.slug,
+            "ecosystem": Tenant.Ecosystem.BAKERY,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "access" not in response.data
