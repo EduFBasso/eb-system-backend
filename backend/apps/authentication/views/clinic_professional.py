@@ -3,7 +3,6 @@ import hmac
 import secrets
 from datetime import timedelta
 
-from django.conf import settings as django_settings
 from django.core import signing
 from django.utils import timezone
 from rest_framework import status
@@ -81,37 +80,53 @@ def _parse_telegram_link_token(token: str) -> dict | None:
 
 
 def _get_request_tenant(request):
-    return get_active_tenant_from_request(request, ecosystem="clinic")
+    # Telegram actions are shared by Clinic and Bakery. The authenticated
+    # tenant_id selects the ecosystem-specific bot configuration.
+    return get_active_tenant_from_request(request)
 
 
 class ClinicProfessionalActionsMixin:
-    """Acoes de settings e integracao Telegram exclusivas do Clinic."""
+    """Acoes de settings do Clinic e integracao Telegram compartilhada."""
 
     @action(detail=False, methods=["get", "patch"], url_path="settings")
     def professional_settings(self, request):
         user = request.user
         if not user or not user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=401)
-        profile = get_active_clinic_profile(request)
-        if profile is None:
-            return Response({"detail": "Perfil Clinic não localizado."}, status=403)
-        obj = profile.settings
+        tenant = _get_request_tenant(request)
+        if tenant is None:
+            return Response({"detail": "Tenant ativo não identificado."}, status=403)
+        link = TelegramProfessionalLink.objects.filter(
+            professional_id=user.id,
+            tenant=tenant,
+        ).first()
 
-        def with_runtime_flags(payload: dict):
+        def with_telegram_flags(payload: dict):
             data = dict(payload)
-            data["reminders_globally_enabled"] = bool(
-                django_settings.APPOINTMENT_REMINDERS_ENABLED
-            )
-            tenant = _get_request_tenant(request)
-            link = TelegramProfessionalLink.objects.filter(
-                professional_id=user.id,
-                tenant=tenant,
-            ).first() if tenant else None
+            if tenant.ecosystem == "clinic":
+                from django.conf import settings as django_settings
+
+                data["reminders_globally_enabled"] = bool(
+                    django_settings.APPOINTMENT_REMINDERS_ENABLED
+                )
             data["telegram_linked"] = bool(link)
             data["telegram_link_active"] = bool(link.is_active) if link else False
             data["telegram_username"] = link.telegram_username if link else ""
             data["telegram_last_error"] = link.last_error if link else ""
             return data
+
+        if tenant.ecosystem != "clinic":
+            if request.method.lower() == "patch":
+                return Response(
+                    {"detail": "Configurações de perfil indisponíveis para este ecossistema."},
+                    status=400,
+                )
+            return Response(with_telegram_flags({}))
+
+        profile = get_active_clinic_profile(request)
+        if profile is None:
+            return Response({"detail": "Perfil Clinic não localizado."}, status=403)
+        obj = profile.settings
 
         if request.method.lower() == "patch":
             serializer = ClinicProfessionalSettingsSerializer(
@@ -122,8 +137,9 @@ class ClinicProfessionalActionsMixin:
                 serializer.save()
             except Exception as exc:
                 return Response({"detail": str(exc)}, status=400)
-            return Response(with_runtime_flags(serializer.data))
-        return Response(with_runtime_flags(ClinicProfessionalSettingsSerializer(obj).data))
+            return Response(with_telegram_flags(serializer.data))
+
+        return Response(with_telegram_flags(ClinicProfessionalSettingsSerializer(obj).data))
 
     @action(detail=False, methods=["get"], url_path="telegram/link-start")
     def telegram_link_start(self, request):

@@ -111,7 +111,7 @@ Em desenvolvimento local:
   - Variáveis de ambiente necessárias:
     - `CORS_ALLOWED_ORIGINS`: Incluir a URL do frontend clinic (`https://clinic.yourdomain.com`).
     - `CSRF_TRUSTED_ORIGINS`: Incluir a mesma URL para proteção CSRF.
-    - `TELEGRAM_BOT_TOKEN`: Token do Bot de Telegram para notificações (opcional em staging).
+    - `CLINIC_TELEGRAM_BOT_TOKEN`: Token do Bot de Telegram do Clinic (opcional em staging).
 
 ---
 
