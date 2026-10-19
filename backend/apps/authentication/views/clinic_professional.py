@@ -340,6 +340,10 @@ class ClinicProfessionalActionsMixin:
         except TelegramDeliveryError as exc:
             return Response({"detail": str(exc)}, status=502)
 
+        if link.last_error:
+            link.last_error = ""
+            link.save(update_fields=["last_error", "updated_at"])
+
         return Response({"ok": True, "message_id": result.message_id})
 
 
