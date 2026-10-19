@@ -103,6 +103,12 @@ class ClinicProfessionalActionsMixin:
 
         def with_telegram_flags(payload: dict):
             data = dict(payload)
+            if tenant.ecosystem == "clinic":
+                from django.conf import settings as django_settings
+
+                data["reminders_globally_enabled"] = bool(
+                    django_settings.APPOINTMENT_REMINDERS_ENABLED
+                )
             data["telegram_linked"] = bool(link)
             data["telegram_link_active"] = bool(link.is_active) if link else False
             data["telegram_username"] = link.telegram_username if link else ""
