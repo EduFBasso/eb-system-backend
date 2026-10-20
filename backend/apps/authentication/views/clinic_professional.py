@@ -280,10 +280,15 @@ class ClinicProfessionalActionsMixin:
         )
 
         phone_display = str(user.phone) if getattr(user, "phone", None) else ""
+        user_display_name = (
+            str(getattr(user, "display_name", "") or "").strip()
+            or f"{user.first_name} {user.last_name}".strip()
+            or user.first_name
+        )
         welcome_lines = [
             "✅ Conexão estabelecida com sucesso!",
             "",
-            f"👤 Usuário: {user.get_full_name() or user.first_name}",
+            f"👤 Usuário: {user_display_name}",
         ]
         if phone_display:
             welcome_lines.append(f"📱 Telefone integrado: {phone_display}")
